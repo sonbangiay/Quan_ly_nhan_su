@@ -2,7 +2,7 @@
 import { useState, useEffect, use } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { classApi } from '@/lib/api';
-import { ArrowLeft, Check, X, Clock, Calendar, Save, Plus, ChevronRight, AlertCircle, RefreshCw, HelpCircle, Trash2 } from 'lucide-react';
+import { ArrowLeft, Check, X, Clock, Calendar, Save, Plus, ChevronRight, AlertCircle, RefreshCw, HelpCircle, Trash2, BarChart2, Users, Download } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
 export default function AttendancePage({ params }: { params: Promise<{ id: string }> }) {
@@ -20,6 +20,7 @@ export default function AttendancePage({ params }: { params: Promise<{ id: strin
   const [selectedSessionId, setSelectedSessionId] = useState<string>('');
   const [attendanceData, setAttendanceData] = useState<Record<string, any>>({}); // studentId -> status
   const [errorMsg, setErrorMsg] = useState<string>('');
+  const [activeTab, setActiveTab] = useState<'daily' | 'overview'>('daily');
   
   useEffect(() => {
     fetchClassData();
@@ -103,6 +104,7 @@ export default function AttendancePage({ params }: { params: Promise<{ id: strin
 
   const handleSessionChange = (sessionId: string) => {
     setSelectedSessionId(sessionId);
+    // Load local data immediately for fast UI switch
     loadAttendanceFromSession(sessionId, sessions, students);
   };
 
@@ -164,8 +166,22 @@ export default function AttendancePage({ params }: { params: Promise<{ id: strin
         checkInTime: attendanceData[s.id]?.checkInTime || new Date().toISOString()
       }));
       
-      await classApi.saveAttendance(selectedSessionId, payload);
+      await classApi.saveAttendance(selectedSessionId, { attendance: payload });
       alert('Lưu điểm danh thành công!');
+      
+      // Cập nhật lại state sessions cục bộ
+      setSessions(prev => prev.map(s => {
+        if (s.id === selectedSessionId) {
+          return { ...s, attendance: payload };
+        }
+        return s;
+      }));
+
+      // Tải lại dữ liệu mới nhất từ server để đảm bảo đồng bộ
+      const sessRes = await classApi.getSessions(classId as string);
+      if (sessRes?.data) {
+        setSessions(sessRes.data);
+      }
     } catch (err) {
       console.error(err);
       alert('Đã xảy ra lỗi khi lưu vào Database! Vui lòng kiểm tra lại Apps Script.');
@@ -256,6 +272,47 @@ export default function AttendancePage({ params }: { params: Promise<{ id: strin
     setSaving(false);
   };
 
+  const exportToCSV = () => {
+    if (students.length === 0) return;
+    
+    // UTF-8 BOM cho Excel hiển thị tiếng Việt đúng
+    let csvContent = "\uFEFF";
+    
+    // Header
+    const headers = ['STT', 'Họ và tên học viên'];
+    sessions.forEach((sess, idx) => {
+      headers.push(`Buổi ${idx + 1} (${formatDisplayDate(sess.date)})`);
+    });
+    headers.push('Tổng Có mặt', 'Tổng Vắng', 'Tổng Trễ', 'Tỷ lệ chuyên cần (%)');
+    csvContent += headers.map(h => `"${h}"`).join(',') + '\n';
+    
+    // Rows
+    overviewStats.forEach((st, idx) => {
+      const row = [idx + 1, `"${st.name}"`];
+      
+      st.sessions.forEach((sessAtt: any) => {
+        let val = '';
+        if (sessAtt.status === 'Present') val = 'Có mặt';
+        else if (sessAtt.status === 'Absent') val = 'Vắng mặt';
+        else if (sessAtt.status === 'Late') val = 'Đi trễ';
+        row.push(`"${val}"`);
+      });
+      
+      row.push(st.present, st.absent, st.late, st.rate);
+      csvContent += row.join(',') + '\n';
+    });
+    
+    // Download
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute("download", `ThongKeDiemDanh_${classData?.className || 'LopHoc'}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   if (loading) {
     return (
       <div style={{ display: 'flex', justifyContent: 'center', padding: 100 }}>
@@ -301,6 +358,34 @@ export default function AttendancePage({ params }: { params: Promise<{ id: strin
     return dString;
   };
 
+  const overviewStats = students.map(student => {
+    let present = 0;
+    let absent = 0;
+    let late = 0;
+    
+    const studentSessions = sessions.map(sess => {
+      const att = sess.attendance?.find((a: any) => a.studentId === student.id);
+      const status = att?.status || 'NotMarked';
+      if (status === 'Present') present++;
+      else if (status === 'Absent') absent++;
+      else if (status === 'Late') late++;
+      return { sessionId: sess.id, date: formatDisplayDate(sess.date), status };
+    });
+    
+    const total = present + absent + late;
+    const rate = sessions.length > 0 ? Math.round((present / sessions.length) * 100) : 0;
+    
+    return {
+      ...student,
+      present,
+      absent,
+      late,
+      total,
+      rate,
+      sessions: studentSessions
+    };
+  });
+
   return (
     <div style={{ maxWidth: 1000, margin: '0 auto', paddingBottom: 60 }}>
       {/* Header */}
@@ -320,7 +405,38 @@ export default function AttendancePage({ params }: { params: Promise<{ id: strin
         </div>
       </div>
 
-      <div style={{ display: 'flex', gap: 24, flexWrap: 'wrap' }}>
+      {/* Tabs */}
+      <div style={{ display: 'flex', gap: 12, marginBottom: 24, borderBottom: '1px solid var(--border)', paddingBottom: 16 }}>
+        <button 
+          onClick={() => setActiveTab('daily')}
+          className={`btn ${activeTab === 'daily' ? 'btn-primary' : ''}`}
+          style={{ 
+            padding: '8px 16px', 
+            borderRadius: 20, 
+            background: activeTab === 'daily' ? 'var(--accent-blue)' : 'var(--bg-secondary)',
+            color: activeTab === 'daily' ? 'white' : 'var(--text-primary)',
+            border: `1px solid ${activeTab === 'daily' ? 'var(--accent-blue)' : 'var(--border)'}`
+          }}
+        >
+          <Calendar size={18} /> Điểm danh Từng buổi
+        </button>
+        <button 
+          onClick={() => setActiveTab('overview')}
+          className={`btn ${activeTab === 'overview' ? 'btn-primary' : ''}`}
+          style={{ 
+            padding: '8px 16px', 
+            borderRadius: 20, 
+            background: activeTab === 'overview' ? 'var(--accent-blue)' : 'var(--bg-secondary)',
+            color: activeTab === 'overview' ? 'white' : 'var(--text-primary)',
+            border: `1px solid ${activeTab === 'overview' ? 'var(--accent-blue)' : 'var(--border)'}`
+          }}
+        >
+          <BarChart2 size={18} /> Thống kê Tổng quát
+        </button>
+      </div>
+
+      {activeTab === 'daily' ? (
+        <div style={{ display: 'flex', gap: 24, flexWrap: 'wrap' }}>
         
         {/* Left Col: Sessions List */}
         <div style={{ flex: '0 0 280px' }}>
@@ -495,7 +611,81 @@ export default function AttendancePage({ params }: { params: Promise<{ id: strin
             )}
           </div>
         </div>
-      </div>
+        </div>
+      ) : (
+        <div className="glass-card" style={{ padding: 24, overflowX: 'auto' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+            <h3 style={{ margin: 0, fontSize: 16, display: 'flex', alignItems: 'center', gap: 6 }}>
+              <Users size={18} /> Thống kê Tổng quát Điểm danh
+            </h3>
+            <button 
+              onClick={exportToCSV}
+              disabled={students.length === 0}
+              className="btn btn-secondary btn-sm" 
+              style={{ padding: '6px 12px' }}
+            >
+              <Download size={16} /> Xuất file CSV
+            </button>
+          </div>
+          
+          <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: 14 }}>
+            <thead>
+              <tr style={{ background: 'var(--bg-secondary)', color: 'var(--text-secondary)' }}>
+                <th style={{ padding: '12px 16px', borderBottom: '1px solid var(--border)', minWidth: 200 }}>Học viên</th>
+                {sessions.map((sess, idx) => (
+                  <th key={sess.id} style={{ padding: '12px 8px', borderBottom: '1px solid var(--border)', textAlign: 'center', minWidth: 60 }}>
+                    B{idx + 1}<br/>
+                    <span style={{ fontSize: 11, fontWeight: 'normal' }}>{formatDisplayDate(sess.date)}</span>
+                  </th>
+                ))}
+                <th style={{ padding: '12px 16px', borderBottom: '1px solid var(--border)', textAlign: 'center', borderLeft: '1px solid var(--border)', minWidth: 100 }}>Tổng kết</th>
+                <th style={{ padding: '12px 16px', borderBottom: '1px solid var(--border)', textAlign: 'center', minWidth: 80 }}>Tỷ lệ</th>
+              </tr>
+            </thead>
+            <tbody>
+              {overviewStats.length > 0 ? overviewStats.map((st, idx) => (
+                <tr key={st.id} style={{ borderBottom: idx < overviewStats.length - 1 ? '1px solid var(--border)' : 'none', transition: 'background 0.2s' }} onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-secondary)'} onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
+                  <td style={{ padding: '12px 16px', fontWeight: 600 }}>{st.name}</td>
+                  {st.sessions.map((sessAtt: any) => {
+                    let display = <span style={{ color: 'var(--text-muted)' }}>-</span>;
+                    if (sessAtt.status === 'Present') display = <span style={{ color: 'var(--accent-green)' }}>V</span>;
+                    else if (sessAtt.status === 'Absent') display = <span style={{ color: 'var(--danger)' }}>X</span>;
+                    else if (sessAtt.status === 'Late') display = <span style={{ color: 'var(--accent-orange)' }}>T</span>;
+                    
+                    return (
+                      <td key={sessAtt.sessionId} style={{ padding: '12px 8px', textAlign: 'center', fontWeight: 600 }}>
+                        {display}
+                      </td>
+                    );
+                  })}
+                  <td style={{ padding: '12px 16px', textAlign: 'center', borderLeft: '1px solid var(--border)' }}>
+                    <div style={{ display: 'flex', gap: 8, justifyContent: 'center', fontSize: 12 }}>
+                      <span style={{ color: 'var(--accent-green)', fontWeight: 600 }} title="Có mặt">{st.present}</span>/
+                      <span style={{ color: 'var(--danger)', fontWeight: 600 }} title="Vắng mặt">{st.absent}</span>/
+                      <span style={{ color: 'var(--accent-orange)', fontWeight: 600 }} title="Đi trễ">{st.late}</span>
+                    </div>
+                  </td>
+                  <td style={{ padding: '12px 16px', textAlign: 'center', fontWeight: 600, color: st.rate >= 80 ? 'var(--accent-green)' : (st.rate >= 50 ? 'var(--accent-orange)' : 'var(--danger)') }}>
+                    {st.rate}%
+                  </td>
+                </tr>
+              )) : (
+                <tr>
+                  <td colSpan={sessions.length + 3} style={{ textAlign: 'center', padding: 40, color: 'var(--text-muted)' }}>
+                    Chưa có dữ liệu học viên
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+          
+          <div style={{ display: 'flex', gap: 16, marginTop: 16, fontSize: 12, color: 'var(--text-secondary)', justifyContent: 'flex-end', padding: '0 16px' }}>
+            <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}><span style={{ color: 'var(--accent-green)', fontWeight: 600 }}>V</span>: Có mặt</span>
+            <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}><span style={{ color: 'var(--danger)', fontWeight: 600 }}>X</span>: Vắng mặt</span>
+            <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}><span style={{ color: 'var(--accent-orange)', fontWeight: 600 }}>T</span>: Đi trễ</span>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
