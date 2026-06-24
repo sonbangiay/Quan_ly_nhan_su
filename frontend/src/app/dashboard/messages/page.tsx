@@ -100,7 +100,7 @@ export default function MessagesPage() {
           source: selectedConv.platform, // FB or Zalo
           notes: 'Tạo từ Chat Đa kênh'
         }],
-        employeeIds: [user?.id]
+        employeeIds: user?.id ? [user.id] : []
       });
       alert('Tạo khách hàng tiềm năng thành công!');
       // Refresh lead match

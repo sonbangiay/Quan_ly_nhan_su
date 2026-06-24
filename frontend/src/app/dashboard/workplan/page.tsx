@@ -126,7 +126,7 @@ export default function WorkPlanPage() {
     if (!plan) return;
     if (itemId && !confirm('Xóa công việc này khỏi CSDL?')) return;
     if (itemId) {
-      try { await workPlanApi.deleteItem(itemId); } catch { alert('Lỗi xóa'); return; }
+      try { await workPlanApi.deleteItem(plan.id as string, itemId); } catch { alert('Lỗi xóa'); return; }
     }
     const newItems = [...(plan.items || [])];
     newItems.splice(index, 1);

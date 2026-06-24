@@ -152,7 +152,7 @@ export default function ReportsPage() {
     }
 
     try {
-      const payload = { ...tempReport };
+      const payload: any = { ...tempReport };
       delete payload.isSubmitting;
       if (submittedFile) {
         payload.attachments = [{ fileName: submittedFile.name }];

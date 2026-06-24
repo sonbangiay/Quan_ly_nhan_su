@@ -419,12 +419,12 @@ export const initApi = {
 
 // Other modules migrated to Firestore
 export const workPlanApi = {
-  getPlans: async (params?: any) => {
+  getPlans: async (week?: any, year?: any) => {
     const snap = await getDocs(collection(db, 'workPlans'));
     return toRes(snap.docs.map(d => ({ id: d.id, ...d.data() })));
   },
-  getMyPlan: async (params?: any) => {
-    const q = query(collection(db, 'workPlans'), where('employeeId', '==', params?.employeeId || ''));
+  getMyPlan: async (week?: any, year?: any, employeeId?: any) => {
+    const q = query(collection(db, 'workPlans'), where('employeeId', '==', employeeId || ''));
     const snap = await getDocs(q);
     return toRes(snap.docs.map(d => ({ id: d.id, ...d.data() })));
   },
@@ -507,7 +507,7 @@ export const reportApi = {
 };
 
 export const kpiApi = {
-  getKpis: async () => {
+  getKpis: async (period?: string) => {
     const snap = await getDocs(collection(db, 'kpis'));
     return toRes(snap.docs.map(d => ({ id: d.id, ...d.data() })));
   },
@@ -578,8 +578,8 @@ export const leaveApi = {
     await setDoc(doc(db, 'leaveRequests', id), { id, status: 'Pending', ...data, createdAt: new Date().toISOString() });
     return toRes({ success: true });
   },
-  approveRequest: async (id: string, status: string, approverName: string) => {
-    await updateDoc(doc(db, 'leaveRequests', id), { status, approverName, updatedAt: new Date().toISOString() });
+  approveRequest: async (id: string, data: any) => {
+    await updateDoc(doc(db, 'leaveRequests', id), { ...data, updatedAt: new Date().toISOString() });
     return toRes({ success: true });
   },
 };
@@ -641,7 +641,7 @@ export const chatApi = {
 };
 
 export const auditLogApi = {
-  getLogs: async () => toRes([]),
+  getLogs: async (filters?: any) => toRes([]),
 };
 export const aiApi = {
   getDailyBrief: async () => toRes({ message: "Chào bạn, hệ thống Firebase đã sẵn sàng." }),
