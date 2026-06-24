@@ -13,18 +13,56 @@ export async function POST(request: Request) {
       } catch (e) {}
     }
 
-    // Bắt sự kiện khách hàng gửi tin nhắn chữ
-    if (payload && payload.event_name === 'user_send_text') {
+    const eventName = payload?.event_name;
+
+    if (eventName === 'user_send_text' || eventName === 'user_send_image' || eventName === 'user_send_sticker') {
       const senderId = payload.sender?.id || '';
-      const messageText = payload.message?.text || '';
       const timestamp = payload.timestamp || Date.now(); // ms
+      
+      let messageText = '';
+      let imageUrl = '';
+      let stickerUrl = '';
+
+      if (eventName === 'user_send_text') {
+        messageText = payload.message?.text || '';
+      } else if (eventName === 'user_send_image') {
+        messageText = '[Hình ảnh]';
+        // Zalo often sends image in attachments
+        const attachments = payload.message?.attachments;
+        if (attachments && attachments.length > 0 && attachments[0].type === 'image') {
+          imageUrl = attachments[0].payload?.url || '';
+        }
+      } else if (eventName === 'user_send_sticker') {
+        messageText = '[Sticker]';
+        // Sticker usually has URL in attachments
+        const attachments = payload.message?.attachments;
+        if (attachments && attachments.length > 0 && attachments[0].type === 'sticker') {
+          stickerUrl = attachments[0].payload?.url || '';
+        }
+      }
+
+      // Lấy Profile khách hàng từ Zalo nếu cần
+      let customerName = 'Zalo User ' + senderId.substring(0, 5);
+      let customerAvatar = '';
+      
+      try {
+        const { getZaloProfile } = await import('@/lib/zalo');
+        const profile = await getZaloProfile(senderId);
+        if (profile) {
+          customerName = profile.display_name || customerName;
+          customerAvatar = profile.avatar || '';
+        }
+      } catch (e) {
+        console.error('Không thể lấy Zalo profile:', e);
+      }
 
       // 1. Cập nhật hoặc Tạo mới luồng chat (Conversation)
       const convRef = doc(db, 'conversations', senderId);
       
       await setDoc(convRef, {
         platform: 'Zalo',
-        customerName: 'Zalo User ' + senderId.substring(0, 5), // Tên tạm, Zalo ẩn tên thật nếu chưa cấp quyền
+        customerName: customerName,
+        customerAvatar: customerAvatar,
         customerPhone: '',
         lastMessage: messageText,
         lastMessageTime: new Date(parseInt(timestamp)).toISOString(),
@@ -36,12 +74,14 @@ export async function POST(request: Request) {
       await addDoc(collection(db, 'messages'), {
         conversationId: senderId,
         text: messageText,
+        imageUrl: imageUrl,
+        stickerUrl: stickerUrl,
         senderId: senderId,
         type: 'inbound',
         createdAt: new Date(parseInt(timestamp)).toISOString()
       });
       
-      console.log('Đã lưu tin nhắn Zalo thành công!');
+      console.log(`Đã lưu tin nhắn Zalo (${eventName}) thành công!`);
     }
 
     // Luôn trả về 200 OK để Zalo biết server mình vẫn sống

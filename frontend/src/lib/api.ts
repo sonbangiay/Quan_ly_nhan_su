@@ -612,7 +612,19 @@ export const chatApi = {
     const snap = await getDocs(q);
     return toRes(snap.docs.map(d => ({ id: d.id, ...d.data() })).sort((a: any, b: any) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()));
   },
-  sendMessage: async (conversationId: string, messageText: string, senderId: string, senderName: string) => {
+  sendMessage: async (conversationId: string, messageText: string, senderId: string, senderName: string, platform?: string) => {
+    if (platform === 'Zalo') {
+      const res = await fetch('/api/zalo/send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ senderId: conversationId, text: messageText, userId: senderId, userName: senderName })
+      });
+      const data = await res.json();
+      if (!data.success) throw new Error(data.message);
+      return toRes({ success: true });
+    }
+
+    // Default Facebook / internal fallback
     const msgId = uuidv4();
     const msgData = {
       id: msgId,

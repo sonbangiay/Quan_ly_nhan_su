@@ -17,6 +17,7 @@ export default function MessagesPage() {
   const [messageText, setMessageText] = useState('');
   const [matchedLead, setMatchedLead] = useState<any | null>(null);
   const [loadingConv, setLoadingConv] = useState(true);
+  const [activeTab, setActiveTab] = useState<'All' | 'Zalo' | 'Facebook'>('All');
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -83,7 +84,7 @@ export default function MessagesPage() {
     setMessageText(''); // Optimistic clear
 
     try {
-      await chatApi.sendMessage(selectedConv.id, text, user.id, user.fullName);
+      await chatApi.sendMessage(selectedConv.id, text, user.id, user.fullName, selectedConv.platform);
     } catch (err) {
       console.error('Lỗi gửi tin nhắn', err);
       alert('Không thể gửi tin nhắn.');
@@ -122,6 +123,21 @@ export default function MessagesPage() {
           <h2 style={{ fontSize: 18, fontWeight: 700, margin: '0 0 16px', display: 'flex', alignItems: 'center', gap: 8 }}>
             <MessageSquare size={20} color="var(--accent-blue)" /> Tin nhắn Đa kênh
           </h2>
+          <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
+            {['All', 'Zalo', 'Facebook'].map(tab => (
+              <button 
+                key={tab}
+                onClick={() => setActiveTab(tab as any)}
+                style={{
+                  flex: 1, padding: '6px 0', fontSize: 12, fontWeight: 600, borderRadius: 20, border: 'none', cursor: 'pointer',
+                  background: activeTab === tab ? 'var(--accent-blue)' : 'var(--bg-secondary)',
+                  color: activeTab === tab ? 'white' : 'var(--text-secondary)'
+                }}
+              >
+                {tab === 'All' ? 'Tất cả' : tab}
+              </button>
+            ))}
+          </div>
           <div style={{ position: 'relative' }}>
             <div style={{ position: 'absolute', left: 12, top: 10, color: 'var(--text-muted)' }}><Search size={16} /></div>
             <input type="text" className="form-input" placeholder="Tìm tên, số điện thoại..." style={{ paddingLeft: 36 }} />
@@ -137,7 +153,7 @@ export default function MessagesPage() {
               <div>Chưa có tin nhắn nào</div>
             </div>
           ) : (
-            conversations.map(conv => (
+            conversations.filter(c => activeTab === 'All' || c.platform === activeTab).map(conv => (
               <div 
                 key={conv.id} 
                 onClick={() => setSelectedConv(conv)}
@@ -151,9 +167,13 @@ export default function MessagesPage() {
                 }}
               >
                 <div style={{ position: 'relative' }}>
-                  <div style={{ width: 44, height: 44, borderRadius: 22, background: 'var(--accent-blue)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, fontWeight: 600 }}>
-                    {conv.customerName?.charAt(0).toUpperCase()}
-                  </div>
+                  {conv.customerAvatar ? (
+                    <img src={conv.customerAvatar} alt="" style={{ width: 44, height: 44, borderRadius: 22, objectFit: 'cover' }} />
+                  ) : (
+                    <div style={{ width: 44, height: 44, borderRadius: 22, background: 'var(--accent-blue)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, fontWeight: 600 }}>
+                      {conv.customerName?.charAt(0).toUpperCase()}
+                    </div>
+                  )}
                   {/* Platform Icon Overlay */}
                   <div style={{ 
                     position: 'absolute', bottom: -2, right: -2, width: 18, height: 18, borderRadius: 9, 
@@ -197,9 +217,13 @@ export default function MessagesPage() {
           <>
             <div style={{ padding: '16px 24px', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                <div style={{ width: 40, height: 40, borderRadius: 20, background: 'var(--accent-blue)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16, fontWeight: 600 }}>
-                  {selectedConv.customerName?.charAt(0).toUpperCase()}
-                </div>
+                {selectedConv.customerAvatar ? (
+                  <img src={selectedConv.customerAvatar} alt="" style={{ width: 40, height: 40, borderRadius: 20, objectFit: 'cover' }} />
+                ) : (
+                  <div style={{ width: 40, height: 40, borderRadius: 20, background: 'var(--accent-blue)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16, fontWeight: 600 }}>
+                    {selectedConv.customerName?.charAt(0).toUpperCase()}
+                  </div>
+                )}
                 <div>
                   <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700 }}>{selectedConv.customerName}</h3>
                   <div style={{ fontSize: 12, color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 4 }}>
@@ -231,9 +255,12 @@ export default function MessagesPage() {
                         background: isOutbound ? 'var(--accent-blue)' : 'var(--bg-secondary)',
                         color: isOutbound ? 'white' : 'var(--text-primary)',
                         fontSize: 14,
-                        lineHeight: 1.5
+                        lineHeight: 1.5,
+                        overflow: 'hidden'
                       }}>
-                        {msg.text}
+                        {msg.imageUrl && <img src={msg.imageUrl} alt="Image" style={{ maxWidth: '100%', borderRadius: 8, marginBottom: msg.text ? 8 : 0, display: 'block' }} />}
+                        {msg.stickerUrl && <img src={msg.stickerUrl} alt="Sticker" style={{ width: 120, height: 120, objectFit: 'contain', display: 'block' }} />}
+                        {msg.text && <div>{msg.text}</div>}
                       </div>
                       <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }}>
                         {new Date(msg.createdAt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}
@@ -280,9 +307,13 @@ export default function MessagesPage() {
           <h3 style={{ fontSize: 15, fontWeight: 700, margin: '0 0 20px', textTransform: 'uppercase', color: 'var(--text-secondary)' }}>Hồ sơ khách hàng</h3>
           
           <div style={{ textAlign: 'center', marginBottom: 24 }}>
-            <div style={{ width: 72, height: 72, borderRadius: 36, background: 'var(--accent-purple)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 28, fontWeight: 700, margin: '0 auto 12px' }}>
-              {selectedConv.customerName?.charAt(0).toUpperCase()}
-            </div>
+            {selectedConv.customerAvatar ? (
+              <img src={selectedConv.customerAvatar} alt="" style={{ width: 72, height: 72, borderRadius: 36, objectFit: 'cover', margin: '0 auto 12px', display: 'block' }} />
+            ) : (
+              <div style={{ width: 72, height: 72, borderRadius: 36, background: 'var(--accent-purple)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 28, fontWeight: 700, margin: '0 auto 12px' }}>
+                {selectedConv.customerName?.charAt(0).toUpperCase()}
+              </div>
+            )}
             <h4 style={{ fontSize: 18, fontWeight: 700, margin: '0 0 4px' }}>{selectedConv.customerName}</h4>
             <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: 'var(--bg-secondary)', padding: '4px 10px', borderRadius: 12, fontSize: 12, fontWeight: 600 }}>
               <span style={{ color: selectedConv.platform === 'Zalo' ? '#0068FF' : '#0866FF' }}>{selectedConv.platform}</span> User
