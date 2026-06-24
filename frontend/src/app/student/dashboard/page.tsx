@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { LogOut, BookOpen, Clock, Calendar, CheckCircle, XCircle, AlertCircle, RefreshCw, BarChart2 } from 'lucide-react';
-import { classApi, studentAuthApi } from '@/lib/api';
+import { classApi, studentAuthApi, initApi } from '@/lib/api';
 
 export default function StudentDashboard() {
   const router = useRouter();
@@ -37,33 +37,22 @@ export default function StudentDashboard() {
     try {
       const user = JSON.parse(userStr);
       setStudent(user);
-      fetchMyData(user.id);
+      fetchMyData(user);
     } catch (e) {
       router.push('/student/login');
     }
   }, []);
 
-  const fetchMyData = async (studentId: string) => {
+  const fetchMyData = async (studentObj: any) => {
     setLoading(true);
     try {
-      // 1. Lấy tất cả lớp học (Trong hệ thống thật sẽ có API riêng cho student)
-      const res = await classApi.getAll().catch(() => ({ data: [] }));
-      const allClasses = res?.data || [];
-      
-      // 2. Lọc ra các lớp học mà học sinh này đang ghi danh
-      const enrolledClasses = allClasses.filter((c: any) => 
-        c.enrollments && c.enrollments.some((e: any) => e.studentId === studentId)
-      );
-      
-      // 3. Lấy thông tin điểm danh và điểm kiểm tra cho từng lớp
-      const classesWithAttendance = await Promise.all(enrolledClasses.map(async (c: any) => {
-        const [sessRes, testRes] = await Promise.all([
-          classApi.getSessions(c.id).catch(() => ({ data: [] })),
-          classApi.getTests(c.id).catch(() => ({ data: [] }))
-        ]);
-        
-        const sessions = sessRes?.data || [];
-        const tests = testRes?.data || [];
+      const initRes = await initApi.getStudentDashboardData(studentObj.phone);
+      const enrolledClasses = initRes.data.enrolledClasses || [];
+
+      // Tính toán chuyên cần và điểm số từ dữ liệu trả về
+      const classesWithAttendance = enrolledClasses.map((c: any) => {
+        const sessions = c.sessions || [];
+        const tests = c.tests || [];
         
         // Tính toán chuyên cần
         let presentCount = 0;
@@ -71,7 +60,7 @@ export default function StudentDashboard() {
         let lateCount = 0;
         
         sessions.forEach((s: any) => {
-          const myAtt = s.attendance?.find((a: any) => a.studentId === studentId);
+          const myAtt = s.attendance?.find((a: any) => a.studentId === studentObj.id);
           if (myAtt) {
             if (myAtt.status === 'Present') presentCount++;
             else if (myAtt.status === 'Absent') absentCount++;
@@ -81,7 +70,7 @@ export default function StudentDashboard() {
         
         // Lọc điểm của riêng học sinh này
         const myTests = tests.map((t: any) => {
-          const myScore = t.scores?.find((s: any) => s.studentId === studentId);
+          const myScore = t.scores?.find((s: any) => s.studentId === studentObj.id);
           return {
             ...t,
             myScore: myScore || null
@@ -99,7 +88,7 @@ export default function StudentDashboard() {
             late: lateCount
           }
         };
-      }));
+      });
       
       setMyClasses(classesWithAttendance);
     } catch (err) {

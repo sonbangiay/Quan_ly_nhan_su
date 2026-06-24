@@ -85,7 +85,9 @@ export default function AttendancePage({ params }: { params: Promise<{ id: strin
 
   const loadAttendanceFromSession = (sessionId: string, sessionList: any[], currentStudents: any[]) => {
     const session = sessionList.find(s => s.id === sessionId);
-    const attData = session?.attendance || [];
+    let attData = session?.attendance || [];
+    if (attData && attData.attendance) attData = attData.attendance;
+    if (!Array.isArray(attData)) attData = [];
     
     const attMap: Record<string, any> = {};
     
@@ -166,7 +168,7 @@ export default function AttendancePage({ params }: { params: Promise<{ id: strin
         checkInTime: attendanceData[s.id]?.checkInTime || new Date().toISOString()
       }));
       
-      await classApi.saveAttendance(selectedSessionId, { attendance: payload });
+      await classApi.saveAttendance(selectedSessionId, payload);
       alert('Lưu điểm danh thành công!');
       
       // Cập nhật lại state sessions cục bộ
@@ -364,7 +366,11 @@ export default function AttendancePage({ params }: { params: Promise<{ id: strin
     let late = 0;
     
     const studentSessions = sessions.map(sess => {
-      const att = sess.attendance?.find((a: any) => a.studentId === student.id);
+      let attArray = sess.attendance || [];
+      if (attArray && attArray.attendance) attArray = attArray.attendance;
+      if (!Array.isArray(attArray)) attArray = [];
+      
+      const att = attArray.find((a: any) => a.studentId === student.id);
       const status = att?.status || 'NotMarked';
       if (status === 'Present') present++;
       else if (status === 'Absent') absent++;

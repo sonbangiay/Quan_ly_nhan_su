@@ -9,7 +9,7 @@ import {
   FileText, BarChart3, Clock, Calendar, Bell, LogOut,
   ChevronLeft, ChevronRight, UserCheck, ShieldCheck, Activity,
   TrendingUp, Menu, X, BookOpen, Star, Link as LinkIcon, GraduationCap,
-  Sun, Moon, Palette
+  Sun, Moon, Palette, MessageSquare
 } from 'lucide-react';
 
 const SIDEBAR_ITEMS = [
@@ -18,6 +18,7 @@ const SIDEBAR_ITEMS = [
   { href: '/dashboard/departments', label: 'Phòng ban', icon: Building2, roles: ['Admin'] },
   { href: '/dashboard/positions', label: 'Chức vụ', icon: Briefcase, roles: ['Admin'] },
   { href: '/dashboard/workplan', label: 'Kế hoạch tuần', icon: ClipboardList, roles: ['Admin', 'Manager', 'Employee'] },
+  { href: '/dashboard/messages', label: 'Đa kênh', icon: MessageSquare, roles: ['Admin', 'Manager', 'Employee'] },
   { href: '/dashboard/reports', label: 'Báo cáo', icon: FileText, roles: ['Admin', 'Manager', 'Employee'] },
   { href: '/dashboard/crm', label: 'CRM Khách hàng', icon: UserCheck, roles: ['Admin', 'Manager', 'Employee'] },
   { href: '/dashboard/kpi', label: 'KPI', icon: TrendingUp, roles: ['Admin', 'Manager', 'Employee'] },
@@ -31,7 +32,8 @@ const SIDEBAR_ITEMS = [
 ];
 
 function CheckInWidget() {
-  const [status, setStatus] = useState<{ checkedIn: boolean; checkedOut: boolean; log?: { checkInTime?: string; workHours?: number } } | null>(null);
+  const { user } = useAuth();
+  const [status, setStatus] = useState<{ id?: string; checkedIn?: boolean; checkedOut?: boolean; log?: { checkInTime?: string; workHours?: number }; timeIn?: string; timeOut?: string } | null>(null);
   const [loading, setLoading] = useState(false);
   const [time, setTime] = useState(new Date());
 
@@ -41,14 +43,17 @@ function CheckInWidget() {
   }, []);
 
   useEffect(() => {
-    attendanceApi.getTodayStatus().then(r => setStatus(r.data)).catch(() => {});
-  }, []);
+    if (user?.id) {
+      attendanceApi.getTodayStatus(user.id).then(r => setStatus(r.data)).catch(() => {});
+    }
+  }, [user?.id]);
 
   const handleCheckIn = async () => {
+    if (!user) return;
     setLoading(true);
     try {
-      await attendanceApi.checkIn();
-      const r = await attendanceApi.getTodayStatus();
+      await attendanceApi.checkIn({ employeeId: user.id, employeeName: user.fullName });
+      const r = await attendanceApi.getTodayStatus(user.id);
       setStatus(r.data);
     } catch (err: unknown) {
       alert((err as { response?: { data?: { error?: string } } })?.response?.data?.error || 'Lỗi check-in');
@@ -57,10 +62,11 @@ function CheckInWidget() {
   };
 
   const handleCheckOut = async () => {
+    if (!user || !status?.id) return;
     setLoading(true);
     try {
-      await attendanceApi.checkOut();
-      const r = await attendanceApi.getTodayStatus();
+      await attendanceApi.checkOut(status.id, {});
+      const r = await attendanceApi.getTodayStatus(user.id);
       setStatus(r.data);
     } catch (err: unknown) {
       alert((err as { response?: { data?: { error?: string } } })?.response?.data?.error || 'Lỗi check-out');
@@ -79,14 +85,14 @@ function CheckInWidget() {
           {hms}
         </div>
         <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>
-          {status?.checkedIn ? (status.checkedOut ? `✅ ${status.log?.workHours?.toFixed(1)}h` : '🟢 Đang làm') : '⭕ Chưa vào'}
+          {status?.timeIn ? (status.timeOut ? `✅ Đã về` : `🟢 Đã vào lúc ${status.timeIn}`) : '⭕ Chưa vào'}
         </div>
       </div>
-      {!status?.checkedIn ? (
+      {!status?.timeIn ? (
         <button className="btn btn-success btn-sm" onClick={handleCheckIn} disabled={loading}>
           {loading ? <span className="spinner" style={{ width: 14, height: 14, borderWidth: 2 }} /> : 'Check-in'}
         </button>
-      ) : !status?.checkedOut ? (
+      ) : !status?.timeOut ? (
         <button className="btn btn-danger btn-sm" onClick={handleCheckOut} disabled={loading}>
           {loading ? <span className="spinner" style={{ width: 14, height: 14, borderWidth: 2 }} /> : 'Check-out'}
         </button>

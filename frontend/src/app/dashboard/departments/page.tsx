@@ -1,7 +1,7 @@
 'use client';
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { departmentApi, employeeApi } from '@/lib/api';
+import { departmentApi, employeeApi, initApi } from '@/lib/api';
 import { Plus, Edit, Trash2, Building2, Users } from 'lucide-react';
 
 interface Department { id: string; name: string; description?: string; managerName?: string; managerId?: string; employeeCount?: number; }
@@ -21,10 +21,13 @@ export default function DepartmentsPage() {
   const fetchAll = async () => {
     setLoading(true);
     try {
-      const [deptRes, empRes] = await Promise.all([departmentApi.getAll(), employeeApi.getAll()]);
-      setDepartments(deptRes.data);
-      setEmployees(empRes.data);
-    } catch {}
+      const initRes = await initApi.getDepartmentsData();
+      const { departments: deptData, employees: empData } = initRes.data;
+      setDepartments(deptData);
+      setEmployees(empData);
+    } catch (err) {
+      console.error(err);
+    }
     setLoading(false);
   };
 

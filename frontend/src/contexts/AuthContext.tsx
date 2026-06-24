@@ -1,6 +1,8 @@
 'use client';
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { authApi } from '@/lib/api';
+import { auth, db } from '@/lib/firebase';
+import { signInWithEmailAndPassword, signOut, onAuthStateChanged, User as FirebaseUser } from 'firebase/auth';
+import { collection, query, where, getDocs } from 'firebase/firestore';
 
 interface User {
   id: string;
@@ -29,28 +31,44 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const storedUser = localStorage.getItem('user');
-    const token = localStorage.getItem('accessToken');
-    if (storedUser && token) {
-      try {
-        setUser(JSON.parse(storedUser));
-      } catch {}
-    }
-    setLoading(false);
+    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser: FirebaseUser | null) => {
+      if (firebaseUser) {
+        try {
+          // Fetch custom user data from Firestore 'employees' collection
+          const q = query(collection(db, 'employees'), where('authUid', '==', firebaseUser.uid));
+          const querySnapshot = await getDocs(q);
+          
+          if (!querySnapshot.empty) {
+            const empDoc = querySnapshot.docs[0];
+            const userData = { id: empDoc.id, ...empDoc.data() } as User;
+            setUser(userData);
+            localStorage.setItem('user', JSON.stringify(userData)); // optional fallback
+          } else {
+            console.error('No employee record found for this Firebase Auth UID:', firebaseUser.uid);
+            setUser(null);
+          }
+        } catch (error) {
+          console.error('Error fetching employee data:', error);
+          setUser(null);
+        }
+      } else {
+        setUser(null);
+        localStorage.removeItem('user');
+      }
+      setLoading(false);
+    });
+
+    return () => unsubscribe();
   }, []);
 
   const login = useCallback(async (email: string, password: string) => {
-    const response = await authApi.login(email, password);
-    const { accessToken, refreshToken, user: userData } = response.data;
-    localStorage.setItem('accessToken', accessToken);
-    localStorage.setItem('refreshToken', refreshToken);
-    localStorage.setItem('user', JSON.stringify(userData));
-    setUser(userData);
+    await signInWithEmailAndPassword(auth, email, password);
   }, []);
 
-  const logout = useCallback(() => {
-    localStorage.clear();
+  const logout = useCallback(async () => {
+    await signOut(auth);
     setUser(null);
+    localStorage.removeItem('user');
     window.location.href = '/login';
   }, []);
 

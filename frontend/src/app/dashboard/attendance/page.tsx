@@ -52,7 +52,20 @@ export default function AttendancePage() {
   const isManagerOrAdmin = user?.role === 'Admin' || user?.role === 'Manager';
 
   // For employee stats
-  const myLogs = logs.filter(l => l.employeeId === user?.id);
+  const processedLogs = logs.map(l => {
+    let workHours = l.workHours || 0;
+    if (!l.workHours && l.timeIn && l.timeOut) {
+      const [hIn, mIn] = l.timeIn.split(':').map(Number);
+      const [hOut, mOut] = l.timeOut.split(':').map(Number);
+      if (!isNaN(hIn) && !isNaN(hOut)) {
+        workHours = (hOut + mOut / 60) - (hIn + mIn / 60);
+        if (workHours < 0) workHours = 0;
+      }
+    }
+    return { ...l, checkInTime: l.timeIn || l.checkInTime, checkOutTime: l.timeOut || l.checkOutTime, workHours };
+  });
+
+  const myLogs = processedLogs.filter(l => l.employeeId === user?.id);
   const totalDays = myLogs.length;
   const lateDays = myLogs.filter(l => l.status === 'Late').length;
   const totalHours = myLogs.reduce((acc, curr) => acc + (curr.workHours || 0), 0);
@@ -120,7 +133,7 @@ export default function AttendancePage() {
                 </tr>
               </thead>
               <tbody>
-                {(isManagerOrAdmin ? logs : myLogs).map(log => (
+                {(isManagerOrAdmin ? processedLogs : myLogs).map(log => (
                   <tr key={log.id}>
                     {isManagerOrAdmin && <td style={{ fontWeight: 600 }}>{log.employeeName || '—'}</td>}
                     <td>{new Date(log.date).toLocaleDateString('vi-VN')}</td>
@@ -130,7 +143,7 @@ export default function AttendancePage() {
                     <td>{getStatusBadge(log.status)}</td>
                   </tr>
                 ))}
-                {(isManagerOrAdmin ? logs : myLogs).length === 0 && (
+                {(isManagerOrAdmin ? processedLogs : myLogs).length === 0 && (
                   <tr><td colSpan={isManagerOrAdmin ? 6 : 5} style={{ textAlign: 'center', padding: 32, color: 'var(--text-muted)' }}>Không có dữ liệu chấm công.</td></tr>
                 )}
               </tbody>

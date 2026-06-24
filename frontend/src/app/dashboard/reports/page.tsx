@@ -152,15 +152,14 @@ export default function ReportsPage() {
     }
 
     try {
-      const fd = new FormData();
-      fd.append('content', tempReport.content);
-      if (submittedFile) fd.append('files', submittedFile);
-      fd.append('date', tempReport.date);
-      fd.append('progressPercentage', tempReport.progressPercentage.toString());
-      ['targetNew', 'targetContacted', 'targetConsulting', 'targetMeeting', 'targetSigned'].forEach(k => fd.append(k, (tempReport as any)[k].toString()));
-      ['evalNew', 'evalContacted', 'evalConsulting', 'evalMeeting', 'evalSigned', 'failureReasonAnalysis'].forEach(k => fd.append(k, (tempReport as any)[k]));
-      
-      await reportApi.createDailyReport(fd as any);
+      const payload = { ...tempReport };
+      delete payload.isSubmitting;
+      if (submittedFile) {
+        payload.attachments = [{ fileName: submittedFile.name }];
+      } else {
+        payload.attachments = [];
+      }
+      await reportApi.createDailyReport(payload);
       
       const cacheKey = `cached_reports_${selectedEmp}_${filterDate}`;
       if (typeof window !== 'undefined') {

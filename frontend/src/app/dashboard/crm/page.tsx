@@ -82,15 +82,17 @@ export default function CrmPage() {
   }, []);
 
   const fetchLeads = async () => {
+    if (!user) return;
     setLoading(true);
     try {
-      const res = await crmApi.getLeads({ ownerId: filterOwnerId || undefined });
+      const ownerId = (user.role === 'Employee' || user.role === 'Instructor') ? user.id : (filterOwnerId || undefined);
+      const res = await crmApi.getLeads({ ownerId });
       setLeads(res.data);
     } catch {}
     setLoading(false);
   };
 
-  useEffect(() => { fetchLeads(); }, [filterOwnerId]);
+  useEffect(() => { if (user) fetchLeads(); }, [filterOwnerId, user?.id, user?.role]);
 
   const exportToExcel = () => {
     if (leads.length === 0) return alert('Không có dữ liệu để xuất!');
@@ -154,6 +156,12 @@ export default function CrmPage() {
     try {
       const r = await crmApi.getLeadById(id);
       const leadData = r.data;
+      if (!leadData) {
+        alert('Khách hàng này không còn tồn tại (có thể đã bị xóa)!');
+        setLoadingLeadId(null);
+        fetchLeads();
+        return;
+      }
       // Fallback: Giữ appointmentTime từ danh sách hiện tại nếu API cũ chưa trả về
       if (!leadData.appointmentTime) {
         const existingLead = leads.find(l => l.id === id);
@@ -331,6 +339,7 @@ export default function CrmPage() {
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                   {colLeads.map(lead => {
                     const isCardLoading = loadingLeadId === lead.id;
+                    const ownerName = lead.ownerName || employees.find(e => e.id === lead.ownerId)?.fullName || 'Trống';
                     return (
                       <div 
                         key={lead.id} 
@@ -355,8 +364,8 @@ export default function CrmPage() {
                       )}
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                         <span style={{ fontSize: 11, background: 'var(--bg-hover)', padding: '2px 6px', borderRadius: 4, color: 'var(--text-muted)' }}>{lead.source || 'Tự nhiên'}</span>
-                        <div style={{ width: 20, height: 20, borderRadius: '50%', background: 'var(--accent-purple)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 700 }} title={lead.ownerName}>
-                          {lead.ownerName?.charAt(0).toUpperCase()}
+                        <div style={{ width: 20, height: 20, borderRadius: '50%', background: 'var(--accent-purple)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 700 }} title={ownerName}>
+                          {ownerName.charAt(0).toUpperCase()}
                         </div>
                       </div>
                       </div>

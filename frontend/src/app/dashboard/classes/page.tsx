@@ -1,7 +1,7 @@
 'use client';
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { classApi, employeeApi, crmApi } from '@/lib/api';
+import { classApi, employeeApi, crmApi, initApi } from '@/lib/api';
 import {
   Plus, Search, GraduationCap, Users, Calendar, Clock,
   AlertTriangle, Check, BookOpen, UserCheck, Activity,
@@ -168,22 +168,15 @@ export default function ClassesPage() {
     setLoading(true);
     try {
       const isTeacher = (user?.role === 'Instructor' || user?.departmentId === 'dept-giaovien') && user?.role !== 'Admin' && user?.role !== 'Manager';
-      const classesPromise = isTeacher
-        ? classApi.getByInstructor(user.id)
-        : classApi.getAll();
 
-      const [classRes, studentRes, empRes, alertsRes] = await Promise.all([
-        classesPromise,
-        classApi.getStudents(),
-        employeeApi.getAll(),
-        classApi.getTuitionAlerts()
-      ]);
-      
-      let studentList = studentRes.data;
+      const initRes = await initApi.getClassesData();
+      const { classes: classData, students: studentData, employees: empData, alerts: alertsData } = initRes.data;
+
+      let studentList = studentData;
       if (isTeacher) {
         // Extract unique students in teacher's classes
         const myStudentsMap = new Map<string, any>();
-        classRes.data.forEach((c: any) => {
+        classData.forEach((c: any) => {
           c.students?.forEach((s: any) => {
             if (s.id) {
               myStudentsMap.set(s.id, {
@@ -198,12 +191,12 @@ export default function ClassesPage() {
         studentList = Array.from(myStudentsMap.values());
       }
 
-      setClasses(classRes.data);
+      setClasses(classData);
       setStudents(studentList);
-      setEmployees(empRes.data);
+      setEmployees(empData);
       setTuitionAlerts(isTeacher
-        ? alertsRes.data.filter((a: any) => classRes.data.some((c: any) => c.id === a.classId))
-        : alertsRes.data
+        ? alertsData.filter((a: any) => classData.some((c: any) => c.id === a.classId))
+        : alertsData
       );
       
       // Load leads if Admin/Manager to link them
@@ -220,6 +213,13 @@ export default function ClassesPage() {
   useEffect(() => {
     fetchAll();
   }, [user]);
+
+  useEffect(() => {
+    if (selectedClass) {
+      const updatedClass = classes.find(c => c.id === selectedClass.id);
+      if (updatedClass) setSelectedClass(updatedClass);
+    }
+  }, [classes]);
   
   // Reset selection when tab changes
   useEffect(() => {
@@ -565,8 +565,13 @@ export default function ClassesPage() {
         throw new Error('Vui lòng chọn hoặc nhập đủ thông tin học viên');
       }
 
+      const selectedStudentObj = students.find(s => s.id === finalStudentId) || { fullName: enrollForm.fullName, phone: enrollForm.phone, email: enrollForm.email };
+
       const payload = {
         studentId: finalStudentId,
+        fullName: selectedStudentObj.fullName,
+        phone: selectedStudentObj.phone,
+        email: selectedStudentObj.email,
         tuitionStatus: Number(enrollForm.tuitionStatus),
         learningGoal: enrollForm.learningGoal || null,
         notes: enrollForm.notes || null
@@ -653,9 +658,13 @@ export default function ClassesPage() {
             else if (isPartial) tuitionStatus = 2;
 
             try {
+
               // Enroll
               await classApi.enrollStudent(selectedClassForEnroll.id, {
                 studentId: matchStudent.id,
+                fullName: matchStudent.fullName,
+                phone: matchStudent.phone,
+                email: matchStudent.email,
                 tuitionStatus,
                 learningGoal: row['Địa chỉ'] ? `Địa chỉ: ${row['Địa chỉ']}` : null,
                 notes: row['Năm sinh'] ? `Năm sinh: ${row['Năm sinh']}` : null

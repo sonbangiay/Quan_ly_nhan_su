@@ -1,7 +1,7 @@
 'use client';
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { employeeApi, authApi, departmentApi, positionApi } from '@/lib/api';
+import { employeeApi, authApi, departmentApi, positionApi, initApi } from '@/lib/api';
 import { Plus, Edit, Trash2, Search, User } from 'lucide-react';
 
 interface Employee { id: string; fullName: string; email: string; phone: string; role: string; departmentId?: string; departmentName?: string; positionId?: string; positionName?: string; isActive: boolean; createdAt: string; }
@@ -27,11 +27,14 @@ export default function EmployeesPage() {
   const fetchAll = async () => {
     setLoading(true);
     try {
-      const [empRes, deptRes, posRes] = await Promise.all([employeeApi.getAll(), departmentApi.getAll(), positionApi.getAll()]);
-      setEmployees(empRes.data);
-      setDepartments(deptRes.data);
-      setPositions(posRes.data);
-    } catch {}
+      const initRes = await initApi.getEmployeesData();
+      const { employees: empData, departments: deptData, positions: posData } = initRes.data;
+      setEmployees(empData);
+      setDepartments(deptData);
+      setPositions(posData);
+    } catch (err) {
+      console.error(err);
+    }
     setLoading(false);
   };
 

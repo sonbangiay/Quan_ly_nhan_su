@@ -1,7 +1,7 @@
 'use client';
 import { useEffect, useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { dashboardApi, kpiApi, aiApi } from '@/lib/api';
+import { dashboardApi, aiApi, initApi } from '@/lib/api';
 import { Users, Clock, TrendingUp, AlertCircle, CheckCircle, BarChart2, Target, UserCheck, Bot, Trophy, DollarSign, Activity } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line, Legend } from 'recharts';
 
@@ -70,29 +70,35 @@ export default function DashboardPage() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [summaryRes] = await Promise.all([dashboardApi.getSummary()]);
-        setSummary(summaryRes.data);
-        if (user?.role === 'Admin') {
-          const [kpiRes, leadRes, forecastRes] = await Promise.all([dashboardApi.getKpiChart(), dashboardApi.getLeadFunnel(), dashboardApi.getRevenueForecast()]);
-          setKpiChart(kpiRes.data);
-          setLeadFunnel(leadRes.data);
-          setForecast(forecastRes.data);
+        const initPromise = initApi.getDashboardData();
+        const leaderPromise = (user?.role === 'Admin' || user?.role === 'Manager') ? dashboardApi.getLeaderboard() : Promise.resolve(null);
+        const aiPromise = aiApi.getDailyBrief();
+        
+        const [initRes, leaderRes, aiRes] = await Promise.allSettled([
+          initPromise,
+          leaderPromise,
+          aiPromise
+        ]);
+
+        if (initRes.status === 'fulfilled') {
+          const data = initRes.value.data;
+          setSummary(data.summary);
+          setKpiChart(data.kpiChart);
+          setLeadFunnel(data.leadFunnel);
+          setForecast(data.revenueForecast);
+          setDailyActivities(data.dailyActivities);
         }
-        if (user?.role === 'Admin' || user?.role === 'Manager') {
-          try {
-            const leaderRes = await dashboardApi.getLeaderboard();
-            setLeaderboard(leaderRes.data);
-          } catch {}
+
+        if (leaderRes.status === 'fulfilled' && leaderRes.value) {
+          setLeaderboard(leaderRes.value.data);
         }
-        try {
-          const aiRes = await aiApi.getDailyBrief();
-          setAiBrief(aiRes.data.message);
-        } catch { }
-        try {
-          const dailyRes = await dashboardApi.getDailyActivities();
-          setDailyActivities(dailyRes.data);
-        } catch { }
-      } catch {}
+
+        if (aiRes.status === 'fulfilled') {
+          setAiBrief(aiRes.value.data.message);
+        }
+      } catch (err) {
+        console.error(err);
+      }
       setLoading(false);
     };
     fetchData();

@@ -20,6 +20,7 @@ export default function RootLayout({
       <head>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        <meta name="zalo-platform-site-verification" content="KyMHExZWGcD7dfOunx4Z1W6NkoLjuM5rDJav" />
       </head>
       <body className={inter.className} suppressHydrationWarning>
         <AuthProvider>{children}</AuthProvider>

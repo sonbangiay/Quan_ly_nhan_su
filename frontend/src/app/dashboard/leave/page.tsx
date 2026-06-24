@@ -32,7 +32,7 @@ export default function LeaveRequestsPage() {
   const handleAdd = async (e: React.FormEvent) => {
     e.preventDefault(); setSaving(true); setError('');
     try {
-      await leaveApi.submitRequest(form);
+      await leaveApi.submitRequest({ ...form, employeeId: user?.id, employeeName: user?.fullName });
       setShowAdd(false); setForm({ leaveType: 'Annual', startDate: '', endDate: '', reason: '' }); fetchRequests();
     } catch (err: unknown) { setError((err as { response?: { data?: { error?: string } } })?.response?.data?.error || 'Lỗi'); }
     setSaving(false);
