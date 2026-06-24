@@ -5,13 +5,19 @@ import { collection, addDoc, doc, setDoc, increment } from 'firebase/firestore';
 // Zalo sẽ gọi vào API này mỗi khi có người nhắn tin tới OA
 export async function POST(request: Request) {
   try {
-    const payload = await request.json();
+    const rawText = await request.text();
+    let payload: any = {};
+    if (rawText) {
+      try {
+        payload = JSON.parse(rawText);
+      } catch (e) {}
+    }
 
     // Bắt sự kiện khách hàng gửi tin nhắn chữ
-    if (payload.event_name === 'user_send_text') {
-      const senderId = payload.sender.id;
-      const messageText = payload.message.text;
-      const timestamp = payload.timestamp; // ms
+    if (payload && payload.event_name === 'user_send_text') {
+      const senderId = payload.sender?.id || '';
+      const messageText = payload.message?.text || '';
+      const timestamp = payload.timestamp || Date.now(); // ms
 
       // 1. Cập nhật hoặc Tạo mới luồng chat (Conversation)
       const convRef = doc(db, 'conversations', senderId);
