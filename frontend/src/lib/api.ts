@@ -1,5 +1,5 @@
 import { db } from '@/lib/firebase';
-import { collection, doc, getDoc, getDocs, setDoc, updateDoc, deleteDoc, query, where } from 'firebase/firestore';
+import { collection, doc, getDoc, getDocs, setDoc, updateDoc, deleteDoc, query, where, orderBy } from 'firebase/firestore';
 import { initializeApp } from 'firebase/app';
 import { getAuth, createUserWithEmailAndPassword } from 'firebase/auth';
 import { v4 as uuidv4 } from 'uuid';
@@ -216,8 +216,8 @@ export const classApi = {
     await deleteDoc(doc(db, 'classes', id));
     return toRes({ success: true });
   },
-  assignInstructor: async (id: string, instructorId: string) => {
-    await updateDoc(doc(db, 'classes', id), { instructorId });
+  assignInstructor: async (id: string, instructorId: string, instructorName?: string) => {
+    await updateDoc(doc(db, 'classes', id), { instructorId, instructorName: instructorName || null });
     return toRes({ success: true });
   },
   // We keep the rest of class API as stubs or basic implementations for now.
@@ -251,6 +251,22 @@ export const classApi = {
       }
     }
     return toRes({ success: false });
+  },
+  getElearningProgress: async (classId: string, studentId: string) => {
+    const id = `${classId}_${studentId}`;
+    const snap = await getDoc(doc(db, 'elearning_progress', id));
+    if (snap.exists()) return toRes(snap.data());
+    return toRes({ id, classId, studentId, progress: [] });
+  },
+  getAllElearningProgress: async (classId: string) => {
+    const q = query(collection(db, 'elearning_progress'), where('classId', '==', classId));
+    const snap = await getDocs(q);
+    return toRes(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+  },
+  updateElearningProgress: async (classId: string, studentId: string, progress: string[]) => {
+    const id = `${classId}_${studentId}`;
+    await setDoc(doc(db, 'elearning_progress', id), { id, classId, studentId, progress, updatedAt: new Date().toISOString() });
+    return toRes({ success: true });
   },
   deleteEnrollment: async (enrollmentId: string) => {
     const classesSnap = await getDocs(collection(db, 'classes'));
@@ -322,6 +338,10 @@ export const classApi = {
     await deleteDoc(doc(db, 'sessions', sessionId));
     return toRes({ success: true });
   },
+  updateSession: async (sessionId: string, data: any) => {
+    await updateDoc(doc(db, 'sessions', sessionId), data);
+    return toRes({ success: true });
+  },
   deleteAllSessions: async (classId: string) => {
     const snap = await getDocs(query(collection(db, 'sessions'), where('classId', '==', classId)));
     for (const d of snap.docs) await deleteDoc(d.ref);
@@ -349,6 +369,33 @@ export const classApi = {
     await updateDoc(doc(db, 'tests', testId), { scores });
     return toRes({ success: true });
   },
+  getTestById: async (testId: string) => {
+    const d = await getDoc(doc(db, 'tests', testId));
+    if (!d.exists()) throw new Error('Test not found');
+    return toRes({ id: d.id, ...d.data() });
+  },
+  updateTest: async (testId: string, data: any) => {
+    await updateDoc(doc(db, 'tests', testId), data);
+    return toRes({ success: true });
+  },
+  submitOnlineTest: async (testId: string, studentId: string, score: number, submissionData: any) => {
+    // get test to update scores array
+    const testDoc = await getDoc(doc(db, 'tests', testId));
+    if (!testDoc.exists()) throw new Error('Test not found');
+    const testData = testDoc.data();
+    let scores = testData.scores || [];
+    
+    // Check if student already submitted
+    const existingIndex = scores.findIndex((s: any) => s.studentId === studentId);
+    if (existingIndex >= 0) {
+      scores[existingIndex] = { ...scores[existingIndex], score, submissionData, submittedAt: new Date().toISOString() };
+    } else {
+      scores.push({ studentId, score, submissionData, submittedAt: new Date().toISOString(), feedback: '' });
+    }
+    
+    await updateDoc(doc(db, 'tests', testId), { scores });
+    return toRes({ success: true, score });
+  }
 };
 
 // ---------------------------------------------------------
@@ -708,4 +755,101 @@ export const studentAuthApi = {
     await updateDoc(sessRef, { attendance: attArray });
     return toRes({ success: true });
   },
+};
+
+export const classLessonsApi = {
+  getLessons: async (classId: string) => {
+    const q = query(collection(db, 'class_lessons'), where('classId', '==', classId), orderBy('lessonNumber', 'asc'));
+    const snap = await getDocs(q);
+    return toRes(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+  },
+  createLesson: async (data: any) => {
+    const id = uuidv4();
+    await setDoc(doc(db, 'class_lessons', id), { id, ...data, createdAt: new Date().toISOString() });
+    return toRes({ id, ...data });
+  },
+  updateLesson: async (id: string, data: any) => {
+    await updateDoc(doc(db, 'class_lessons', id), { ...data, updatedAt: new Date().toISOString() });
+    return toRes({ success: true });
+  },
+  deleteLesson: async (id: string) => {
+    await deleteDoc(doc(db, 'class_lessons', id));
+    return toRes({ success: true });
+  }
+};
+
+export const classMaterialsApi = {
+  getMaterials: async (lessonId: string) => {
+    const q = query(collection(db, 'class_materials'), where('lessonId', '==', lessonId), orderBy('createdAt', 'desc'));
+    const snap = await getDocs(q);
+    return toRes(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+  },
+  createMaterial: async (data: any) => {
+    const id = uuidv4();
+    await setDoc(doc(db, 'class_materials', id), { id, ...data, createdAt: new Date().toISOString() });
+    return toRes({ id, ...data });
+  },
+  deleteMaterial: async (id: string) => {
+    await deleteDoc(doc(db, 'class_materials', id));
+    return toRes({ success: true });
+  }
+};
+
+export const courseApi = {
+  getAll: async () => {
+    const snap = await getDocs(query(collection(db, 'courses'), orderBy('createdAt', 'desc')));
+    return toRes(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+  },
+  getById: async (id: string) => {
+    const snap = await getDoc(doc(db, 'courses', id));
+    if (!snap.exists()) throw new Error('Not found');
+    return toRes({ id: snap.id, ...snap.data() });
+  },
+  create: async (data: any) => {
+    const id = data.id || uuidv4();
+    await setDoc(doc(db, 'courses', id), { id, ...data, createdAt: new Date().toISOString() });
+    return toRes({ id, ...data });
+  },
+  update: async (id: string, data: any) => {
+    await updateDoc(doc(db, 'courses', id), { ...data, updatedAt: new Date().toISOString() });
+    return toRes({ success: true });
+  },
+  delete: async (id: string) => {
+    await deleteDoc(doc(db, 'courses', id));
+    return toRes({ success: true });
+  },
+  getCurriculum: async (courseId: string) => {
+    const q = query(collection(db, 'course_lessons'), where('courseId', '==', courseId));
+    const snap = await getDocs(q);
+    const data = snap.docs.map(d => ({ id: d.id, ...d.data() })) as any[];
+    return toRes(data.sort((a, b) => (a.order || 0) - (b.order || 0)));
+  },
+  saveLesson: async (courseId: string, data: any) => {
+    const id = data.id || uuidv4();
+    await setDoc(doc(db, 'course_lessons', id), { id, courseId, ...data, updatedAt: new Date().toISOString() });
+    return toRes({ id, ...data });
+  },
+  deleteLesson: async (lessonId: string) => {
+    await deleteDoc(doc(db, 'course_lessons', lessonId));
+    return toRes({ success: true });
+  },
+  enrollStudent: async (courseId: string, studentId: string) => {
+    const id = `${courseId}_${studentId}`;
+    await setDoc(doc(db, 'course_enrollments', id), { id, courseId, studentId, progress: [], enrolledAt: new Date().toISOString() });
+    return toRes({ success: true });
+  },
+  getEnrollments: async (courseId: string) => {
+    const q = query(collection(db, 'course_enrollments'), where('courseId', '==', courseId));
+    const snap = await getDocs(q);
+    return toRes(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+  },
+  getStudentEnrollments: async (studentId: string) => {
+    const q = query(collection(db, 'course_enrollments'), where('studentId', '==', studentId));
+    const snap = await getDocs(q);
+    return toRes(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+  },
+  updateProgress: async (enrollmentId: string, completedLessons: string[]) => {
+    await updateDoc(doc(db, 'course_enrollments', enrollmentId), { progress: completedLessons, updatedAt: new Date().toISOString() });
+    return toRes({ success: true });
+  }
 };

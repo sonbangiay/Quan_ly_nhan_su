@@ -1,7 +1,7 @@
 'use client';
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { LogOut, BookOpen, Clock, Calendar, CheckCircle, XCircle, AlertCircle, RefreshCw, BarChart2 } from 'lucide-react';
+import { LogOut, BookOpen, Clock, Calendar, CheckCircle, XCircle, AlertCircle, RefreshCw, BarChart2, MonitorPlay } from 'lucide-react';
 import { classApi, studentAuthApi, initApi } from '@/lib/api';
 
 export default function StudentDashboard() {
@@ -60,7 +60,8 @@ export default function StudentDashboard() {
         let lateCount = 0;
         
         sessions.forEach((s: any) => {
-          const myAtt = s.attendance?.find((a: any) => a.studentId === studentObj.id);
+          const attArray = Array.isArray(s.attendance) ? s.attendance : Object.values(s.attendance || {});
+          const myAtt = attArray.find((a: any) => a.studentId === studentObj.id);
           if (myAtt) {
             if (myAtt.status === 'Present') presentCount++;
             else if (myAtt.status === 'Absent') absentCount++;
@@ -127,9 +128,48 @@ export default function StudentDashboard() {
 
   return (
     <div style={{ minHeight: '100vh', background: 'var(--bg-secondary)' }}>
+      <style dangerouslySetInnerHTML={{__html: `
+        .student-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          gap: 16px;
+        }
+        .header-title {
+          font-weight: 600;
+          color: var(--accent-blue);
+          border-bottom: 2px solid var(--accent-blue);
+          padding-bottom: 4px;
+          white-space: nowrap;
+        }
+        @media (max-width: 600px) {
+          .student-header {
+            flex-direction: column;
+            align-items: flex-start;
+          }
+          .header-nav {
+            width: 100%;
+            justify-content: space-between;
+            border-top: 1px solid var(--border);
+            padding-top: 12px;
+            margin-top: 4px;
+          }
+          .header-right {
+            position: absolute;
+            top: 16px;
+            right: 24px;
+          }
+          .mobile-padding {
+            padding: 16px !important;
+          }
+          .mobile-main-padding {
+            padding: 16px 12px !important;
+          }
+        }
+      `}} />
       {/* Header */}
       <header style={{ background: 'white', borderBottom: '1px solid var(--border)', padding: '16px 24px', position: 'sticky', top: 0, zIndex: 10 }}>
-        <div style={{ maxWidth: 1000, margin: '0 auto', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div className="student-header" style={{ maxWidth: 1000, margin: '0 auto', position: 'relative' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
             <div style={{ width: 40, height: 40, borderRadius: '50%', background: 'var(--accent-blue)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 600, fontSize: 18 }}>
               {student.fullName?.charAt(0) || 'S'}
@@ -140,27 +180,31 @@ export default function StudentDashboard() {
             </div>
           </div>
           
-          <button onClick={handleLogout} className="btn btn-secondary btn-sm" style={{ padding: '6px 12px' }}>
+          <div className="header-nav" style={{ display: 'flex', gap: 32, flex: 1, justifyContent: 'center' }}>
+            <span className="header-title">Không gian học tập</span>
+          </div>
+
+          <button onClick={handleLogout} className="btn btn-secondary btn-sm header-right" style={{ padding: '6px 12px' }}>
             <LogOut size={16} /> Đăng xuất
           </button>
         </div>
       </header>
 
-      <main style={{ maxWidth: 1000, margin: '0 auto', padding: '32px 24px' }}>
+      <main className="mobile-main-padding" style={{ maxWidth: 1000, margin: '0 auto', padding: '32px 24px' }}>
         <h2 style={{ fontSize: 24, margin: '0 0 24px', display: 'flex', alignItems: 'center', gap: 8 }}>
           <BookOpen size={24} color="var(--accent-blue)" /> 
           Lớp học của tôi
         </h2>
 
         {myClasses.length === 0 ? (
-          <div className="glass-card" style={{ padding: 60, textAlign: 'center', color: 'var(--text-muted)' }}>
+          <div className="glass-card mobile-padding" style={{ padding: 60, textAlign: 'center', color: 'var(--text-muted)' }}>
             <AlertCircle size={48} style={{ margin: '0 auto 16px', opacity: 0.3 }} />
             <p style={{ fontSize: 16 }}>Bạn chưa được ghi danh vào lớp học nào.</p>
           </div>
         ) : (
           <div style={{ display: 'grid', gap: 24 }}>
             {myClasses.map(c => (
-              <div key={c.id} className="glass-card" style={{ padding: 24, display: 'flex', flexWrap: 'wrap', gap: 24 }}>
+              <div key={c.id} className="glass-card mobile-padding" style={{ padding: 24, display: 'flex', flexWrap: 'wrap', gap: 24 }}>
                 {/* Thông tin lớp */}
                 <div style={{ flex: '1 1 300px' }}>
                   <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
@@ -185,6 +229,16 @@ export default function StudentDashboard() {
                       </div>
                     </div>
                   )}
+
+                  <div style={{ marginTop: 20 }}>
+                    <button 
+                      className="btn btn-primary" 
+                      onClick={() => router.push(`/student/classes/${c.id}/learn`)}
+                      style={{ padding: '8px 16px', borderRadius: 20 }}
+                    >
+                      <MonitorPlay size={16} /> Vào phòng học (E-Learning)
+                    </button>
+                  </div>
                 </div>
 
                 {/* Thống kê điểm danh */}
@@ -233,7 +287,8 @@ export default function StudentDashboard() {
                     const todaySession = c.sessions?.find((s: any) => s.date === todayStr);
                     
                     if (todaySession) {
-                      const myAtt = todaySession.attendance?.find((a: any) => a.studentId === student.id);
+                      const attArray = Array.isArray(todaySession.attendance) ? todaySession.attendance : Object.values(todaySession.attendance || {});
+                      const myAtt = attArray.find((a: any) => a.studentId === student.id);
                       const isCheckedIn = myAtt && myAtt.status === 'Present';
                       
                       return (
@@ -281,7 +336,8 @@ export default function StudentDashboard() {
                         </thead>
                         <tbody>
                           {c.sessions.map((session: any, idx: number) => {
-                            const att = session.attendance?.find((a: any) => a.studentId === student.id);
+                            const attArray = Array.isArray(session.attendance) ? session.attendance : Object.values(session.attendance || {});
+                            const att = attArray.find((a: any) => a.studentId === student.id);
                             const statusLabel = att?.status === 'Present' ? 'Có mặt' :
                                               att?.status === 'Absent' ? 'Vắng mặt' :
                                               att?.status === 'Late' ? 'Đi trễ' :
@@ -332,7 +388,20 @@ export default function StudentDashboard() {
                             return (
                               <tr key={test.id} style={{ borderBottom: idx < c.tests.length - 1 ? '1px solid var(--border)' : 'none' }}>
                                 <td style={{ padding: '12px 16px' }}>{new Date(test.date).toLocaleDateString('vi-VN')}</td>
-                                <td style={{ padding: '12px 16px', fontWeight: 500 }}>{test.title}</td>
+                                <td style={{ padding: '12px 16px', fontWeight: 500 }}>
+                                  {test.title}
+                                  {isGraded && (
+                                    <a 
+                                      href={`/exam/${test.id}`} 
+                                      target="_blank" 
+                                      rel="noopener noreferrer"
+                                      style={{ marginLeft: 8, color: 'var(--accent-blue)', fontSize: 12, textDecoration: 'underline', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 4 }}
+                                      title="Xem lại bài làm"
+                                    >
+                                      (Xem lại)
+                                    </a>
+                                  )}
+                                </td>
                                 <td style={{ padding: '12px 16px' }}>
                                   {isGraded ? (
                                     <span style={{ 

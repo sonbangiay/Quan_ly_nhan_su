@@ -9,7 +9,7 @@ import {
   FileText, BarChart3, Clock, Calendar, Bell, LogOut,
   ChevronLeft, ChevronRight, UserCheck, ShieldCheck, Activity,
   TrendingUp, Menu, X, BookOpen, Star, Link as LinkIcon, GraduationCap,
-  Sun, Moon, Palette, MessageSquare
+  Sun, Moon, Palette, MessageSquare, MonitorPlay
 } from 'lucide-react';
 
 const SIDEBAR_ITEMS = [

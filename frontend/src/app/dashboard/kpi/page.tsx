@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { kpiApi, employeeApi } from '@/lib/api';
 import { Target, Plus, Trash2, Edit2, CheckCircle } from 'lucide-react';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LabelList } from 'recharts';
 
 export default function KpiPage() {
   const { user } = useAuth();
@@ -103,12 +103,25 @@ export default function KpiPage() {
         <div className="glass-card" style={{ padding: 20, marginBottom: 24 }}>
           <h3 style={{ fontSize: 15, fontWeight: 700, marginBottom: 16 }}>Tiến độ KPI trung bình theo nhân viên</h3>
           <ResponsiveContainer width="100%" height={260}>
-            <BarChart data={chartData}>
-              <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
-              <XAxis dataKey="name" tick={{ fill: 'var(--text-secondary)', fontSize: 12 }} />
-              <YAxis domain={[0, 100]} tick={{ fill: 'var(--text-secondary)', fontSize: 12 }} />
-              <Tooltip contentStyle={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 8 }} />
-              <Bar dataKey="progress" fill="var(--accent-blue)" radius={[4, 4, 0, 0]} />
+            <BarChart data={chartData} margin={{ top: 20, right: 10, left: -20, bottom: 0 }}>
+              <defs>
+                <linearGradient id="colorProgress" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="var(--accent-blue)" stopOpacity={0.9}/>
+                  <stop offset="95%" stopColor="var(--accent-blue)" stopOpacity={0.2}/>
+                </linearGradient>
+              </defs>
+              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border)" strokeOpacity={0.5} />
+              <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: 'var(--text-secondary)', fontSize: 12, fontWeight: 500 }} dy={10} />
+              <YAxis domain={[0, 100]} axisLine={false} tickLine={false} tick={{ fill: 'var(--text-muted)', fontSize: 11 }} />
+              <Tooltip 
+                cursor={{ fill: 'var(--bg-hover)' }}
+                contentStyle={{ background: 'var(--bg-card)', border: 'none', borderRadius: 12, boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
+                formatter={(value: number) => [`${value}%`, 'Tiến độ trung bình']}
+                labelStyle={{ fontWeight: 700, color: 'var(--text-primary)', marginBottom: 4 }}
+              />
+              <Bar dataKey="progress" fill="url(#colorProgress)" barSize={56} radius={[6, 6, 0, 0]} animationDuration={1000}>
+                <LabelList dataKey="progress" position="top" formatter={(val: number) => `${val}%`} style={{ fill: 'var(--text-secondary)', fontSize: 11, fontWeight: 600 }} />
+              </Bar>
             </BarChart>
           </ResponsiveContainer>
         </div>

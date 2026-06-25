@@ -2,7 +2,7 @@
 import { useState, useEffect, use } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { classApi } from '@/lib/api';
-import { ArrowLeft, Check, X, Clock, Calendar, Save, Plus, ChevronRight, AlertCircle, RefreshCw, HelpCircle, Trash2, BarChart2, Users, Download } from 'lucide-react';
+import { ArrowLeft, Check, X, Clock, Calendar, Save, Plus, ChevronRight, AlertCircle, RefreshCw, HelpCircle, Trash2, BarChart2, Users, Download, Edit2, PlayCircle, FileText, MonitorPlay, Link as LinkIcon } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
 export default function AttendancePage({ params }: { params: Promise<{ id: string }> }) {
@@ -21,6 +21,8 @@ export default function AttendancePage({ params }: { params: Promise<{ id: strin
   const [attendanceData, setAttendanceData] = useState<Record<string, any>>({}); // studentId -> status
   const [errorMsg, setErrorMsg] = useState<string>('');
   const [activeTab, setActiveTab] = useState<'daily' | 'overview'>('daily');
+  const [editingSession, setEditingSession] = useState<any>(null);
+  const [elearningProgressData, setElearningProgressData] = useState<any[]>([]);
   
   useEffect(() => {
     fetchClassData();
@@ -72,6 +74,10 @@ export default function AttendancePage({ params }: { params: Promise<{ id: strin
       const sessRes = await classApi.getSessions(classId).catch(() => ({ data: [] }));
       let sessData = sessRes?.data || [];
       setSessions(sessData);
+      
+      const elpRes = await classApi.getAllElearningProgress(classId as string).catch(() => ({ data: [] }));
+      setElearningProgressData(elpRes?.data || []);
+
       if (sessData.length > 0) {
         setSelectedSessionId(sessData[0].id);
         loadAttendanceFromSession(sessData[0].id, sessData, studentsList);
@@ -201,6 +207,39 @@ export default function AttendancePage({ params }: { params: Promise<{ id: strin
     } catch (err) {
       console.error(err);
       alert('Lỗi khi xóa buổi học!');
+    }
+    setSaving(false);
+  };
+
+  const openEditSession = (sessionId: string) => {
+    const session = sessions.find(s => s.id === sessionId);
+    if (!session) return;
+    setEditingSession({ ...session });
+  };
+
+  const saveEditedSession = async () => {
+    if (!editingSession) return;
+    
+    setSaving(true);
+    try {
+      await classApi.updateSession(editingSession.id, { 
+        topic: editingSession.topic, 
+        date: editingSession.date,
+        videoUrl: editingSession.videoUrl || '',
+        materialUrl: editingSession.materialUrl || ''
+      });
+      alert('Đã cập nhật thông tin buổi học!');
+      
+      setSessions(prev => prev.map(s => {
+        if (s.id === editingSession.id) {
+          return { ...s, ...editingSession };
+        }
+        return s;
+      }));
+      setEditingSession(null);
+    } catch (err) {
+      console.error(err);
+      alert('Lỗi khi cập nhật buổi học!');
     }
     setSaving(false);
   };
@@ -381,6 +420,11 @@ export default function AttendancePage({ params }: { params: Promise<{ id: strin
     const total = present + absent + late;
     const rate = sessions.length > 0 ? Math.round((present / sessions.length) * 100) : 0;
     
+    // Tính tiến độ E-learning
+    const ep = elearningProgressData.find(e => e.studentId === student.id);
+    const completedVideosCount = ep?.progress?.length || 0;
+    const elearningRate = sessions.length > 0 ? Math.round((completedVideosCount / sessions.length) * 100) : 0;
+    
     return {
       ...student,
       present,
@@ -388,28 +432,14 @@ export default function AttendancePage({ params }: { params: Promise<{ id: strin
       late,
       total,
       rate,
+      elearningRate,
       sessions: studentSessions
     };
   });
 
   return (
     <div style={{ maxWidth: 1000, margin: '0 auto', paddingBottom: 60 }}>
-      {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 24 }}>
-        <button 
-          onClick={() => router.push('/dashboard/classes')}
-          className="btn btn-secondary"
-          style={{ padding: '8px 12px' }}
-        >
-          <ArrowLeft size={16} /> Quay lại
-        </button>
-        <div>
-          <h1 style={{ fontSize: 24, fontWeight: 700, margin: 0 }}>Điểm danh: {classData?.className}</h1>
-          <p style={{ margin: '4px 0 0', color: 'var(--text-secondary)', fontSize: 14 }}>
-            Giáo viên: {classData?.instructorName || 'Chưa gán'} • Sĩ số: {students.length}
-          </p>
-        </div>
-      </div>
+
 
       {/* Tabs */}
       <div style={{ display: 'flex', gap: 12, marginBottom: 24, borderBottom: '1px solid var(--border)', paddingBottom: 16 }}>
@@ -481,7 +511,11 @@ export default function AttendancePage({ params }: { params: Promise<{ id: strin
                     }}
                   >
                     <div style={{ fontWeight: 600, marginBottom: 4 }}>Buổi {idx + 1}: {formatDisplayDate(sess.date)}</div>
-                    <div style={{ fontSize: 12, opacity: isActive ? 0.9 : 0.6 }}>{sess.topic || 'Chưa có nội dung'}</div>
+                    <div style={{ fontSize: 12, opacity: isActive ? 0.9 : 0.6, marginBottom: 4 }}>{sess.topic || 'Chưa có nội dung'}</div>
+                    <div style={{ display: 'flex', gap: 12, fontSize: 11, color: isActive ? 'rgba(255,255,255,0.8)' : 'var(--text-muted)' }}>
+                      {sess.videoUrl && <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}><PlayCircle size={12} /> Có Video</span>}
+                      {sess.materialUrl && <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}><FileText size={12} /> Tài liệu</span>}
+                    </div>
                   </div>
                 );
               })}
@@ -497,15 +531,20 @@ export default function AttendancePage({ params }: { params: Promise<{ id: strin
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border)', paddingBottom: 16, marginBottom: 16 }}>
                   <div>
                     <h2 style={{ fontSize: 20, margin: 0 }}>Điểm danh Buổi {sessions.findIndex(s => s.id === selectedSessionId) + 1}</h2>
-                    <p style={{ margin: '4px 0 0', color: 'var(--text-secondary)' }}>Ngày: {formatDisplayDate(selectedSession.date)} • {selectedSession.topic}</p>
+                    <div style={{ margin: '4px 0 0', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                      <span>Ngày: {formatDisplayDate(selectedSession.date)} • {selectedSession.topic || 'Chưa có nội dung'}</span>
+                      <button onClick={() => openEditSession(selectedSessionId)} className="btn btn-secondary btn-sm" style={{ padding: '4px 10px', fontSize: 12, whiteSpace: 'nowrap', borderRadius: 20 }}>
+                        <Edit2 size={14} /> Sửa nội dung & Video
+                      </button>
+                    </div>
                   </div>
                   
-                  <div style={{ display: 'flex', gap: 12 }}>
+                  <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', justifyContent: 'flex-end', marginTop: 8 }}>
                     <button 
                       onClick={() => deleteSession(selectedSessionId)}
                       disabled={saving}
                       className="btn btn-secondary"
-                      style={{ color: 'var(--danger)' }}
+                      style={{ color: 'var(--danger)', whiteSpace: 'nowrap' }}
                     >
                       <Trash2 size={18} /> 
                       Xóa buổi
@@ -514,6 +553,7 @@ export default function AttendancePage({ params }: { params: Promise<{ id: strin
                       onClick={saveAttendance}
                       disabled={saving}
                       className="btn btn-primary"
+                      style={{ whiteSpace: 'nowrap' }}
                     >
                       {saving ? <RefreshCw className="spinner" size={18} /> : <Save size={18} />} 
                       Lưu điểm danh
@@ -645,7 +685,8 @@ export default function AttendancePage({ params }: { params: Promise<{ id: strin
                   </th>
                 ))}
                 <th style={{ padding: '12px 16px', borderBottom: '1px solid var(--border)', textAlign: 'center', borderLeft: '1px solid var(--border)', minWidth: 100 }}>Tổng kết</th>
-                <th style={{ padding: '12px 16px', borderBottom: '1px solid var(--border)', textAlign: 'center', minWidth: 80 }}>Tỷ lệ</th>
+                <th style={{ padding: '12px 16px', borderBottom: '1px solid var(--border)', textAlign: 'center', minWidth: 80 }}>Tỷ lệ đi học</th>
+                <th style={{ padding: '12px 16px', borderBottom: '1px solid var(--border)', textAlign: 'center', minWidth: 100 }}>Tiến độ E-learning</th>
               </tr>
             </thead>
             <tbody>
@@ -674,6 +715,9 @@ export default function AttendancePage({ params }: { params: Promise<{ id: strin
                   <td style={{ padding: '12px 16px', textAlign: 'center', fontWeight: 600, color: st.rate >= 80 ? 'var(--accent-green)' : (st.rate >= 50 ? 'var(--accent-orange)' : 'var(--danger)') }}>
                     {st.rate}%
                   </td>
+                  <td style={{ padding: '12px 16px', textAlign: 'center', fontWeight: 600, color: st.elearningRate >= 80 ? 'var(--accent-purple)' : 'var(--text-secondary)' }}>
+                    {st.elearningRate}%
+                  </td>
                 </tr>
               )) : (
                 <tr>
@@ -689,6 +733,45 @@ export default function AttendancePage({ params }: { params: Promise<{ id: strin
             <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}><span style={{ color: 'var(--accent-green)', fontWeight: 600 }}>V</span>: Có mặt</span>
             <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}><span style={{ color: 'var(--danger)', fontWeight: 600 }}>X</span>: Vắng mặt</span>
             <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}><span style={{ color: 'var(--accent-orange)', fontWeight: 600 }}>T</span>: Đi trễ</span>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Sửa Buổi Học */}
+      {editingSession && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.5)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', backdropFilter: 'blur(4px)' }}>
+          <div className="glass-card animate-fadeInUp" style={{ width: 600, maxWidth: '90%', padding: 32, maxHeight: '90vh', overflowY: 'auto', background: 'white' }}>
+            <h2 style={{ marginTop: 0, borderBottom: '1px solid var(--border)', paddingBottom: 16, fontSize: 20 }}>
+              Cập nhật Nội dung & Video
+            </h2>
+            
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 20 }}>
+              <label style={{ fontWeight: 600, fontSize: 14, color: 'var(--text-primary)' }}>Tên chủ đề / Nội dung bài học</label>
+              <input type="text" className="input" value={editingSession.topic || ''} onChange={e => setEditingSession({...editingSession, topic: e.target.value})} placeholder="VD: Khái niệm cơ bản..." style={{ padding: '10px 14px' }} />
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 20 }}>
+              <label style={{ fontWeight: 600, fontSize: 14, color: 'var(--text-primary)' }}>Ngày học (YYYY-MM-DD)</label>
+              <input type="date" className="input" value={editingSession.date || ''} onChange={e => setEditingSession({...editingSession, date: e.target.value})} style={{ padding: '10px 14px' }} />
+            </div>
+            
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 20 }}>
+              <label style={{ fontWeight: 600, fontSize: 14, color: 'var(--text-primary)', display: 'flex', alignItems: 'center' }}><MonitorPlay size={16} style={{ marginRight: 6, color: 'var(--accent-blue)' }} /> Link Video E-Learning (YouTube / Google Drive)</label>
+              <input type="text" className="input" value={editingSession.videoUrl || ''} onChange={e => setEditingSession({...editingSession, videoUrl: e.target.value})} placeholder="https://youtube.com/watch?v=..." style={{ padding: '10px 14px' }} />
+              <small style={{ color: 'var(--text-muted)', fontSize: 12 }}>* Học sinh vắng mặt hoặc học online có thể xem video này.</small>
+            </div>
+            
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 20 }}>
+              <label style={{ fontWeight: 600, fontSize: 14, color: 'var(--text-primary)', display: 'flex', alignItems: 'center' }}><LinkIcon size={16} style={{ marginRight: 6, color: 'var(--accent-purple)' }} /> Link Tài liệu đính kèm (Tùy chọn)</label>
+              <input type="text" className="input" value={editingSession.materialUrl || ''} onChange={e => setEditingSession({...editingSession, materialUrl: e.target.value})} placeholder="Link Google Drive chứa file PDF/Word..." style={{ padding: '10px 14px' }} />
+            </div>
+            
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 12, marginTop: 32, paddingTop: 20, borderTop: '1px solid var(--border)' }}>
+              <button className="btn btn-secondary" onClick={() => setEditingSession(null)} style={{ padding: '8px 20px' }}>Hủy bỏ</button>
+              <button className="btn btn-primary" onClick={saveEditedSession} disabled={saving} style={{ padding: '8px 20px' }}>
+                {saving ? 'Đang lưu...' : 'Lưu thông tin'}
+              </button>
+            </div>
           </div>
         </div>
       )}

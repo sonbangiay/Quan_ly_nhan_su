@@ -194,9 +194,19 @@ export default function ClassesPage() {
       setClasses(classData);
       setStudents(studentList);
       setEmployees(empData);
+      let allDebts: any[] = [];
+      classData.forEach((c: any) => {
+        if (c.enrollments && Array.isArray(c.enrollments)) {
+          c.enrollments.forEach((e: any) => {
+            if (e.tuitionStatus === 2 || e.tuitionStatus === 3) {
+              allDebts.push({ ...e, className: c.className });
+            }
+          });
+        }
+      });
       setTuitionAlerts(isTeacher
-        ? alertsData.filter((a: any) => classData.some((c: any) => c.id === a.classId))
-        : alertsData
+        ? allDebts.filter((a: any) => classData.some((c: any) => c.id === a.classId))
+        : allDebts
       );
       
       // Load leads if Admin/Manager to link them
@@ -720,7 +730,8 @@ export default function ClassesPage() {
     setSaving(true);
     setError('');
     try {
-      await classApi.assignInstructor(selectedClassForAssign.id, assignForm.instructorId);
+      const insName = instructors.find(i => i.id === assignForm.instructorId)?.fullName || '';
+      await classApi.assignInstructor(selectedClassForAssign.id, assignForm.instructorId, insName);
       setShowAssignInstructor(false);
       setAssignForm({ instructorId: '' });
       setSelectedClassForAssign(null);
@@ -989,68 +1000,13 @@ export default function ClassesPage() {
 
                     <div style={{ display: 'flex', gap: 8, borderTop: '1px solid var(--border)', paddingTop: 14, marginTop: 'auto' }}>
                       <button 
-                        className="btn btn-secondary btn-sm" 
-                        style={{ flex: 1, justifyContent: 'center' }} 
-                        onClick={() => setSelectedClass(c)}
+                        className="btn btn-primary btn-sm" 
+                        style={{ flex: 1, justifyContent: 'center', padding: '8px' }} 
+                        onClick={() => window.location.href = `/dashboard/classes/${c.id}`}
                       >
-                        <Info size={13} /> Chi tiết
+                        <ArrowUpRight size={16} /> Vào lớp học
                       </button>
-                      <button 
-                        className="btn btn-secondary btn-sm" 
-                        style={{ flex: 1, justifyContent: 'center', padding: '4px 6px' }} 
-                        onClick={() => window.location.href = `/dashboard/classes/${c.id}/attendance`}
-                        title="Điểm danh"
-                      >
-                        <Check size={13} /> Điểm danh
-                      </button>
-                      <button 
-                        className="btn btn-secondary btn-sm" 
-                        style={{ flex: 1, justifyContent: 'center', padding: '4px 6px' }} 
-                        onClick={() => window.location.href = `/dashboard/classes/${c.id}/tests`}
-                        title="Điểm số"
-                      >
-                        <BarChart2 size={13} /> Điểm số
-                      </button>
-                      {(user?.role === 'Admin' || user?.role === 'Manager') && (
-                        <div style={{ display: 'flex', gap: 4 }}>
-                          <button 
-                            className="btn btn-secondary btn-sm" 
-                            style={{ justifyContent: 'center', padding: '4px 8px' }}
-                            title="Gán Giảng viên"
-                            onClick={() => {
-                              setSelectedClassForAssign(c);
-                              setAssignForm({ instructorId: c.instructorId || '' });
-                              setError('');
-                              setShowAssignInstructor(true);
-                            }}
-                          >
-                            <Edit2 size={13} />
-                          </button>
-                          <button 
-                            className="btn btn-danger btn-sm" 
-                            style={{ justifyContent: 'center', padding: '4px 8px' }}
-                            title="Xóa lớp học"
-                            disabled={isDeletingClassId === c.id}
-                            onClick={() => handleDeleteClass(c.id)}
-                          >
-                            {isDeletingClassId === c.id ? <span className="spinner" style={{width:13, height:13}}></span> : <Trash2 size={13} />}
-                          </button>
-                        </div>
-                      )}
-                      {(user?.role === 'Admin' || user?.role === 'Manager' || user?.role === 'Instructor') && (
-                        <button 
-                          className="btn btn-primary btn-sm" 
-                          style={{ flex: 1.2, justifyContent: 'center' }}
-                          onClick={() => {
-                            setSelectedClassForEnroll(c);
-                            setEnrollForm({ studentId: '', fullName: '', phone: '', email: '', tuitionStatus: 3, learningGoal: '', notes: '' });
-                            setError('');
-                            setShowEnrollStudent(true);
-                          }}
-                        >
-                          <UserPlus size={13} /> Thêm Học viên
-                        </button>
-                      )}
+
                     </div>
                   </div>
                 );
