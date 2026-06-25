@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { leaveApi } from '@/lib/api';
-import { Plus, Check, X, Calendar, FileText } from 'lucide-react';
+import { Plus, Check, X, Calendar, FileText, Trash2 } from 'lucide-react';
 
 interface LeaveRequest { id: string; employeeId: string; employeeName: string; leaveType: string; startDate: string; endDate: string; reason: string; status: string; approvedById?: string; approvedByName?: string; approvalNotes?: string; createdAt: string; }
 
@@ -17,6 +17,9 @@ export default function LeaveRequestsPage() {
   
   const [showApprove, setShowApprove] = useState<LeaveRequest | null>(null);
   const [approveForm, setApproveForm] = useState({ status: 'Approved', approvalNotes: '' });
+
+  const [filterStartDate, setFilterStartDate] = useState('');
+  const [filterEndDate, setFilterEndDate] = useState('');
 
   const fetchRequests = async () => {
     setLoading(true);
@@ -47,6 +50,16 @@ export default function LeaveRequestsPage() {
     setSaving(false);
   };
 
+  const handleDeleteRequest = async (id: string) => {
+    if (!confirm('Bạn có chắc chắn muốn xóa đơn xin nghỉ phép này không?')) return;
+    try {
+      await leaveApi.deleteRequest(id);
+      fetchRequests();
+    } catch (err) {
+      alert('Lỗi khi xóa đơn xin nghỉ phép');
+    }
+  };
+
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'Approved': return <span className="badge badge-green">Đã duyệt</span>;
@@ -66,9 +79,27 @@ export default function LeaveRequestsPage() {
 
   const isManagerOrAdmin = user?.role === 'Admin' || user?.role === 'Manager';
 
-  const myRequests = requests.filter(r => r.employeeId === user?.id);
-  const pendingRequests = requests.filter(r => r.status === 'Pending' && r.employeeId !== user?.id);
-  const handledRequests = requests.filter(r => r.status !== 'Pending' && r.employeeId !== user?.id);
+  const matchesDateFilter = (req: LeaveRequest) => {
+    if (!filterStartDate && !filterEndDate) return true;
+    // Set hours to 0 to compare just dates
+    const reqStart = new Date(req.startDate); reqStart.setHours(0,0,0,0);
+    const reqEnd = new Date(req.endDate); reqEnd.setHours(23,59,59,999);
+    
+    let isValid = true;
+    if (filterStartDate) {
+      const startFilter = new Date(filterStartDate); startFilter.setHours(0,0,0,0);
+      isValid = isValid && reqEnd.getTime() >= startFilter.getTime();
+    }
+    if (filterEndDate) {
+      const endFilter = new Date(filterEndDate); endFilter.setHours(23,59,59,999);
+      isValid = isValid && reqStart.getTime() <= endFilter.getTime();
+    }
+    return isValid;
+  };
+
+  const myRequests = requests.filter(r => r.employeeId === user?.id && matchesDateFilter(r));
+  const pendingRequests = requests.filter(r => r.status === 'Pending' && r.employeeId !== user?.id && matchesDateFilter(r));
+  const handledRequests = requests.filter(r => r.status !== 'Pending' && r.employeeId !== user?.id && matchesDateFilter(r));
 
   return (
     <div className="section">
@@ -78,6 +109,23 @@ export default function LeaveRequestsPage() {
           <p className="page-subtitle">Yêu cầu nghỉ phép và phê duyệt</p>
         </div>
         <button className="btn btn-primary" onClick={() => setShowAdd(true)}><Plus size={16} /> Xin nghỉ phép</button>
+      </div>
+
+      <div className="glass-card" style={{ padding: 16, marginBottom: 20, display: 'flex', gap: 16, alignItems: 'center', flexWrap: 'wrap' }}>
+        <span style={{ fontWeight: 600, color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: 6 }}><Calendar size={16} /> Lọc theo ngày nghỉ:</span>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          <label style={{ fontSize: 13, color: 'var(--text-secondary)' }}>Từ ngày</label>
+          <input type="date" className="form-input" style={{ padding: '6px 12px', width: 'auto' }} value={filterStartDate} onChange={e => setFilterStartDate(e.target.value)} />
+        </div>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          <label style={{ fontSize: 13, color: 'var(--text-secondary)' }}>Đến ngày</label>
+          <input type="date" className="form-input" style={{ padding: '6px 12px', width: 'auto' }} value={filterEndDate} onChange={e => setFilterEndDate(e.target.value)} />
+        </div>
+        {(filterStartDate || filterEndDate) && (
+          <button className="btn btn-secondary btn-sm" onClick={() => { setFilterStartDate(''); setFilterEndDate(''); }}>
+            <X size={14} /> Xóa lọc
+          </button>
+        )}
       </div>
 
       <div style={{ display: 'grid', gap: 24 }}>
@@ -135,6 +183,7 @@ export default function LeaveRequestsPage() {
                     <th>Lý do</th>
                     <th>Trạng thái</th>
                     <th>Ghi chú duyệt</th>
+                    <th style={{ textAlign: 'right' }}>Thao tác</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -146,10 +195,20 @@ export default function LeaveRequestsPage() {
                       <td style={{ color: 'var(--text-secondary)' }}>{req.reason}</td>
                       <td>{getStatusBadge(req.status)}</td>
                       <td style={{ color: 'var(--text-secondary)' }}>{req.approvalNotes || <span style={{ color: 'var(--text-muted)' }}>—</span>}</td>
+                      <td style={{ textAlign: 'right' }}>
+                        <button 
+                          className="btn btn-secondary btn-sm" 
+                          style={{ padding: 4, background: 'none', border: 'none', color: 'var(--accent-red)' }} 
+                          onClick={() => handleDeleteRequest(req.id)}
+                          title="Xóa đơn này"
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      </td>
                     </tr>
                   ))}
                   {myRequests.length === 0 && (
-                    <tr><td colSpan={6} style={{ textAlign: 'center', color: 'var(--text-muted)', padding: 32 }}>Chưa có đơn xin nghỉ phép nào.</td></tr>
+                    <tr><td colSpan={7} style={{ textAlign: 'center', color: 'var(--text-muted)', padding: 32 }}>Chưa có đơn xin nghỉ phép nào.</td></tr>
                   )}
                 </tbody>
               </table>
@@ -169,6 +228,7 @@ export default function LeaveRequestsPage() {
                     <th>Trạng thái</th>
                     <th>Người duyệt</th>
                     <th>Ghi chú</th>
+                    <th style={{ textAlign: 'right' }}>Thao tác</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -179,6 +239,16 @@ export default function LeaveRequestsPage() {
                       <td>{getStatusBadge(req.status)}</td>
                       <td style={{ color: 'var(--text-secondary)' }}>{req.approvedByName}</td>
                       <td style={{ color: 'var(--text-secondary)' }}>{req.approvalNotes}</td>
+                      <td style={{ textAlign: 'right' }}>
+                        <button 
+                          className="btn btn-secondary btn-sm" 
+                          style={{ padding: 4, background: 'none', border: 'none', color: 'var(--accent-red)' }} 
+                          onClick={() => handleDeleteRequest(req.id)}
+                          title="Xóa đơn này"
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      </td>
                     </tr>
                   ))}
                 </tbody>

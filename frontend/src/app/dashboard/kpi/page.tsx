@@ -140,7 +140,12 @@ export default function KpiPage() {
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
                     <div>
                       <h4 style={{ margin: '0 0 4px', fontSize: 15, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 6 }}><Target size={14} color="var(--accent-blue)" /> {kpi.targetName}</h4>
-                      {isManagerOrAdmin && <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>Nhân viên: <strong>{kpi.employeeName}</strong></div>}
+                      {isManagerOrAdmin && <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 2 }}>Nhân viên: <strong>{kpi.employeeName}</strong></div>}
+                      {(kpi.startDate || kpi.endDate) && (
+                        <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+                          Thời hạn: {kpi.startDate ? new Date(kpi.startDate).toLocaleDateString('vi-VN') : '...'} - {kpi.endDate ? new Date(kpi.endDate).toLocaleDateString('vi-VN') : '...'}
+                        </div>
+                      )}
                     </div>
                     {isManagerOrAdmin && (
                       <button className="btn btn-secondary btn-sm" style={{ padding: 4, background: 'none', border: 'none', color: 'var(--text-muted)' }} onClick={() => handleDelete(kpi.id)}><Trash2 size={14} /></button>
@@ -196,6 +201,14 @@ export default function KpiPage() {
                   }} required>
                     <option value="">-- Chọn nhân viên --</option>
                     {employees.map((e: any) => <option key={e.id} value={e.id}>{e.fullName}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="form-label">Loại KPI *</label>
+                  <select className="form-input" value={form.period} onChange={e => setForm({...form, period: e.target.value})} required>
+                    <option value="Weekly">KPI Tuần</option>
+                    <option value="Monthly">KPI Tháng</option>
+                    <option value="Yearly">KPI Năm</option>
                   </select>
                 </div>
                 <div><label className="form-label">Tên mục tiêu *</label><input className="form-input" value={form.targetName} onChange={e => setForm({...form, targetName: e.target.value})} required /></div>

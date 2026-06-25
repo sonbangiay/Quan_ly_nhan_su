@@ -1,7 +1,7 @@
-import { db } from '@/lib/firebase';
+import { db, auth } from '@/lib/firebase';
 import { collection, doc, getDoc, getDocs, setDoc, updateDoc, deleteDoc, query, where, orderBy } from 'firebase/firestore';
 import { initializeApp } from 'firebase/app';
-import { getAuth, createUserWithEmailAndPassword } from 'firebase/auth';
+import { getAuth, createUserWithEmailAndPassword, updateEmail, updatePassword } from 'firebase/auth';
 import { v4 as uuidv4 } from 'uuid';
 
 // Secondary app to create users without logging out the current admin
@@ -24,6 +24,24 @@ export const authApi = {
   login: async () => { throw new Error("Use AuthContext for login"); },
   refreshToken: async () => { throw new Error("Use AuthContext for refresh"); },
   changePassword: async () => { throw new Error("Use AuthContext for change password"); },
+  updateCredentials: async (newEmail?: string, newPassword?: string) => {
+    const user = auth.currentUser;
+    if (!user) throw { response: { data: { error: 'Chưa đăng nhập' } } };
+    try {
+      if (newEmail && newEmail !== user.email) {
+        await updateEmail(user, newEmail);
+      }
+      if (newPassword) {
+        await updatePassword(user, newPassword);
+      }
+      return toRes({ success: true });
+    } catch (error: any) {
+      if (error.code === 'auth/requires-recent-login') {
+        throw { response: { data: { error: 'requires-recent-login' } } };
+      }
+      throw { response: { data: { error: error.message || 'Lỗi cập nhật tài khoản' } } };
+    }
+  },
   register: async (data: any) => {
     try {
       const userCred = await createUserWithEmailAndPassword(secondaryAuth, data.email, data.password);
@@ -636,6 +654,10 @@ export const leaveApi = {
     await updateDoc(doc(db, 'leaveRequests', id), { ...data, updatedAt: new Date().toISOString() });
     return toRes({ success: true });
   },
+  deleteRequest: async (id: string) => {
+    await deleteDoc(doc(db, 'leaveRequests', id));
+    return toRes({ success: true });
+  },
 };
 
 export const notificationApi = {
@@ -850,6 +872,22 @@ export const courseApi = {
   },
   updateProgress: async (enrollmentId: string, completedLessons: string[]) => {
     await updateDoc(doc(db, 'course_enrollments', enrollmentId), { progress: completedLessons, updatedAt: new Date().toISOString() });
+    return toRes({ success: true });
+  }
+};
+
+export const knowledgeApi = {
+  getDocuments: async () => {
+    const snap = await getDocs(query(collection(db, 'knowledge'), orderBy('createdAt', 'desc')));
+    return toRes(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+  },
+  createDocument: async (data: any) => {
+    const id = uuidv4();
+    await setDoc(doc(db, 'knowledge', id), { id, ...data, createdAt: new Date().toISOString(), views: 0 });
+    return toRes({ success: true, id });
+  },
+  deleteDocument: async (id: string) => {
+    await deleteDoc(doc(db, 'knowledge', id));
     return toRes({ success: true });
   }
 };

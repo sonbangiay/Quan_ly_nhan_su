@@ -310,8 +310,9 @@ export default function ClassesPage() {
   };
 
   // Submit Actions
-  const handleDeleteClass = async (id: string) => {
-    if (!confirm('Bạn có chắc chắn muốn xóa lớp học này? Hành động này không thể hoàn tác!')) return;
+  const handleDeleteClass = async (id: string, className?: string) => {
+    const msg = className ? `Bạn có chắc chắn muốn xóa lớp học "${className}" không? Hành động này không thể hoàn tác!` : 'Bạn có chắc chắn muốn xóa lớp học này? Hành động này không thể hoàn tác!';
+    if (!confirm(msg)) return;
     setIsDeletingClassId(id);
     try {
       await classApi.deleteClass(id);
@@ -1006,7 +1007,17 @@ export default function ClassesPage() {
                       >
                         <ArrowUpRight size={16} /> Vào lớp học
                       </button>
-
+                      {(user?.role === 'Admin' || user?.role === 'Manager') && (
+                        <button
+                          className="btn btn-secondary btn-sm"
+                          style={{ padding: '8px 12px', color: 'var(--accent-red)' }}
+                          title="Xóa lớp học"
+                          disabled={isDeletingClassId === c.id}
+                          onClick={() => handleDeleteClass(c.id, c.className)}
+                        >
+                          {isDeletingClassId === c.id ? <span className="spinner" style={{ width: 16, height: 16 }} /> : <Trash2 size={16} />}
+                        </button>
+                      )}
                     </div>
                   </div>
                 );

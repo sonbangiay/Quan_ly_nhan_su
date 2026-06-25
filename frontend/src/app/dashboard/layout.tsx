@@ -14,7 +14,7 @@ import {
 
 const SIDEBAR_ITEMS = [
   { href: '/dashboard', label: 'Tổng quan', icon: LayoutDashboard, roles: ['Admin', 'Manager', 'Employee'] },
-  { href: '/dashboard/employees', label: 'Nhân viên', icon: Users, roles: ['Admin', 'Manager'] },
+  { href: '/dashboard/employees', label: 'Nhân viên', icon: Users, roles: ['Admin', 'Manager', 'Employee', 'Instructor'] },
   { href: '/dashboard/departments', label: 'Phòng ban', icon: Building2, roles: ['Admin'] },
   { href: '/dashboard/positions', label: 'Chức vụ', icon: Briefcase, roles: ['Admin'] },
   { href: '/dashboard/workplan', label: 'Kế hoạch tuần', icon: ClipboardList, roles: ['Admin', 'Manager', 'Employee'] },
@@ -26,7 +26,6 @@ const SIDEBAR_ITEMS = [
   { href: '/dashboard/leave', label: 'Nghỉ phép', icon: Calendar, roles: ['Admin', 'Manager', 'Employee', 'Instructor'] },
   { href: '/dashboard/classes', label: 'Quản lý Đào tạo', icon: GraduationCap, roles: ['Admin', 'Manager', 'Instructor'] },
   { href: '/dashboard/knowledge', label: 'Kho tài liệu', icon: BookOpen, roles: ['Admin', 'Manager', 'Employee', 'Instructor'] },
-  { href: '/dashboard/integrations', label: 'Tích hợp & API', icon: LinkIcon, roles: ['Admin'] },
   { href: '/dashboard/notifications', label: 'Thông báo', icon: Bell, roles: ['Admin', 'Manager', 'Employee', 'Instructor'] },
   { href: '/dashboard/auditlog', label: 'Nhật ký HĐ', icon: Activity, roles: ['Admin'] },
 ];
@@ -294,6 +293,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         <nav style={{ flex: 1, padding: '12px 0', overflowY: 'auto' }}>
           {visibleItems.map(({ href, label, icon: Icon }) => {
             const isActive = pathname === href || (href !== '/dashboard' && pathname.startsWith(href));
+            const displayLabel = label === 'Nhân viên' && !['Admin', 'Manager'].includes(user.role) ? 'Hồ sơ' : label;
+            const DisplayIcon = label === 'Nhân viên' && !['Admin', 'Manager'].includes(user.role) ? UserCheck : Icon;
             return (
               <Link key={href} href={href} onClick={() => setMobileOpen(false)}
                 style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 16px',
@@ -301,14 +302,17 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                   color: isActive ? 'var(--accent-blue)' : 'var(--text-secondary)',
                   background: isActive ? 'rgba(79,142,247,0.12)' : 'transparent',
                   border: isActive ? '1px solid rgba(79,142,247,0.2)' : '1px solid transparent',
-                  transition: 'all 0.15s ease', fontSize: 14, fontWeight: 500, whiteSpace: 'nowrap',
-                  overflow: 'hidden'
-                }}
+                  fontWeight: isActive ? 600 : 500, transition: 'all 0.2s', position: 'relative',
+                  justifyContent: collapsed ? 'center' : 'flex-start'
+                }} title={collapsed ? displayLabel : undefined}
                 onMouseEnter={e => { if (!isActive) { e.currentTarget.style.background = 'var(--bg-hover)'; e.currentTarget.style.color = 'var(--text-primary)'; }}}
                 onMouseLeave={e => { if (!isActive) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text-secondary)'; }}}
               >
-                <Icon size={18} style={{ flexShrink: 0 }} />
-                {!collapsed && label}
+                <DisplayIcon size={20} strokeWidth={isActive ? 2.5 : 2} />
+                {!collapsed && <span>{displayLabel}</span>}
+                {isActive && !collapsed && (
+                  <div style={{ position: 'absolute', right: 12, width: 6, height: 6, borderRadius: '50%', background: 'var(--accent-blue)' }} />
+                )}
               </Link>
             );
           })}
