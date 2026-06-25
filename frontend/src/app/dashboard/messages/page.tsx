@@ -6,7 +6,7 @@ import {
   MessageSquare, Send, Phone, User, Calendar, PlusCircle, 
   Search, Filter, CheckCircle2, MoreVertical, Paperclip, Smile, Loader2
 } from 'lucide-react';
-import { collection, onSnapshot, query, where, orderBy, doc, updateDoc } from 'firebase/firestore';
+import { collection, onSnapshot, query, where, orderBy, doc, updateDoc, deleteDoc, getDocs } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { db, storage } from '@/lib/firebase';
 
@@ -22,6 +22,8 @@ export default function MessagesPage() {
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [sending, setSending] = useState(false);
+  const [deletingConvId, setDeletingConvId] = useState<string | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState<any | null>(null);
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -79,6 +81,22 @@ export default function MessagesPage() {
     setTimeout(() => {
       messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     }, 100);
+  };
+
+  // Xoa cuoc hoi thoai va tat ca tin nhan cua no
+  const handleDeleteConversation = async (conv: any) => {
+    setDeletingConvId(conv.id);
+    try {
+      const msgsSnap = await getDocs(query(collection(db, 'messages'), where('conversationId', '==', conv.id)));
+      await Promise.all(msgsSnap.docs.map(d => deleteDoc(doc(db, 'messages', d.id))));
+      await deleteDoc(doc(db, 'conversations', conv.id));
+      if (selectedConv?.id === conv.id) setSelectedConv(null);
+    } catch (e) {
+      alert('Xoá thất bại, vui lòng thử lại!');
+    } finally {
+      setDeletingConvId(null);
+      setConfirmDelete(null);
+    }
   };
 
   const handleSendMessage = async (e?: React.FormEvent, customImageUrl?: string) => {
@@ -195,16 +213,19 @@ export default function MessagesPage() {
           ) : (
             conversations.filter(c => activeTab === 'All' || c.platform === activeTab).map(conv => (
               <div 
-                key={conv.id} 
-                onClick={() => setSelectedConv(conv)}
+                key={conv.id}
                 style={{ 
                   padding: '16px 20px', 
                   borderBottom: '1px solid var(--border)',
                   cursor: 'pointer',
                   background: selectedConv?.id === conv.id ? 'var(--bg-hover)' : 'transparent',
                   display: 'flex', gap: 12, alignItems: 'center',
-                  transition: 'background 0.2s'
+                  transition: 'background 0.2s',
+                  position: 'relative'
                 }}
+                onMouseEnter={e => { const btn = (e.currentTarget as HTMLElement).querySelector('.del-btn') as HTMLElement; if(btn) btn.style.opacity='1'; }}
+                onMouseLeave={e => { const btn = (e.currentTarget as HTMLElement).querySelector('.del-btn') as HTMLElement; if(btn) btn.style.opacity='0'; }}
+                onClick={() => setSelectedConv(conv)}
               >
                 <div style={{ position: 'relative' }}>
                   {conv.customerAvatar ? (
@@ -245,6 +266,22 @@ export default function MessagesPage() {
                     )}
                   </div>
                 </div>
+
+                {/* Nut xoa - hien khi hover */}
+                <button
+                  className="del-btn"
+                  onClick={e => { e.stopPropagation(); setConfirmDelete(conv); }}
+                  style={{
+                    opacity: 0, transition: 'opacity 0.2s',
+                    position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)',
+                    background: 'rgba(239,68,68,0.12)', border: 'none', borderRadius: 8,
+                    color: '#ef4444', cursor: 'pointer', padding: '5px 8px', fontSize: 12,
+                    display: 'flex', alignItems: 'center', gap: 4
+                  }}
+                  title="Xoá cuộc hội thoại"
+                >
+                  {deletingConvId === conv.id ? '...' : '🗑️'}
+                </button>
               </div>
             ))
           )}
@@ -406,6 +443,39 @@ export default function MessagesPage() {
               </button>
             </div>
           )}
+        </div>
+      )}
+
+      {/* Dialog xac nhan xoa */}
+      {confirmDelete && (
+        <div style={{
+          position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999
+        }}>
+          <div className="glass-card" style={{ padding: 28, width: 360, borderRadius: 16, textAlign: 'center' }}>
+            <div style={{ fontSize: 40, marginBottom: 12 }}>🗑️</div>
+            <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 8, color: 'var(--text-primary)' }}>
+              Xoá cuộc hội thoại?
+            </div>
+            <div style={{ color: 'var(--text-secondary)', fontSize: 13, marginBottom: 24 }}>
+              Bạn có chắc muốn xoá toàn bộ lịch sử chat với <strong>{confirmDelete.customerName}</strong>? Hành động này không thể hoàn tác.
+            </div>
+            <div style={{ display: 'flex', gap: 12, justifyContent: 'center' }}>
+              <button
+                onClick={() => setConfirmDelete(null)}
+                style={{ padding: '10px 24px', borderRadius: 10, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text-primary)', cursor: 'pointer', fontWeight: 600 }}
+              >
+                Huỷ
+              </button>
+              <button
+                onClick={() => handleDeleteConversation(confirmDelete)}
+                disabled={deletingConvId === confirmDelete.id}
+                style={{ padding: '10px 24px', borderRadius: 10, border: 'none', background: '#ef4444', color: 'white', cursor: 'pointer', fontWeight: 600, opacity: deletingConvId === confirmDelete.id ? 0.7 : 1 }}
+              >
+                {deletingConvId === confirmDelete.id ? 'Đang xoá...' : 'Xoá'}
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

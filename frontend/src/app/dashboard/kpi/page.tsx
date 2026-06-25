@@ -13,7 +13,7 @@ export default function KpiPage() {
   const [loading, setLoading] = useState(true);
   
   const [showAdd, setShowAdd] = useState(false);
-  const [form, setForm] = useState({ employeeId: '', targetName: '', targetValue: 0, unit: '', period: 'Monthly', startDate: '', endDate: '' });
+  const [form, setForm] = useState<any>({ employeeId: '', employeeName: '', targetName: '', targetValue: 0, unit: '', period: 'Monthly', startDate: '', endDate: '' });
   const [saving, setSaving] = useState(false);
 
   // Edit current value
@@ -83,7 +83,7 @@ export default function KpiPage() {
         </div>
         {isManagerOrAdmin && (
           <button className="btn btn-primary" onClick={() => {
-            setForm({ employeeId: '', targetName: '', targetValue: 0, unit: '', period: period, startDate: '', endDate: '' });
+            setForm({ employeeId: '', employeeName: '', targetName: '', targetValue: 0, unit: '', period: period, startDate: '', endDate: '' });
             setShowAdd(true);
           }}><Plus size={16} /> Giao KPI mới</button>
         )}
@@ -120,7 +120,7 @@ export default function KpiPage() {
         ) : (
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: 16 }}>
             {displayKpis.map(kpi => {
-              const pct = kpi.targetValue > 0 ? Math.min((kpi.currentValue / kpi.targetValue) * 100, 100) : 0;
+              const pct = kpi.targetValue > 0 ? Math.min(((kpi.currentValue ?? 0) / kpi.targetValue) * 100, 100) : 0;
               const color = getProgressColor(pct);
               return (
                 <div key={kpi.id} style={{ border: '1px solid var(--border)', borderRadius: 12, padding: 16, background: 'var(--bg-card)' }}>
@@ -154,8 +154,8 @@ export default function KpiPage() {
                       </div>
                     ) : (
                       <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 14, fontWeight: 700, color: 'var(--text-primary)' }}>
-                        {kpi.currentValue.toLocaleString()} {kpi.unit}
-                        <button className="btn btn-secondary btn-sm" style={{ padding: 4, background: 'none', border: 'none' }} onClick={() => { setEditingId(kpi.id); setEditValue(kpi.currentValue); }}><Edit2 size={14} /></button>
+                        {(kpi.currentValue ?? 0).toLocaleString()} {kpi.unit}
+                        <button className="btn btn-secondary btn-sm" style={{ padding: 4, background: 'none', border: 'none' }} onClick={() => { setEditingId(kpi.id); setEditValue(kpi.currentValue ?? 0); }}><Edit2 size={14} /></button>
                       </div>
                     )}
                   </div>
@@ -177,9 +177,12 @@ export default function KpiPage() {
               <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
                 <div>
                   <label className="form-label">Nhân viên *</label>
-                  <select className="form-input" value={form.employeeId} onChange={e => setForm({...form, employeeId: e.target.value})} required>
+                  <select className="form-input" value={form.employeeId} onChange={e => {
+                    const selected = employees.find((emp: any) => emp.id === e.target.value);
+                    setForm({...form, employeeId: e.target.value, employeeName: selected?.fullName || ''});
+                  }} required>
                     <option value="">-- Chọn nhân viên --</option>
-                    {employees.map(e => <option key={e.id} value={e.id}>{e.fullName}</option>)}
+                    {employees.map((e: any) => <option key={e.id} value={e.id}>{e.fullName}</option>)}
                   </select>
                 </div>
                 <div><label className="form-label">Tên mục tiêu *</label><input className="form-input" value={form.targetName} onChange={e => setForm({...form, targetName: e.target.value})} required /></div>

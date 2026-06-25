@@ -509,11 +509,18 @@ export const reportApi = {
 export const kpiApi = {
   getKpis: async (period?: string) => {
     const snap = await getDocs(collection(db, 'kpis'));
-    return toRes(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+    let kpis = snap.docs.map(d => ({ id: d.id, ...d.data() })) as any[];
+    if (period) kpis = kpis.filter((k: any) => k.period === period);
+    return toRes(kpis);
   },
   createKpi: async (data: any) => {
     const id = uuidv4();
-    await setDoc(doc(db, 'kpis', id), { id, ...data, createdAt: new Date().toISOString() });
+    await setDoc(doc(db, 'kpis', id), {
+      id,
+      ...data,
+      currentValue: 0,      // Khoi tao gia tri hien tai = 0
+      createdAt: new Date().toISOString()
+    });
     return toRes({ success: true });
   },
   updateValue: async (id: string, currentValue: number) => {
