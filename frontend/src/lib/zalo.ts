@@ -70,20 +70,22 @@ export async function getZaloToken(): Promise<string> {
 }
 
 /**
- * Lấy thông tin người dùng từ Zalo (Tên, Avatar)
+ * Lấy thông tin người dùng từ Zalo (Tên, Avatar) - qua internal API route
  */
 export async function getZaloProfile(userId: string) {
   try {
-    const token = await getZaloToken();
+    // Gọi API Route nội bộ của Vercel - nó sẽ tự xử lý V3 và fallback proxy
+    const baseUrl = typeof window !== 'undefined' 
+      ? window.location.origin 
+      : 'https://hrm.nhanphuphuyen.edu.vn';
     
-    // Chuyển hướng sang Proxy Server Việt Nam (iNET) để qua mặt Zalo
-    const proxyUrl = `https://nhanphuphuyen.edu.vn/zalo_proxy.php?user_id=${userId}&token=${token}`;
-    
-    const response = await fetch(proxyUrl);
+    const response = await fetch(`${baseUrl}/api/zalo/profile?user_id=${userId}`);
     const data = await response.json();
+    
     if (data.error === 0) {
       return data.data; // { display_name, avatar, user_id, ... }
     }
+    
     console.error('Lỗi lấy profile Zalo:', data);
     
     // Log error to Firestore to debug
