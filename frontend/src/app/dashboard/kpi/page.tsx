@@ -116,11 +116,11 @@ export default function KpiPage() {
               <Tooltip 
                 cursor={{ fill: 'var(--bg-hover)' }}
                 contentStyle={{ background: 'var(--bg-card)', border: 'none', borderRadius: 12, boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
-                formatter={(value: number) => [`${value}%`, 'Tiến độ trung bình']}
+                formatter={(value: any) => [`${value}%`, 'Tiến độ trung bình']}
                 labelStyle={{ fontWeight: 700, color: 'var(--text-primary)', marginBottom: 4 }}
               />
               <Bar dataKey="progress" fill="url(#colorProgress)" barSize={56} radius={[6, 6, 0, 0]} animationDuration={1000}>
-                <LabelList dataKey="progress" position="top" formatter={(val: number) => `${val}%`} style={{ fill: 'var(--text-secondary)', fontSize: 11, fontWeight: 600 }} />
+                <LabelList dataKey="progress" position="top" formatter={(val: any) => `${val}%`} style={{ fill: 'var(--text-secondary)', fontSize: 13, fontWeight: 700 }} />
               </Bar>
             </BarChart>
           </ResponsiveContainer>
