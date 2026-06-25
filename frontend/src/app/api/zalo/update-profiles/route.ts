@@ -21,8 +21,17 @@ export async function GET() {
     for (const conv of toUpdate) {
       const userId = conv.id;
       try {
-        const proxyUrl = `${process.env.ZALO_PROXY_URL || 'https://nhanphuphuyen.edu.vn/zalo_proxy.php'}?user_id=${userId}`;
-        const res = await fetch(proxyUrl, { signal: AbortSignal.timeout(10000) });
+        // Lay token tu Zalo
+        const { getZaloToken } = await import('@/lib/zalo');
+        const token = await getZaloToken();
+        
+        const proxyUrl = process.env.ZALO_PROXY_URL || 'https://nhanphuphuyen.edu.vn/zalo_proxy.php';
+        const res = await fetch(proxyUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ user_id: userId, access_token: token }),
+          signal: AbortSignal.timeout(10000)
+        });
         const data = await res.json();
 
         if (data.error === 0 && data.data) {

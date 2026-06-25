@@ -42,13 +42,19 @@ export async function POST(request: Request) {
       }
 
       // Lấy Profile khách hàng từ Zalo qua PHP Proxy Việt Nam (iNET)
-      // Proxy tự quản lý token - không cần truyền token qua URL (tránh bị WAF chặn)
+      // Gửi token qua POST body (tránh WAF chặn URL dài)
       let customerName = 'Zalo User ' + senderId.substring(0, 5);
       let customerAvatar = '';
       
       try {
-        const proxyUrl = `${process.env.ZALO_PROXY_URL || 'https://nhanphuphuyen.edu.vn/zalo_proxy.php'}?user_id=${senderId}`;
-        const profileRes = await fetch(proxyUrl, { 
+        const { getZaloToken } = await import('@/lib/zalo');
+        const token = await getZaloToken();
+        
+        const proxyUrl = process.env.ZALO_PROXY_URL || 'https://nhanphuphuyen.edu.vn/zalo_proxy.php';
+        const profileRes = await fetch(proxyUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ user_id: senderId, access_token: token }),
           signal: AbortSignal.timeout(10000)
         });
         const profileData = await profileRes.json();
