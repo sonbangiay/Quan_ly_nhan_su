@@ -160,7 +160,7 @@ export default function DashboardPage() {
                     outerRadius={80}
                     paddingAngle={4}
                     dataKey="value"
-                    label={({ name, percent }) => percent > 0 ? `${name} ${(percent * 100).toFixed(0)}%` : ''}
+                    label={({ name, percent }: any) => (percent || 0) > 0 ? `${name} ${((percent || 0) * 100).toFixed(0)}%` : ''}
                     labelLine={{ stroke: 'var(--border)', strokeWidth: 1 }}
                   >
                     {summary.departmentStats?.map((entry, index) => (
