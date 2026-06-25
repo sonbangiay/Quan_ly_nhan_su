@@ -450,13 +450,62 @@ export const initApi = {
       employees: emps.docs.map(d => ({ id: d.id, ...d.data() }))
     });
   },
-  getDashboardData: async () => toRes({
-    summary: { role: 'Admin', totalEmployees: 0, checkedInToday: 0 },
-    kpiChart: [],
-    leadFunnel: [],
-    revenueForecast: null,
-    dailyActivities: []
-  }),
+  getDashboardData: async () => {
+    // 1. Employees
+    const empSnap = await getDocs(collection(db, 'employees'));
+    const employees = empSnap.docs.map(d => d.data());
+    const totalEmployees = employees.filter(e => e.isActive !== false).length;
+    
+    // 2. Attendance
+    const today = new Date().toISOString().split('T')[0];
+    const attSnap = await getDocs(query(collection(db, 'attendance'), where('date', '==', today)));
+    const checkedInToday = attSnap.size;
+    const attendanceRate = totalEmployees > 0 ? Math.round((checkedInToday / totalEmployees) * 100) : 0;
+    
+    // 3. Leads (new this week)
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+    const leadsSnap = await getDocs(collection(db, 'leads'));
+    const leads = leadsSnap.docs.map(d => d.data());
+    const newLeadsThisWeek = leads.filter(l => new Date(l.createdAt || l.updatedAt || new Date()) >= sevenDaysAgo).length;
+    
+    // 4. Leave Requests (pending)
+    const leaveSnap = await getDocs(query(collection(db, 'leaveRequests'), where('status', '==', 'Pending')));
+    const pendingLeaveRequests = leaveSnap.size;
+    
+    // 5. KPIs
+    const kpiSnap = await getDocs(collection(db, 'kpis'));
+    const kpis = kpiSnap.docs.map(d => d.data());
+    const totalProgress = kpis.reduce((acc: number, k: any) => acc + (Number(k.progress) || 0), 0);
+    const avgKpiProgress = kpis.length > 0 ? Math.round(totalProgress / kpis.length) : 0;
+
+    // KPI Chart Data
+    const kpiChart = kpis.slice(0, 5).map(k => ({ employee: k.employeeName || 'Nhân viên', targets: [{ targetName: k.title, targetValue: 100, currentValue: k.progress || 0, unit: '%', progress: k.progress || 0 }] }));
+
+    // Lead Funnel
+    const funnelCounts = leads.reduce((acc: any, l: any) => {
+       const status = l.status || 'New';
+       acc[status] = (acc[status] || 0) + 1;
+       return acc;
+    }, {});
+    const leadFunnel = Object.keys(funnelCounts).map(k => ({ status: k, count: funnelCounts[k] }));
+    
+    // Dept Stats
+    const deptsSnap = await getDocs(collection(db, 'departments'));
+    const departmentStats = deptsSnap.docs.map(d => {
+      const dept = d.data();
+      const count = employees.filter(e => e.departmentId === d.id).length;
+      return { name: dept.name, count };
+    });
+
+    return toRes({
+      summary: { role: 'Admin', totalEmployees, checkedInToday, attendanceRate, newLeadsThisWeek, pendingLeaveRequests, avgKpiProgress, departmentStats },
+      kpiChart,
+      leadFunnel,
+      revenueForecast: null,
+      dailyActivities: []
+    });
+  },
   getStudentDashboardData: async (phone: string) => {
     const stuSnap = await getDocs(query(collection(db, 'students'), where('phone', '==', phone)));
     if (stuSnap.empty) throw new Error('Student not found');

@@ -150,14 +150,26 @@ export default function DashboardPage() {
             {/* Department chart */}
             <div className="glass-card" style={{ padding: 20 }}>
               <h3 style={{ marginBottom: 16, fontSize: 15, fontWeight: 700 }}>Nhân sự theo Phòng ban</h3>
-              <ResponsiveContainer width="100%" height={220}>
-                <BarChart data={summary.departmentStats?.map(d => ({ name: d.name.replace('Phòng ', ''), value: d.count }))}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
-                  <XAxis dataKey="name" tick={{ fill: 'var(--text-secondary)', fontSize: 12 }} />
-                  <YAxis tick={{ fill: 'var(--text-secondary)', fontSize: 12 }} />
-                  <Tooltip contentStyle={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 8 }} />
-                  <Bar dataKey="value" fill="var(--accent-blue)" radius={[4, 4, 0, 0]} />
-                </BarChart>
+              <ResponsiveContainer width="100%" height={300}>
+                <PieChart margin={{ top: 20, right: 20, bottom: 20, left: 20 }}>
+                  <Pie
+                    data={summary.departmentStats?.map(d => ({ name: d.name.replace('Phòng ', ''), value: d.count }))}
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={60}
+                    outerRadius={80}
+                    paddingAngle={4}
+                    dataKey="value"
+                    label={({ name, percent }) => percent > 0 ? `${name} ${(percent * 100).toFixed(0)}%` : ''}
+                    labelLine={{ stroke: 'var(--border)', strokeWidth: 1 }}
+                  >
+                    {summary.departmentStats?.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                    ))}
+                  </Pie>
+                  <Tooltip contentStyle={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 12, boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }} itemStyle={{ fontWeight: 600 }} />
+                  <Legend verticalAlign="bottom" height={36} iconType="circle" wrapperStyle={{ fontSize: 13 }} />
+                </PieChart>
               </ResponsiveContainer>
             </div>
 
@@ -171,12 +183,28 @@ export default function DashboardPage() {
                   
                   return (
                     <div key={idx} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                      <div style={{ width: `${widthPct}%`, background: COLORS[idx % COLORS.length], padding: '10px 0', borderRadius: 4, color: 'white', textAlign: 'center', fontWeight: 600, fontSize: 13, minWidth: 150, transition: 'width 0.5s ease-in-out', boxShadow: '0 4px 6px rgba(0,0,0,0.05)' }}>
-                        {item.status}: <span style={{ fontSize: 15 }}>{item.count}</span>
+                      <div style={{ 
+                        width: `${widthPct}%`, 
+                        background: `linear-gradient(90deg, ${COLORS[idx % COLORS.length]}e6, ${COLORS[idx % COLORS.length]})`, 
+                        padding: '12px 20px', 
+                        borderRadius: 12, 
+                        color: 'white', 
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        fontWeight: 600, 
+                        fontSize: 14, 
+                        minWidth: 160, 
+                        transition: 'all 0.5s ease-in-out', 
+                        boxShadow: '0 8px 16px rgba(0,0,0,0.1)',
+                        border: '1px solid rgba(255,255,255,0.25)'
+                      }}>
+                        <span style={{ textShadow: '0 1px 2px rgba(0,0,0,0.2)' }}>{item.status}</span>
+                        <span style={{ fontSize: 16, background: 'rgba(0,0,0,0.25)', padding: '2px 12px', borderRadius: 16, boxShadow: 'inset 0 1px 3px rgba(0,0,0,0.2)' }}>{item.count}</span>
                       </div>
                       {idx < leadFunnel.length - 1 && (
-                        <div style={{ fontSize: 12, color: 'var(--text-secondary)', margin: '2px 0', display: 'flex', alignItems: 'center', fontWeight: 500, background: 'var(--bg-secondary)', padding: '2px 10px', borderRadius: 12 }}>
-                          ↓ Chuyển đổi: <span style={{ color: 'var(--accent-orange)', marginLeft: 4, fontWeight: 700 }}>{leadFunnel[idx+1] ? (leadFunnel[idx]?.count > 0 ? ((leadFunnel[idx+1].count / leadFunnel[idx].count)*100).toFixed(1) : 0) : 0}%</span>
+                        <div style={{ fontSize: 12, color: 'var(--text-secondary)', margin: '6px 0', display: 'flex', alignItems: 'center', fontWeight: 600, background: 'var(--bg-secondary)', padding: '4px 12px', borderRadius: 12, border: '1px solid var(--border)' }}>
+                          ↓ Tỷ lệ chuyển đổi: <span style={{ color: 'var(--accent-orange)', marginLeft: 6, fontWeight: 800, fontSize: 13 }}>{leadFunnel[idx+1] ? (leadFunnel[idx]?.count > 0 ? ((leadFunnel[idx+1].count / leadFunnel[idx].count)*100).toFixed(1) : 0) : 0}%</span>
                         </div>
                       )}
                     </div>
