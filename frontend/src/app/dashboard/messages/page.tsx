@@ -6,7 +6,7 @@ import {
   MessageSquare, Send, Phone, User, Calendar, PlusCircle, 
   Search, Filter, CheckCircle2, MoreVertical, Paperclip, Smile, Loader2, Bot
 } from 'lucide-react';
-import { collection, onSnapshot, query, where, orderBy, doc, updateDoc, deleteDoc, getDocs } from 'firebase/firestore';
+import { collection, onSnapshot, query, where, orderBy, doc, updateDoc, deleteDoc, getDocs, setDoc } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { db, storage } from '@/lib/firebase';
 
@@ -24,6 +24,7 @@ export default function MessagesPage() {
   const [sending, setSending] = useState(false);
   const [deletingConvId, setDeletingConvId] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<any | null>(null);
+  const [globalAiEnabled, setGlobalAiEnabled] = useState(true);
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -39,6 +40,18 @@ export default function MessagesPage() {
     });
 
     return () => unsubscribe();
+  }, []);
+
+  // Listen to Global AI config
+  useEffect(() => {
+    const unsub = onSnapshot(doc(db, 'settings', 'ai_config'), (docSnap) => {
+      if (docSnap.exists() && docSnap.data().globalBotEnabled === false) {
+        setGlobalAiEnabled(false);
+      } else {
+        setGlobalAiEnabled(true);
+      }
+    });
+    return () => unsub();
   }, []);
 
   // Load messages realtime when a conversation is selected
@@ -186,15 +199,63 @@ export default function MessagesPage() {
     }
   };
 
+  const toggleGlobalAI = async () => {
+    try {
+      await updateDoc(doc(db, 'settings', 'ai_config'), {
+        globalBotEnabled: !globalAiEnabled
+      });
+    } catch (err: any) {
+      if (err.code === 'not-found') {
+        await setDoc(doc(db, 'settings', 'ai_config'), {
+          globalBotEnabled: !globalAiEnabled
+        });
+      } else {
+        alert('Lỗi khi bật/tắt AI toàn cục');
+      }
+    }
+  };
+
   return (
     <div style={{ display: 'flex', height: 'calc(100vh - 80px)', gap: 16 }}>
       
       {/* CỘT TRÁI: Danh sách hội thoại */}
       <div className="glass-card animate-fadeInUp" style={{ width: 340, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
         <div style={{ padding: 20, borderBottom: '1px solid var(--border)' }}>
-          <h2 style={{ fontSize: 18, fontWeight: 700, margin: '0 0 16px', display: 'flex', alignItems: 'center', gap: 8 }}>
-            <MessageSquare size={20} color="var(--accent-blue)" /> Tin nhắn Đa kênh
-          </h2>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+            <h2 style={{ fontSize: 18, fontWeight: 700, margin: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
+              <MessageSquare size={20} color="var(--accent-blue)" /> Tin nhắn Đa kênh
+            </h2>
+            {/* Beautiful Global AI Toggle */}
+            <div 
+              onClick={toggleGlobalAI}
+              style={{ 
+                display: 'flex', alignItems: 'center', gap: 10, 
+                padding: '6px 12px', borderRadius: 20, cursor: 'pointer',
+                background: globalAiEnabled ? 'linear-gradient(135deg, rgba(34,197,94,0.15) 0%, rgba(21,128,61,0.05) 100%)' : 'rgba(0,0,0,0.05)',
+                border: `1px solid ${globalAiEnabled ? 'rgba(34,197,94,0.3)' : 'rgba(0,0,0,0.1)'}`,
+                transition: 'all 0.3s ease',
+                boxShadow: globalAiEnabled ? '0 4px 12px rgba(34,197,94,0.15)' : 'none'
+              }}
+              title="Bật/tắt AI tự động trả lời cho toàn bộ khách hàng"
+            >
+              <Bot size={16} color={globalAiEnabled ? '#16a34a' : '#9ca3af'} />
+              <span style={{ fontSize: 12, fontWeight: 800, color: globalAiEnabled ? '#15803d' : '#6b7280', letterSpacing: '0.5px' }}>
+                {globalAiEnabled ? 'AI AUTO: ON' : 'AI AUTO: OFF'}
+              </span>
+              <div style={{
+                width: 32, height: 18, borderRadius: 10, position: 'relative',
+                background: globalAiEnabled ? 'linear-gradient(135deg, #22c55e 0%, #16a34a 100%)' : '#d1d5db',
+                transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
+              }}>
+                <div style={{
+                  width: 14, height: 14, borderRadius: 7, background: 'white',
+                  position: 'absolute', top: 2, left: globalAiEnabled ? 16 : 2,
+                  transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                  boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
+                }} />
+              </div>
+            </div>
+          </div>
           <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
             {['All', 'Zalo', 'Facebook'].map(tab => (
               <button 

@@ -77,8 +77,11 @@ export const aiAgent = {
     }
   },
 
-  generateResponse: async (message: string, aiPrompt: string, senderId: string = '') => {
+  generateResponse: async (message: string, aiPrompt?: string, senderId?: string, history?: string) => {
     try {
+      if (!process.env.GEMINI_API_KEY) {
+        throw new Error('Thiếu GEMINI_API_KEY');
+      }
       const genAI = getGemini();
       
       // Khai báo các công cụ (Tools) cho AI
@@ -114,7 +117,7 @@ export const aiAgent = {
       ];
 
       const model = genAI.getGenerativeModel({ 
-        model: 'gemini-2.5-flash',
+        model: 'gemini-2.0-flash',
         tools: tools as any // Bypass strict type check for tools
       });
 
@@ -131,10 +134,13 @@ QUY TẮC BẮT BUỘC (ĐỂ GIỐNG NGƯỜI THẬT):
 4. ĐẶT LỊCH HẸN: Khi khách đã trao đổi qua lại vài câu và có vẻ quan tâm, hãy khéo léo mời khách tới trung tâm hoặc gọi điện tư vấn 1-1. Nếu khách đồng ý, gọi hàm "bookAppointment".
 5. KIẾN THỨC TỰ ĐỘNG: Nếu tài liệu không có thông tin, hãy tự tin dùng kiến thức chung của bạn để tư vấn như một chuyên gia thực thụ của Nhân Phú.
 
+LỊCH SỬ TRÒ CHUYỆN (GẦN ĐÂY NHẤT):
+${history ? history : 'Chưa có lịch sử. Đây là tin nhắn đầu tiên.'}
+
 DỮ LIỆU TỪ TRUNG TÂM (KNOWLEDGE BASE):
 ${context ? context : 'Chưa có tài liệu cụ thể. Hãy tự động tư vấn bằng kiến thức chung của bạn.'}
 
-TIN NHẮN KHÁCH HÀNG:
+TIN NHẮN HIỆN TẠI TỪ KHÁCH HÀNG:
 ${message}
       `;
 

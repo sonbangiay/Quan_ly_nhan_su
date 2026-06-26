@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/firebase';
-import { collection, addDoc, doc, setDoc, increment } from 'firebase/firestore';
+import { collection, addDoc, doc, setDoc, increment, query, where, orderBy, limit, getDocs } from 'firebase/firestore';
 
 // Zalo sẽ gọi vào API này mỗi khi có người nhắn tin tới OA
 export async function POST(request: Request) {
@@ -22,6 +22,21 @@ export async function POST(request: Request) {
       let messageText = '';
       let imageUrl = '';
       let stickerUrl = '';
+      let msgId = payload.message?.msg_id || timestamp.toString();
+
+      // Deduplication: Kiểm tra xem tin nhắn này đã được xử lý chưa
+      try {
+        const { getDoc } = await import('firebase/firestore');
+        const processedRef = doc(db, 'processed_messages', msgId);
+        const processedSnap = await getDoc(processedRef);
+        if (processedSnap.exists()) {
+          console.log('Tin nhắn này đã được xử lý, bỏ qua retry từ Zalo:', msgId);
+          return NextResponse.json({ success: true }, { status: 200 });
+        }
+        await setDoc(processedRef, { processedAt: new Date().toISOString() });
+      } catch (e) {
+        console.error('Lỗi check deduplication:', e);
+      }
 
       if (eventName === 'user_send_text') {
         messageText = payload.message?.text || '';
@@ -100,11 +115,24 @@ export async function POST(request: Request) {
       let botEnabled = true;
       try {
         const { getDoc } = await import('firebase/firestore');
-        const convSnap = await getDoc(convRef);
-        if (convSnap.exists() && convSnap.data().botEnabled === false) {
+        
+        // Kiểm tra Global Bot Config trước
+        const globalRef = doc(db, 'settings', 'ai_config');
+        const globalSnap = await getDoc(globalRef);
+        if (globalSnap.exists() && globalSnap.data().globalBotEnabled === false) {
           botEnabled = false;
+          console.log('AI đang bị TẮT toàn cục (Global).');
+        } else {
+          // Nếu Global bật, kiểm tra tiếp Bot riêng cho cuộc trò chuyện này
+          const convSnap = await getDoc(convRef);
+          if (convSnap.exists() && convSnap.data().botEnabled === false) {
+            botEnabled = false;
+            console.log(`AI đang bị TẮT cho cuộc trò chuyện ${senderId}.`);
+          }
         }
-      } catch (e) {}
+      } catch (e) {
+        console.error('Lỗi check botEnabled:', e);
+      }
 
       // 4. AI Tự động trả lời (nếu là tin nhắn văn bản và Bot đang bật)
       if (eventName === 'user_send_text' && messageText && botEnabled) {
@@ -113,8 +141,20 @@ export async function POST(request: Request) {
           // Lấy AI Prompt từ cấu hình hệ thống
           const defaultPrompt = 'Bạn là trợ lý AI thông minh của trung tâm Nhân Phú. Hãy dựa vào tài liệu được cung cấp để trả lời khách hàng ngắn gọn, thân thiện và chính xác.';
           
+          // 4.1 Lấy lịch sử trò chuyện (Memory) để AI thông minh hơn
+          let history = '';
+          try {
+            const q = query(collection(db, 'messages'), where('conversationId', '==', senderId), orderBy('createdAt', 'desc'), limit(6));
+            const querySnapshot = await getDocs(q);
+            const msgs = querySnapshot.docs.map(d => d.data()).reverse(); // Sắp xếp từ cũ đến mới (câu hiện tại ở cuối cùng)
+            // Lọc ra các tin nhắn hợp lệ, tránh lỗi
+            history = msgs.filter(m => m.text).map(m => `${m.senderId === senderId ? 'Khách hàng' : 'Tư vấn viên (AI)'}: ${m.text}`).join('\n');
+          } catch (e) {
+            console.error('Lỗi lấy lịch sử chat:', e);
+          }
+
           console.log('Đang nhờ AI sinh câu trả lời...');
-          const aiResponseObj = await aiAgent.generateResponse(messageText, defaultPrompt, senderId);
+          const aiResponseObj = await aiAgent.generateResponse(messageText, defaultPrompt, senderId, history);
           
           // Xử lý Function Call
           let aiText = '';
