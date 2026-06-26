@@ -310,7 +310,10 @@ export default function CrmPage() {
             <Download size={16} /> Xuất Excel
           </button>
 
-          <button className="btn" style={{ background: '#10b981', color: 'white', border: 'none' }} onClick={() => setShowImport(true)}>
+          <button className="btn" style={{ background: '#10b981', color: 'white', border: 'none' }} onClick={() => {
+            if (user?.role !== 'Admin') setSelectedEmpIds([user?.id || '']);
+            setShowImport(true);
+          }}>
             <FileSpreadsheet size={16} /> Nhập từ Excel
           </button>
           <button className="btn btn-primary" onClick={() => { setForm({ ...form, ownerId: user?.id || '' }); setShowAdd(true); }}><Plus size={16} /> Thêm khách hàng</button>
@@ -451,26 +454,28 @@ export default function CrmPage() {
                 )}
               </div>
 
-              <div>
-                <h3 style={{ fontSize: 14, fontWeight: 600, marginBottom: 12 }}>2. Chọn Nhân viên nhận Khách (Chia đều)</h3>
-                <div style={{ border: '1px solid var(--border)', borderRadius: 8, overflow: 'hidden', background: 'var(--bg-secondary)', height: 200, overflowY: 'auto' }}>
-                  {employees.filter(e => e.role !== 'Admin').map(emp => (
-                    <label key={emp.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 16px', borderBottom: '1px solid var(--border)', cursor: 'pointer' }}>
-                      <input 
-                        type="checkbox" 
-                        checked={selectedEmpIds.includes(emp.id)} 
-                        onChange={(e) => {
-                          if (e.target.checked) setSelectedEmpIds([...selectedEmpIds, emp.id]);
-                          else setSelectedEmpIds(selectedEmpIds.filter(id => id !== emp.id));
-                        }} 
-                        style={{ width: 16, height: 16, accentColor: 'var(--accent-blue)' }}
-                      />
-                      <span style={{ fontSize: 14, color: 'var(--text-primary)' }}>{emp.fullName}</span>
-                    </label>
-                  ))}
-                  {employees.filter(e => e.role !== 'Admin').length === 0 && <div style={{ padding: 16, textAlign: 'center', color: 'var(--text-muted)', fontSize: 13 }}>Không có nhân viên nào.</div>}
+              {user?.role === 'Admin' && (
+                <div>
+                  <h3 style={{ fontSize: 14, fontWeight: 600, marginBottom: 12 }}>2. Chọn Nhân viên nhận Khách (Chia đều)</h3>
+                  <div style={{ border: '1px solid var(--border)', borderRadius: 8, overflow: 'hidden', background: 'var(--bg-secondary)', height: 200, overflowY: 'auto' }}>
+                    {employees.filter(e => e.role !== 'Admin').map(emp => (
+                      <label key={emp.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 16px', borderBottom: '1px solid var(--border)', cursor: 'pointer' }}>
+                        <input 
+                          type="checkbox" 
+                          checked={selectedEmpIds.includes(emp.id)} 
+                          onChange={(e) => {
+                            if (e.target.checked) setSelectedEmpIds([...selectedEmpIds, emp.id]);
+                            else setSelectedEmpIds(selectedEmpIds.filter(id => id !== emp.id));
+                          }} 
+                          style={{ width: 16, height: 16, accentColor: 'var(--accent-blue)' }}
+                        />
+                        <span style={{ fontSize: 14, color: 'var(--text-primary)' }}>{emp.fullName}</span>
+                      </label>
+                    ))}
+                    {employees.filter(e => e.role !== 'Admin').length === 0 && <div style={{ padding: 16, textAlign: 'center', color: 'var(--text-muted)', fontSize: 13 }}>Không có nhân viên nào.</div>}
+                  </div>
                 </div>
-              </div>
+              )}
             </div>
 
             {importData.length > 0 && (
@@ -502,7 +507,7 @@ export default function CrmPage() {
             <div style={{ display: 'flex', gap: 10, marginTop: 30, justifyContent: 'flex-end' }}>
               <button className="btn btn-secondary" onClick={() => setShowImport(false)} disabled={importing}>Hủy</button>
               <button className="btn btn-primary" onClick={handleImportSubmit} disabled={importing || importData.length === 0 || selectedEmpIds.length === 0} style={{ padding: '10px 24px' }}>
-                {importing ? <span className="spinner" style={{ width: 16, height: 16, borderWidth: 2 }} /> : 'Xác nhận & Chia Khách'}
+                {importing ? <span className="spinner" style={{ width: 16, height: 16, borderWidth: 2 }} /> : (user?.role === 'Admin' ? 'Xác nhận & Chia Khách' : 'Xác nhận & Thêm Khách')}
               </button>
             </div>
           </div>
