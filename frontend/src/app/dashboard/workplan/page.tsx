@@ -65,7 +65,7 @@ export default function WorkPlanPage() {
       const allLeads = leadsRes.data || [];
       
       const getMetrics = (empId: string) => {
-        let actualNew = 0, actualContacted = 0, actualConsulting = 0, actualMeeting = 0, actualSigned = 0;
+        let crmCustomersCount = 0;
         const isInWeek = (dateStr: string) => {
           if (!dateStr) return false;
           const d = new Date(dateStr);
@@ -74,16 +74,13 @@ export default function WorkPlanPage() {
         };
         allLeads.forEach((l: any) => {
           if (l.ownerId !== empId) return;
-          if (isInWeek(l.createdAt)) actualNew++;
-          if (isInWeek(l.contactedAt)) actualContacted++;
-          if (isInWeek(l.consultingAt)) actualConsulting++;
-          if (isInWeek(l.meetingAt)) actualMeeting++;
-          if (isInWeek(l.signedAt)) actualSigned++;
+          if (isInWeek(l.createdAt)) crmCustomersCount++;
         });
-        return { actualNew, actualContacted, actualConsulting, actualMeeting, actualSigned };
+        return { targetNew: crmCustomersCount };
       };
 
       let filteredPlans = (plansRes.data || []).filter((x: any) => x.weekNumber === week && x.year === year);
+      // Ghi đè targetNew từ CRM
       filteredPlans = filteredPlans.map((p: any) => ({ ...p, ...getMetrics(p.employeeId) }));
 
       let p: any = null;
@@ -108,11 +105,7 @@ export default function WorkPlanPage() {
     if (!plan || isViewingOthers) return;
     setSaving(true);
     try {
-      const planToSave = {
-        ...plan,
-        targetNew: plan.actualNew || 0
-      };
-      await workPlanApi.savePlan(planToSave);
+      await workPlanApi.savePlan(plan);
       alert('Đã lưu kế hoạch thành công!');
       fetchPlan();
     } catch (err: unknown) { alert((err as { response?: { data?: { error?: string } } })?.response?.data?.error || 'Lỗi lưu kế hoạch'); }
@@ -120,7 +113,13 @@ export default function WorkPlanPage() {
   };
 
   const submitFeedback = async () => {
-    if (!plan || !plan.id || !feedbackText.trim()) return;
+    if (!plan) return;
+    if (!plan.id) {
+      alert('Nhân viên này chưa lưu kế hoạch cho tuần này lên hệ thống. Không thể gửi nhận xét!');
+      return;
+    }
+    if (!feedbackText.trim()) return;
+    
     setSubmittingFeedback(true);
     try {
       await workPlanApi.addFeedback(plan.id, feedbackText);
@@ -312,17 +311,18 @@ export default function WorkPlanPage() {
                     { label: '5. HỢP ĐỒNG ĐÃ KÝ KẾT / DOANH THU THỰC TẾ (Chốt cọc thành công)', t: 'targetSigned', a: 'actualSigned', e: 'evalSigned' },
                   ].map((row, i) => {
                     const actual = (plan as any)[row.a] || 0;
-                    const target = row.t === 'targetNew' ? actual : ((plan as any)[row.t] || 0);
+                    const target = (plan as any)[row.t] || 0;
                     const percent = target > 0 ? ((actual / target) * 100).toFixed(1) : '0.0';
-                    const isInputDisabled = isViewingOthers || row.t === 'targetNew';
+                    const isTargetInputDisabled = isViewingOthers || row.t === 'targetNew';
+                    const isActualInputDisabled = isViewingOthers;
                     return (
                       <tr key={i} style={{ borderBottom: '1px solid var(--border)' }}>
                         <td style={{ padding: '12px', border: '1px solid var(--border)', textAlign: 'left', fontWeight: 600 }}>{row.label}</td>
                         <td style={{ padding: '12px', border: '1px solid var(--border)' }}>
-                          <input type="number" className="form-input" style={{ textAlign: 'center', background: isInputDisabled ? 'transparent' : '', border: isInputDisabled ? 'none' : '' }} value={target} onChange={e => setPlan({ ...plan, [row.t]: parseInt(e.target.value) || 0 })} disabled={isInputDisabled} min={0} />
+                          <input type="number" className="form-input" style={{ textAlign: 'center', background: isTargetInputDisabled ? 'transparent' : '', border: isTargetInputDisabled ? 'none' : '' }} value={target} onChange={e => setPlan({ ...plan, [row.t]: parseInt(e.target.value) || 0 })} disabled={isTargetInputDisabled} min={0} />
                         </td>
-                        <td style={{ padding: '12px', border: '1px solid var(--border)', fontWeight: 700, color: 'var(--accent-blue)', fontSize: 16 }}>
-                          {actual}
+                        <td style={{ padding: '12px', border: '1px solid var(--border)' }}>
+                          <input type="number" className="form-input" style={{ textAlign: 'center', fontWeight: 700, color: 'var(--accent-blue)', background: isActualInputDisabled ? 'transparent' : '', border: isActualInputDisabled ? 'none' : '' }} value={actual} onChange={e => setPlan({ ...plan, [row.a]: parseInt(e.target.value) || 0 })} disabled={isActualInputDisabled} min={0} />
                         </td>
                         <td style={{ padding: '12px', border: '1px solid var(--border)', fontWeight: 600, color: Number(percent) >= 100 ? 'var(--accent-green)' : 'var(--text-primary)' }}>
                           {percent}%

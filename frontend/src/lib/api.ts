@@ -585,13 +585,8 @@ export const workPlanApi = {
     }
     return toRes({ success: true });
   },
-  addFeedback: async (planId: string, data: any) => {
-    const d = await getDoc(doc(db, 'workPlans', planId));
-    if (d.exists()) {
-      const plan = d.data();
-      const feedbacks = [...(plan.feedbacks || []), { id: uuidv4(), createdAt: new Date().toISOString(), ...data }];
-      await updateDoc(doc(db, 'workPlans', planId), { feedbacks });
-    }
+  addFeedback: async (planId: string, text: string) => {
+    await updateDoc(doc(db, 'workPlans', planId), { adminFeedback: text });
     return toRes({ success: true });
   },
 };
