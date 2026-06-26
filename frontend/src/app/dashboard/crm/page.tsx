@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { crmApi, employeeApi } from '@/lib/api';
-import { Plus, Globe, Phone, MessageSquare, Clock, AlignLeft, Send, FileSpreadsheet, Upload, CheckCircle, Download } from 'lucide-react';
+import { Plus, Globe, Phone, MessageSquare, Clock, AlignLeft, Send, FileSpreadsheet, Upload, CheckCircle, Download, Search } from 'lucide-react';
 import * as XLSX from 'xlsx';
 
 const STATUS_COLORS: Record<string, string> = { New: 'badge-blue', Contacted: 'badge-cyan', Consulting: 'badge-orange', Meeting: 'badge-purple', Signed: 'badge-green', Lost: 'badge-red' };
@@ -51,6 +51,7 @@ export default function CrmPage() {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'Tiềm năng' | 'Khách cũ'>('Tiềm năng');
   const [filterOwnerId, setFilterOwnerId] = useState<string>('');
+  const [searchQuery, setSearchQuery] = useState('');
   
   // Add Lead form
   const [showAdd, setShowAdd] = useState(false);
@@ -379,7 +380,7 @@ export default function CrmPage() {
         </div>
       </div>
 
-      <div style={{ marginBottom: 20 }}>
+      <div style={{ marginBottom: 20, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div style={{ display: 'flex', background: 'var(--bg-secondary)', borderRadius: 8, padding: 4, width: 'fit-content' }}>
           {['Tiềm năng', 'Khách cũ'].map(tab => (
             <button 
@@ -392,6 +393,17 @@ export default function CrmPage() {
             </button>
           ))}
         </div>
+        <div style={{ position: 'relative', width: 280 }}>
+          <Search size={16} style={{ position: 'absolute', left: 12, top: 10, color: 'var(--text-muted)' }} />
+          <input 
+            type="text" 
+            className="form-input" 
+            placeholder="Tìm theo tên, SĐT..." 
+            value={searchQuery}
+            onChange={e => setSearchQuery(e.target.value)}
+            style={{ paddingLeft: 36, width: '100%', borderRadius: 20, background: 'var(--bg-secondary)', border: '1px solid var(--border)' }}
+          />
+        </div>
       </div>
 
       {loading ? (
@@ -399,7 +411,7 @@ export default function CrmPage() {
       ) : (
         <div style={{ display: 'flex', gap: 16, overflowX: 'auto', paddingBottom: 16 }}>
           {(activeTab === 'Tiềm năng' ? ['New', 'Contacted', 'Consulting', 'Meeting'] : ['Signed', 'Lost']).map(col => {
-            const colLeads = leads.filter(l => l.status === col);
+            const colLeads = leads.filter(l => l.status === col && (!searchQuery || (l.name?.toLowerCase() || '').includes(searchQuery.toLowerCase()) || (l.phone || '').includes(searchQuery)));
             return (
               <div key={col} className="kanban-col">
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
