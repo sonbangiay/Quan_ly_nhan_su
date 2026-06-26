@@ -213,30 +213,81 @@ export default function CrmPage() {
       const wb = XLSX.read(bstr, { type: 'binary' });
       const wsname = wb.SheetNames[0];
       const ws = wb.Sheets[wsname];
-      const data: any[] = XLSX.utils.sheet_to_json(ws);
+      const data: any[][] = XLSX.utils.sheet_to_json(ws, { header: 1 });
       
-      const parsedLeads = [];
-      for (let i = 0; i < data.length; i++) {
+      let headerRowIndex = -1;
+      let nameColIndex = -1;
+      let phoneColIndex = -1;
+
+      // Tìm dòng header (quét 20 dòng đầu)
+      for (let i = 0; i < Math.min(data.length, 20); i++) {
         const row = data[i];
-        if (!row) continue;
+        if (!Array.isArray(row)) continue;
         
-        const name = String(row['Họ và tên'] || row['Tên khách hàng'] || row['Họ tên'] || row['Name'] || '').trim();
-        const phone = String(row['SĐT'] || row['Số điện thoại'] || row['Phone'] || '').trim();
+        let tempNameIdx = -1;
+        let tempPhoneIdx = -1;
+
+        for (let j = 0; j < row.length; j++) {
+          const cellStr = String(row[j] || '').toLowerCase().trim();
+          
+          if (/^(họ tên|họ và tên|tên|tên khách hàng|name|khách hàng)$/.test(cellStr)) {
+            tempNameIdx = j;
+          } else if (tempNameIdx === -1 && (cellStr.includes('tên') || cellStr.includes('name'))) {
+            tempNameIdx = j;
+          }
+
+          if (/^(sđt|sdt|số điện thoại|điện thoại|phone|đt)$/.test(cellStr)) {
+            tempPhoneIdx = j;
+          } else if (tempPhoneIdx === -1 && (cellStr.includes('sđt') || cellStr.includes('sdt') || cellStr.includes('điện thoại') || cellStr.includes('phone'))) {
+            tempPhoneIdx = j;
+          }
+        }
+
+        if (tempNameIdx !== -1 && tempPhoneIdx !== -1) {
+          headerRowIndex = i;
+          nameColIndex = tempNameIdx;
+          phoneColIndex = tempPhoneIdx;
+          break;
+        }
+      }
+
+      if (headerRowIndex === -1) {
+        alert('Hệ thống không nhận diện được cột "Họ tên" và "Số điện thoại". Vui lòng đảm bảo file Excel có chứa 2 cột này ở phần tiêu đề!');
+        return;
+      }
+
+      const parsedLeads = [];
+      for (let i = headerRowIndex + 1; i < data.length; i++) {
+        const row = data[i];
+        if (!Array.isArray(row)) continue;
         
-        const truong = String(row['Trường'] || row['School'] || '').trim();
-        const lop = String(row['Lớp'] || row['Class'] || '').trim();
-        const nguyenVong = String(row['Nguyện vọng'] || '').trim();
-        const ghiChu = String(row['Ghi chú'] || '').trim();
+        const name = String(row[nameColIndex] || '').trim();
+        const phoneRaw = String(row[phoneColIndex] || '').trim();
+        const phone = phoneRaw.replace(/[^0-9+]/g, ''); 
         
-        // Bắt buộc thông tin khách hàng phải có cả tên và SĐT
-        if (!name || !phone) continue;
+        if (!name || phone.length < 8) continue;
+
+        let notesArr = [];
+        for (let j = 0; j < row.length; j++) {
+          if (j !== nameColIndex && j !== phoneColIndex && row[j]) {
+            const headerName = String(data[headerRowIndex][j] || `Cột ${j+1}`).trim();
+            if (headerName) {
+              notesArr.push(`${headerName}: ${row[j]}`);
+            }
+          }
+        }
 
         parsedLeads.push({
           name: name,
           phone: phone,
           source: 'Import Excel',
-          notes: ghiChu || `Trường: ${truong} | Lớp: ${lop} | Nguyện vọng: ${nguyenVong}`
+          notes: notesArr.join(' | ')
         });
+      }
+      
+      if (parsedLeads.length === 0) {
+         alert('Tìm thấy tiêu đề nhưng không đọc được khách hàng nào (Tên bị trống hoặc SĐT không đúng định dạng).');
+         return;
       }
       setImportData(parsedLeads);
     };
