@@ -63,8 +63,8 @@ export default function ElearningBuilder({ classId, initialSessions, onSessionsU
           order: sessions.length + 1, 
           ...form 
         };
-        const res = await classApi.createSession(newSession);
-        const finalSession = { id: res.id || res.data?.id, ...newSession };
+        const res = await classApi.createSession(classId, newSession);
+        const finalSession = { id: res.data?.id, ...newSession };
         const newSessions = [...sessions, finalSession];
         setSessions(newSessions);
         onSessionsUpdated(newSessions);
