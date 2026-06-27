@@ -108,20 +108,21 @@ export default function TestsPage({ params }: { params: Promise<{ id: string }> 
     const test = testList.find(t => t.id === testId);
     const scoreList = test?.scores || [];
     
-    setScoresData(prev => {
-      const scoreMap: Record<string, any> = {};
-      currentStudents.forEach(s => {
-        scoreMap[s.id] = { score: prev[s.id]?.score || '', feedback: prev[s.id]?.feedback || '' }; 
-      });
-      
-      scoreList.forEach((s: any) => {
-        scoreMap[s.studentId] = { 
-          score: s.score !== undefined ? s.score : scoreMap[s.studentId].score, 
-          feedback: scoreMap[s.studentId].feedback || s.feedback || '' 
-        };
-      });
-      return scoreMap;
+    const scoreMap: Record<string, any> = {};
+    currentStudents.forEach(s => {
+      scoreMap[s.id] = { score: '', feedback: '' }; 
     });
+    
+    scoreList.forEach((s: any) => {
+      if (scoreMap[s.studentId]) {
+        scoreMap[s.studentId] = { 
+          score: s.score !== undefined && s.score !== null ? s.score : '', 
+          feedback: s.feedback || '' 
+        };
+      }
+    });
+    
+    setScoresData(scoreMap);
   };
 
   const handleTestChange = (testId: string) => {

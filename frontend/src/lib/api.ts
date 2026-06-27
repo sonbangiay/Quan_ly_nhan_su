@@ -686,15 +686,30 @@ export const attendanceApi = {
   },
   checkIn: async (data: any) => {
     const id = uuidv4();
-    const today = new Date().toISOString().split('T')[0];
+    const now = new Date();
+    const today = now.toISOString().split('T')[0];
+    
+    // Không làm việc chủ nhật (0)
+    if (now.getDay() === 0) {
+      throw { response: { data: { error: 'Hôm nay là Chủ nhật, không có ca làm việc.' } } };
+    }
+    
+    const timeIn = now.toLocaleTimeString('vi-VN', { hour12: false });
+    const h = now.getHours();
+    const m = now.getMinutes();
+    
+    // Giờ làm việc: 07:30 - 17:00
+    const isLate = (h > 7) || (h === 7 && m > 30);
+    const status = isLate ? 'Late' : 'Present';
+
     await setDoc(doc(db, 'attendance', id), { 
       id, 
       date: today, 
-      timeIn: new Date().toLocaleTimeString('vi-VN', { hour12: false }), 
-      status: 'Present', 
+      timeIn, 
+      status, 
       employeeId: data.employeeId, 
       employeeName: data.employeeName || '',
-      createdAt: new Date().toISOString() 
+      createdAt: now.toISOString() 
     });
     return toRes({ success: true });
   },
@@ -703,6 +718,10 @@ export const attendanceApi = {
       timeOut: new Date().toLocaleTimeString('vi-VN', { hour12: false }), 
       ...data 
     });
+    return toRes({ success: true });
+  },
+  updateLog: async (id: string, data: any) => {
+    await updateDoc(doc(db, 'attendance', id), data);
     return toRes({ success: true });
   },
 };

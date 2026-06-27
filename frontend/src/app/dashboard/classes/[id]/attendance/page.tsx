@@ -19,9 +19,15 @@ export default function AttendancePage({ params }: { params: Promise<{ id: strin
   
   const [selectedSessionId, setSelectedSessionId] = useState<string>('');
   const [attendanceData, setAttendanceData] = useState<Record<string, any>>({}); // studentId -> status
+  const [sessionNotes, setSessionNotes] = useState<string>('');
+  const [sessionEvaluation, setSessionEvaluation] = useState<string>('');
+  const [sessionTopic, setSessionTopic] = useState<string>('');
+  const [sessionDate, setSessionDate] = useState<string>('');
   const [errorMsg, setErrorMsg] = useState<string>('');
   const [activeTab, setActiveTab] = useState<'daily' | 'overview'>('daily');
   const [editingSession, setEditingSession] = useState<any>(null);
+  const [showAddSession, setShowAddSession] = useState(false);
+  const [newSessionForm, setNewSessionForm] = useState({ date: '', topic: '' });
   const [elearningProgressData, setElearningProgressData] = useState<any[]>([]);
   
   useEffect(() => {
@@ -112,36 +118,89 @@ export default function AttendancePage({ params }: { params: Promise<{ id: strin
 
   const handleSessionChange = (sessionId: string) => {
     setSelectedSessionId(sessionId);
+    const session = sessions.find(s => s.id === sessionId);
+    setSessionNotes(session?.notes || '');
+    setSessionEvaluation(session?.evaluation || '');
+    setSessionTopic(session?.topic || '');
+    setSessionDate(session?.date || '');
     // Load local data immediately for fast UI switch
     loadAttendanceFromSession(sessionId, sessions, students);
   };
 
-  const createNewSession = async () => {
-    const topic = prompt("Nhập nội dung/tiêu đề buổi học mới:");
-    if (!topic) return;
+  const openAddSessionModal = () => {
+    // Determine next date
+    let nextDate = new Date();
     
-    const date = new Date().toISOString().split('T')[0];
+    if (sessions.length > 0) {
+      // Find the latest date
+      const sortedSessions = [...sessions].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+      const lastSessionDate = new Date(sortedSessions[sortedSessions.length - 1].date);
+      
+      // Look for the next schedule day after lastSessionDate
+      nextDate = new Date(lastSessionDate);
+      nextDate.setDate(nextDate.getDate() + 1);
+      
+      if (classData && classData.schedules && classData.schedules.length > 0) {
+        const scheduleDays = classData.schedules.map((s: any) => Number(s.dayOfWeek));
+        // Find next valid day
+        for (let i = 0; i < 7; i++) {
+          if (scheduleDays.includes(nextDate.getDay())) {
+            break;
+          }
+          nextDate.setDate(nextDate.getDate() + 1);
+        }
+      }
+    } else if (classData && classData.startDate) {
+      nextDate = new Date(classData.startDate);
+      // Ensure it's a schedule day
+      if (classData && classData.schedules && classData.schedules.length > 0) {
+        const scheduleDays = classData.schedules.map((s: any) => Number(s.dayOfWeek));
+        for (let i = 0; i < 7; i++) {
+          if (scheduleDays.includes(nextDate.getDay())) {
+            break;
+          }
+          nextDate.setDate(nextDate.getDate() + 1);
+        }
+      }
+    }
+    
+    const yyyy = nextDate.getFullYear();
+    const mm = String(nextDate.getMonth() + 1).padStart(2, '0');
+    const dd = String(nextDate.getDate()).padStart(2, '0');
+    
+    setNewSessionForm({ date: `${yyyy}-${mm}-${dd}`, topic: '' });
+    setShowAddSession(true);
+  };
+
+  const submitNewSession = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newSessionForm.date) return;
+    
+    setSaving(true);
     const newSess = {
       classId,
-      date,
-      topic,
+      date: newSessionForm.date,
+      topic: newSessionForm.topic,
       status: 'Active'
     };
     
     // Lưu session mới
     try {
       await classApi.createSession(classId, newSess);
+      setShowAddSession(false);
       fetchClassData(); // tải lại danh sách
     } catch (err) {
       alert("Chưa lưu được buổi học mới vào CSDL. Hiện đang hiển thị tạm trên giao diện.");
       const mockId = 'sess-mock-' + Date.now();
       setSessions([...sessions, { ...newSess, id: mockId }]);
       setSelectedSessionId(mockId);
+      setShowAddSession(false);
       
       const attMap: Record<string, any> = {};
       students.forEach(s => { attMap[s.id] = { status: 'NotMarked' }; });
       setAttendanceData(attMap);
     }
+    setSaving(false);
   };
 
   const handleStatusToggle = (studentId: string) => {
@@ -175,12 +234,21 @@ export default function AttendancePage({ params }: { params: Promise<{ id: strin
       }));
       
       await classApi.saveAttendance(selectedSessionId, payload);
-      alert('Lưu điểm danh thành công!');
+      
+      // Save notes & evaluation
+      await classApi.updateSession(selectedSessionId, {
+        notes: sessionNotes,
+        evaluation: sessionEvaluation,
+        topic: sessionTopic,
+        date: sessionDate
+      });
+
+      alert('Lưu dữ liệu buổi học thành công!');
       
       // Cập nhật lại state sessions cục bộ
       setSessions(prev => prev.map(s => {
         if (s.id === selectedSessionId) {
-          return { ...s, attendance: payload };
+          return { ...s, attendance: payload, notes: sessionNotes, evaluation: sessionEvaluation, topic: sessionTopic, date: sessionDate };
         }
         return s;
       }));
@@ -487,7 +555,7 @@ export default function AttendancePage({ params }: { params: Promise<{ id: strin
                     <Trash2 size={16} />
                   </button>
                 )}
-                <button onClick={createNewSession} disabled={saving} className="btn btn-primary btn-sm" style={{ padding: '4px 8px' }} title="Thêm buổi học">
+                <button onClick={openAddSessionModal} disabled={saving} className="btn btn-primary btn-sm" style={{ padding: '4px 8px' }} title="Thêm buổi học">
                   <Plus size={16} />
                 </button>
               </div>
@@ -530,11 +598,14 @@ export default function AttendancePage({ params }: { params: Promise<{ id: strin
               <>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border)', paddingBottom: 16, marginBottom: 16 }}>
                   <div>
-                    <h2 style={{ fontSize: 20, margin: 0 }}>Điểm danh Buổi {sessions.findIndex(s => s.id === selectedSessionId) + 1}</h2>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8, flexWrap: 'wrap' }}>
+                      <h2 style={{ fontSize: 20, margin: 0, whiteSpace: 'nowrap' }}>Điểm danh Buổi {sessions.findIndex(s => s.id === selectedSessionId) + 1}</h2>
+                      <input type="date" className="form-input" style={{ padding: '4px 8px', height: 32, fontSize: 14 }} value={sessionDate} onChange={e => setSessionDate(e.target.value)} />
+                      <input type="text" className="form-input" style={{ padding: '4px 8px', height: 32, fontSize: 14, minWidth: 200, flex: 1 }} placeholder="Tên bài học/Chủ đề" value={sessionTopic} onChange={e => setSessionTopic(e.target.value)} />
+                    </div>
                     <div style={{ margin: '4px 0 0', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                      <span>Ngày: {formatDisplayDate(selectedSession.date)} • {selectedSession.topic || 'Chưa có nội dung'}</span>
                       <button onClick={() => openEditSession(selectedSessionId)} className="btn btn-secondary btn-sm" style={{ padding: '4px 10px', fontSize: 12, whiteSpace: 'nowrap', borderRadius: 20 }}>
-                        <Edit2 size={14} /> Sửa nội dung & Video
+                        <Edit2 size={14} /> Sửa Video & Tài liệu
                       </button>
                     </div>
                   </div>
@@ -556,8 +627,31 @@ export default function AttendancePage({ params }: { params: Promise<{ id: strin
                       style={{ whiteSpace: 'nowrap' }}
                     >
                       {saving ? <RefreshCw className="spinner" size={18} /> : <Save size={18} />} 
-                      Lưu điểm danh
+                      Lưu dữ liệu buổi học
                     </button>
+                  </div>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 20 }}>
+                  <div>
+                    <label style={{ display: 'block', marginBottom: 8, fontWeight: 600, fontSize: 14, color: 'var(--text-secondary)' }}>Nội dung / Chi tiết buổi học</label>
+                    <textarea 
+                      className="form-input" 
+                      style={{ width: '100%', height: 100, resize: 'vertical' }} 
+                      placeholder="Nhập ghi chú, chi tiết bài giảng, bài tập về nhà..."
+                      value={sessionNotes}
+                      onChange={e => setSessionNotes(e.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', marginBottom: 8, fontWeight: 600, fontSize: 14, color: 'var(--text-secondary)' }}>Nhận xét / Đánh giá lớp học</label>
+                    <textarea 
+                      className="form-input" 
+                      style={{ width: '100%', height: 100, resize: 'vertical' }} 
+                      placeholder="Nhập nhận xét chung về thái độ, mức độ tiếp thu của lớp..."
+                      value={sessionEvaluation}
+                      onChange={e => setSessionEvaluation(e.target.value)}
+                    />
                   </div>
                 </div>
                 
@@ -772,6 +866,37 @@ export default function AttendancePage({ params }: { params: Promise<{ id: strin
                 {saving ? 'Đang lưu...' : 'Lưu thông tin'}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Thêm Buổi Học */}
+      {showAddSession && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.5)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', backdropFilter: 'blur(4px)' }}>
+          <div className="glass-card animate-fadeInUp" style={{ width: 500, maxWidth: '90%', padding: 32, maxHeight: '90vh', overflowY: 'auto', background: 'white' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, borderBottom: '1px solid var(--border)', paddingBottom: 16 }}>
+              <h2 style={{ margin: 0, fontSize: 20 }}>Thêm Buổi học Mới</h2>
+              <button className="btn-icon" onClick={() => !saving && setShowAddSession(false)}><X size={20} /></button>
+            </div>
+            
+            <form onSubmit={submitNewSession}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 20 }}>
+                <label style={{ fontWeight: 600, fontSize: 14, color: 'var(--text-primary)' }}>Ngày học (Dự kiến theo lịch)</label>
+                <input type="date" required className="input" value={newSessionForm.date} onChange={e => setNewSessionForm({...newSessionForm, date: e.target.value})} style={{ padding: '10px 14px' }} />
+              </div>
+              
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 20 }}>
+                <label style={{ fontWeight: 600, fontSize: 14, color: 'var(--text-primary)' }}>Tên chủ đề / Nội dung dự kiến (Tùy chọn)</label>
+                <input type="text" className="input" value={newSessionForm.topic} onChange={e => setNewSessionForm({...newSessionForm, topic: e.target.value})} placeholder="VD: Khái niệm cơ bản..." style={{ padding: '10px 14px' }} />
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 12, marginTop: 24 }}>
+                <button type="button" onClick={() => setShowAddSession(false)} className="btn btn-secondary" style={{ padding: '8px 24px' }}>Hủy</button>
+                <button type="submit" disabled={saving} className="btn btn-primary" style={{ padding: '8px 24px' }}>
+                  {saving ? <span className="spinner" style={{ width: 16, height: 16, borderWidth: 2 }} /> : 'Tạo buổi học'}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

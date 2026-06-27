@@ -245,6 +245,15 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   }
 
   const visibleItems = SIDEBAR_ITEMS.filter(item => {
+    // Ẩn Đa Kênh, CRM Khách hàng, Kho tài liệu đối với ban giáo viên
+    if (user.departmentId === 'dept-giaovien') {
+      const hiddenForTeachers = ['/dashboard/messages', '/dashboard/crm', '/dashboard/knowledge'];
+      if (hiddenForTeachers.includes(item.href)) {
+        return false;
+      }
+    }
+    
+    // Ban giáo viên luôn thấy Quản lý Đào tạo dù role là gì
     if (item.href === '/dashboard/classes') {
       return item.roles.includes(user.role) || user.departmentId === 'dept-giaovien';
     }

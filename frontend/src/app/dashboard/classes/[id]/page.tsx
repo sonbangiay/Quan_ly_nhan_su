@@ -1,10 +1,10 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams } from 'next/navigation';
 import { classApi, employeeApi } from '@/lib/api';
 import { 
   Users, Mail, Phone, Calendar, Clock, Loader2, Download,
-  Edit2, X, Trash2, Plus
+  Edit2, X, Trash2, Plus, Upload
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 
@@ -21,6 +21,7 @@ export default function ClassOverviewPage() {
   const [allStudents, setAllStudents] = useState<any[]>([]);
   const [editingEnrollment, setEditingEnrollment] = useState<any>(null);
   const [editEnrollmentForm, setEditEnrollmentForm] = useState({ tuitionStatus: 3, learningGoal: '', notes: '' });
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     const fetchClass = async () => {
@@ -193,6 +194,69 @@ export default function ClassOverviewPage() {
     XLSX.writeFile(wb, `DanhSachHocVien_${classData.className}.xlsx`);
   };
 
+  const handleExcelImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setSaving(true);
+    try {
+      const data = await file.arrayBuffer();
+      const workbook = XLSX.read(data);
+      const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+      const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+      
+      let successCount = 0;
+      for (let i = 1; i < jsonData.length; i++) {
+        const row = jsonData[i] as any[];
+        if (!row || row.length === 0 || !row[0]) continue;
+        
+        const fullName = row[0];
+        const phone = row[1] ? String(row[1]) : '';
+        const email = row[2] ? String(row[2]) : '';
+        const tuitionStr = row[3] ? String(row[3]).toLowerCase() : '';
+        const learningGoal = row[4] ? String(row[4]) : '';
+        const notes = row[5] ? String(row[5]) : '';
+
+        let tuitionStatus = 3;
+        if (tuitionStr.includes('đủ')) tuitionStatus = 1;
+        else if (tuitionStr.includes('phần')) tuitionStatus = 2;
+
+        let studentId = '';
+        const existingStudent = allStudents.find(s => s.phone === phone || (s.email && s.email === email));
+        if (existingStudent) {
+          studentId = existingStudent.id;
+        } else {
+          const createRes = await classApi.createStudent({ fullName, phone, email: email || null, leadId: null });
+          studentId = createRes.data?.id || createRes.data?.data?.id;
+        }
+
+        if (studentId) {
+          const isEnrolled = enrollments.some((en:any) => en.studentId === studentId);
+          if (!isEnrolled) {
+            await classApi.enrollStudent(id, {
+              studentId,
+              fullName,
+              phone,
+              email,
+              tuitionStatus,
+              learningGoal,
+              notes
+            });
+            successCount++;
+          }
+        }
+      }
+      
+      alert(`Đã nhập thành công ${successCount} học viên mới vào lớp!`);
+      window.location.reload();
+    } catch (err) {
+      console.error(err);
+      alert('Lỗi khi đọc file Excel. Vui lòng đảm bảo file được xuất từ hệ thống và giữ nguyên cấu trúc cột.');
+    }
+    setSaving(false);
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
   const getStatusText = (status: number) => {
     if (status === 1) return <span className="badge badge-green">Đã thu đủ</span>;
     if (status === 2) return <span className="badge badge-yellow">Thu 1 phần</span>;
@@ -211,15 +275,11 @@ export default function ClassOverviewPage() {
       {/* ===== HEADER INFO CARDS ===== */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 24 }}>
         
-        {/* Card: Thông tin chung */}
-        <div className="glass-card" style={{ padding: 24, position: 'relative', overflow: 'hidden' }}>
-          <div style={{ position: 'absolute', top: 0, right: 0, width: 100, height: 100, background: 'linear-gradient(135deg, var(--accent-blue) 0%, transparent 100%)', opacity: 0.1, borderBottomLeftRadius: 100, pointerEvents: 'none' }}></div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 }}>
-            <div style={{ zIndex: 1 }}>
-              <div style={{ fontSize: 13, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: 0.5, fontWeight: 600, marginBottom: 8 }}>Lớp học</div>
-              <h2 style={{ fontSize: 24, fontWeight: 800, margin: 0, color: 'var(--text-primary)' }}>{classData.className}</h2>
-            </div>
-            <button className="btn btn-secondary btn-sm" style={{ zIndex: 1, display: 'flex', alignItems: 'center', gap: 6, borderRadius: 20 }} onClick={() => {
+        {/* Card: Quản lý Lớp học */}
+        <div className="glass-card" style={{ padding: 24, display: 'flex', flexDirection: 'column' }}>
+          <div style={{ fontSize: 13, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: 0.5, fontWeight: 600, marginBottom: 20 }}>Quản lý chung</div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12, flex: 1, justifyContent: 'center' }}>
+            <button className="btn btn-secondary" style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }} onClick={() => {
               setClassForm({
                 className: classData.className,
                 subjectType: classData.subjectType,
@@ -230,17 +290,11 @@ export default function ClassOverviewPage() {
               });
               setIsEditingClass(true);
             }}>
-              <Edit2 size={14} /> Sửa
+              <Edit2 size={16} /> Chỉnh sửa lớp học
             </button>
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 16, padding: '12px 16px', background: 'var(--bg-secondary)', borderRadius: 12 }}>
-            <div style={{ width: 36, height: 36, borderRadius: '50%', background: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--accent-blue)', fontWeight: 600, boxShadow: '0 2px 8px rgba(0,0,0,0.05)' }}>
-              {classData.instructorName ? classData.instructorName.charAt(0) : '?'}
-            </div>
-            <div>
-              <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>Giảng viên phụ trách</div>
-              <div style={{ fontWeight: 600, fontSize: 14 }}>{classData.instructorName || 'Chưa phân công'}</div>
-            </div>
+            <button className="btn" style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, background: '#fee2e2', color: '#dc2626', border: 'none' }} onClick={handleDeleteClass}>
+              <Trash2 size={16} /> Xóa lớp học
+            </button>
           </div>
         </div>
 
@@ -311,6 +365,10 @@ export default function ClassOverviewPage() {
             <p style={{ margin: 0, color: 'var(--text-secondary)', fontSize: 14 }}>Quản lý thông tin và học phí của học viên trong lớp</p>
           </div>
           <div style={{ display: 'flex', gap: 12 }}>
+            <input type="file" ref={fileInputRef} hidden accept=".xlsx, .xls" onChange={handleExcelImport} />
+            <button className="btn btn-secondary" onClick={() => fileInputRef.current?.click()} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 20px', borderRadius: 8, fontWeight: 600 }}>
+              <Upload size={18} /> Nhập Excel
+            </button>
             <button className="btn btn-secondary" onClick={handleExcelExport} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 20px', borderRadius: 8, fontWeight: 600 }}>
               <Download size={18} /> Xuất Excel
             </button>

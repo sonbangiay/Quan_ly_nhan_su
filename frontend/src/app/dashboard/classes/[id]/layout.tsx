@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, usePathname, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { classApi } from '@/lib/api';
+import { classApi, employeeApi } from '@/lib/api';
 import { 
   ArrowLeft, Info, Users, BookOpen, Check, BarChart2, Loader2, GraduationCap, PieChart
 } from 'lucide-react';
@@ -13,19 +13,24 @@ export default function ClassDetailLayout({ children }: { children: React.ReactN
   const router = useRouter();
   
   const [classData, setClassData] = useState<any>(null);
+  const [employees, setEmployees] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const fetchClass = async () => {
+    const fetchData = async () => {
       try {
-        const res = await classApi.getById(id);
-        setClassData(res.data);
+        const [classRes, empRes] = await Promise.all([
+          classApi.getById(id),
+          employeeApi.getAll()
+        ]);
+        setClassData(classRes.data);
+        setEmployees(empRes.data || []);
       } catch (e) {
         console.error(e);
       }
       setLoading(false);
     };
-    fetchClass();
+    fetchData();
   }, [id]);
 
   const tabs = [
@@ -61,7 +66,9 @@ export default function ClassDetailLayout({ children }: { children: React.ReactN
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
               <span className="badge badge-blue">{classData.subjectType}</span>
-              <span style={{ fontSize: 13, color: 'var(--text-secondary)' }}>Giảng viên: <strong>{classData.instructorName || 'Chưa phân công'}</strong></span>
+              <span style={{ fontSize: 13, color: 'var(--text-secondary)' }}>
+                Giảng viên: <strong>{classData.instructorName || employees.find(e => e.id === classData.instructorId)?.fullName || 'Chưa phân công'}</strong>
+              </span>
             </div>
             <h1 className="page-title" style={{ display: 'flex', alignItems: 'center', gap: 8, margin: 0 }}>
               <GraduationCap color="var(--accent-blue)" /> {classData.className}
