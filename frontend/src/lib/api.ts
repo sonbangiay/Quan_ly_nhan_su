@@ -838,7 +838,18 @@ export const studentAuthApi = {
       throw { response: { data: { error: 'Mật khẩu không chính xác' } } };
     }
     
-    const snap = await getDocs(query(collection(db, 'students'), where('phone', '==', phone)));
+    // Normalize phone to check multiple formats (with 0, without 0, with +84)
+    const normalizedPhone = phone.replace(/^(\+84|84)/, '0');
+    const phoneWithoutZero = normalizedPhone.startsWith('0') ? normalizedPhone.slice(1) : normalizedPhone;
+    const phoneWithZero = `0${phoneWithoutZero}`;
+    const phoneWith84 = `84${phoneWithoutZero}`;
+    const phoneWithPlus84 = `+84${phoneWithoutZero}`;
+    
+    const phoneVariants = [phone, normalizedPhone, phoneWithoutZero, phoneWithZero, phoneWith84, phoneWithPlus84];
+    // Remove duplicates
+    const uniqueVariants = Array.from(new Set(phoneVariants)).slice(0, 10); // Firestore 'in' limit is 10
+
+    const snap = await getDocs(query(collection(db, 'students'), where('phone', 'in', uniqueVariants)));
     if (snap.empty) {
       throw { response: { data: { error: 'Không tìm thấy học viên với số điện thoại này' } } };
     }
