@@ -509,7 +509,9 @@ export default function ClassesPage() {
         instructorId: '',
         startDate: '',
         endDate: '',
-        schedules: []
+        schedules: [],
+        isOnlineCourse: false,
+        accessDurationDays: 365
       });
       fetchAll();
     } catch (err: any) {
