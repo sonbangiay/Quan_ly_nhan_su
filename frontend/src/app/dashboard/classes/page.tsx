@@ -40,6 +40,8 @@ interface ClassDto {
   schedules: ClassScheduleDto[];
   enrollments: EnrollmentDto[];
   students: StudentDto[];
+  isOnlineCourse?: boolean;
+  accessDurationDays?: number;
 }
 
 interface StudentDto {
@@ -804,7 +806,9 @@ export default function ClassesPage() {
                     instructorId: '',
                     startDate: '',
                     endDate: '',
-                    schedules: []
+                    schedules: [],
+                    isOnlineCourse: false,
+                    accessDurationDays: 365
                   });
                   setError('');
                   setShowAddClass(true);
