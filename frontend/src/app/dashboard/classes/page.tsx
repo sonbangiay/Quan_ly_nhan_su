@@ -953,7 +953,7 @@ export default function ClassesPage() {
                       <div style={{ display: 'flex', flexDirection: 'column', gap: 8, fontSize: 13, color: 'var(--text-secondary)', marginBottom: 16 }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                           <UserCheck size={14} color="var(--accent-blue)" />
-                          <span>Giảng viên: <strong>{c.instructorName || 'Chưa phân công'}</strong></span>
+                          <span>Giảng viên: <strong>{c.instructorName || employees.find(e => e.id === c.instructorId)?.fullName || 'Chưa phân công'}</strong></span>
                         </div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                           <Calendar size={14} color="var(--accent-green)" />

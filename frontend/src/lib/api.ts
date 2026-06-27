@@ -239,7 +239,14 @@ export const classApi = {
   },
   create: async (data: any) => {
     const id = uuidv4();
-    await setDoc(doc(db, 'classes', id), { id, ...data, createdAt: new Date().toISOString(), enrollments: [], students: [], schedules: [] });
+    await setDoc(doc(db, 'classes', id), { 
+      id, 
+      createdAt: new Date().toISOString(), 
+      enrollments: [], 
+      students: [], 
+      schedules: [],
+      ...data 
+    });
     return toRes({ success: true, id });
   },
   updateClass: async (id: string, data: any) => {
