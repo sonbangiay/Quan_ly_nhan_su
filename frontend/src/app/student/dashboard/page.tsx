@@ -346,7 +346,7 @@ export default function StudentDashboard() {
                           </tr>
                         </thead>
                         <tbody>
-                          {c.sessions.map((session: any, idx: number) => {
+                          {[...c.sessions].sort((a: any, b: any) => new Date(a.date).getTime() - new Date(b.date).getTime()).map((session: any, idx: number) => {
                             const attArray = Array.isArray(session.attendance) ? session.attendance : Object.values(session.attendance || {});
                             const att = attArray.find((a: any) => a.studentId === student.id);
                             const statusLabel = att?.status === 'Present' ? 'Có mặt' :
