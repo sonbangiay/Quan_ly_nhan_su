@@ -274,7 +274,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
       {/* Sidebar */}
       <aside style={{
-        width: sidebarWidth, minHeight: '100vh', background: 'var(--bg-secondary)',
+        width: sidebarWidth, height: '100vh', background: 'var(--bg-secondary)',
         borderRight: '1px solid var(--border)', position: 'fixed', left: 0, top: 0, zIndex: 40,
         display: 'flex', flexDirection: 'column', transition: 'width 0.2s ease',
         overflow: 'hidden',

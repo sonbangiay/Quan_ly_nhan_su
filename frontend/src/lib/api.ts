@@ -57,6 +57,9 @@ export const authApi = {
       await setDoc(doc(db, 'employees', id), empData);
       return toRes({ success: true, user: empData });
     } catch (error: any) {
+      if (error.code === 'auth/email-already-in-use') {
+        throw { response: { data: { error: 'Email này đã tồn tại! (Do tài khoản đăng nhập cũ vẫn còn lưu trong hệ thống bảo mật). Vui lòng dùng Email khác.' } } };
+      }
       throw { response: { data: { error: error.message || 'Lỗi tạo tài khoản Auth' } } };
     }
   },

@@ -2,7 +2,7 @@
 import { useState, useEffect, use } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { classApi } from '@/lib/api';
-import { ArrowLeft, Check, X, Clock, Calendar, Save, Plus, ChevronRight, AlertCircle, RefreshCw, HelpCircle, Trash2, BarChart2, Users, Download, Edit2, PlayCircle, FileText, MonitorPlay, Link as LinkIcon } from 'lucide-react';
+import { ArrowLeft, Check, X, Clock, Calendar, Save, Plus, ChevronRight, AlertCircle, RefreshCw, HelpCircle, Trash2, BarChart2, Users, Download, Edit2, PlayCircle, FileText, MonitorPlay, Link as LinkIcon, Search } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import ElearningBuilder from './ElearningBuilder';
 
@@ -30,6 +30,7 @@ export default function AttendancePage({ params }: { params: Promise<{ id: strin
   const [showAddSession, setShowAddSession] = useState(false);
   const [newSessionForm, setNewSessionForm] = useState({ date: '', topic: '' });
   const [elearningProgressData, setElearningProgressData] = useState<any[]>([]);
+  const [searchSessionQuery, setSearchSessionQuery] = useState('');
   
   useEffect(() => {
     fetchClassData();
@@ -283,7 +284,11 @@ export default function AttendancePage({ params }: { params: Promise<{ id: strin
   const openEditSession = (sessionId: string) => {
     const session = sessions.find(s => s.id === sessionId);
     if (!session) return;
-    setEditingSession({ ...session });
+    setEditingSession({ 
+      ...session,
+      topic: sessionTopic || session.topic || '',
+      date: sessionDate || session.date || ''
+    });
   };
 
   const saveEditedSession = async () => {
@@ -292,8 +297,8 @@ export default function AttendancePage({ params }: { params: Promise<{ id: strin
     setSaving(true);
     try {
       await classApi.updateSession(editingSession.id, { 
-        topic: editingSession.topic, 
-        date: editingSession.date,
+        topic: editingSession.topic || '', 
+        date: editingSession.date || '',
         videoUrl: editingSession.videoUrl || '',
         materialUrl: editingSession.materialUrl || ''
       });
@@ -305,10 +310,12 @@ export default function AttendancePage({ params }: { params: Promise<{ id: strin
         }
         return s;
       }));
+      setSessionTopic(editingSession.topic || '');
+      setSessionDate(editingSession.date || '');
       setEditingSession(null);
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
-      alert('Lỗi khi cập nhật buổi học!');
+      alert('Lỗi khi cập nhật buổi học: ' + (err.message || 'Unknown error'));
     }
     setSaving(false);
   };
@@ -565,8 +572,28 @@ export default function AttendancePage({ params }: { params: Promise<{ id: strin
               </div>
             </div>
             
+            <div style={{ marginBottom: 16, position: 'relative' }}>
+              <Search size={14} style={{ position: 'absolute', left: 12, top: 11, color: 'var(--text-muted)' }} />
+              <input 
+                type="text" 
+                className="form-input" 
+                placeholder="Tìm ngày, buổi, nội dung..." 
+                value={searchSessionQuery}
+                onChange={e => setSearchSessionQuery(e.target.value)}
+                style={{ width: '100%', paddingLeft: 34, fontSize: 13, height: 36, borderRadius: 20 }}
+              />
+            </div>
+            
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              {sessions.map((sess, idx) => {
+              {sessions.filter(sess => {
+                if (!searchSessionQuery) return true;
+                const q = searchSessionQuery.toLowerCase();
+                const sessionDateStr = formatDisplayDate(sess.date);
+                const topicStr = (sess.topic || '').toLowerCase();
+                const idxStr = `buổi ${sessions.findIndex(s => s.id === sess.id) + 1}`;
+                return sessionDateStr.includes(q) || topicStr.includes(q) || idxStr.includes(q);
+              }).map((sess) => {
+                const idx = sessions.findIndex(s => s.id === sess.id);
                 const isActive = sess.id === selectedSessionId;
                 return (
                   <div 
@@ -854,13 +881,13 @@ export default function AttendancePage({ params }: { params: Promise<{ id: strin
             </div>
             
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 20 }}>
-              <label style={{ fontWeight: 600, fontSize: 14, color: 'var(--text-primary)', display: 'flex', alignItems: 'center' }}><MonitorPlay size={16} style={{ marginRight: 6, color: 'var(--accent-blue)' }} /> Link Video E-Learning (YouTube / Google Drive)</label>
+              <label style={{ fontWeight: 600, fontSize: 14, color: 'var(--text-primary)', display: 'flex', alignItems: 'center' }}><PlayCircle size={16} style={{ marginRight: 6, color: 'var(--accent-blue)' }} /> Link Video E-Learning (YouTube / Google Drive)</label>
               <input type="text" className="input" value={editingSession.videoUrl || ''} onChange={e => setEditingSession({...editingSession, videoUrl: e.target.value})} placeholder="https://youtube.com/watch?v=..." style={{ padding: '10px 14px' }} />
               <small style={{ color: 'var(--text-muted)', fontSize: 12 }}>* Học sinh vắng mặt hoặc học online có thể xem video này.</small>
             </div>
             
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 20 }}>
-              <label style={{ fontWeight: 600, fontSize: 14, color: 'var(--text-primary)', display: 'flex', alignItems: 'center' }}><LinkIcon size={16} style={{ marginRight: 6, color: 'var(--accent-purple)' }} /> Link Tài liệu đính kèm (Tùy chọn)</label>
+              <label style={{ fontWeight: 600, fontSize: 14, color: 'var(--text-primary)', display: 'flex', alignItems: 'center' }}><FileText size={16} style={{ marginRight: 6, color: 'var(--accent-purple)' }} /> Link Tài liệu đính kèm (Tùy chọn)</label>
               <input type="text" className="input" value={editingSession.materialUrl || ''} onChange={e => setEditingSession({...editingSession, materialUrl: e.target.value})} placeholder="Link Google Drive chứa file PDF/Word..." style={{ padding: '10px 14px' }} />
             </div>
             
