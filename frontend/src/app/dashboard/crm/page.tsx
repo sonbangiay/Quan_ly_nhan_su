@@ -619,7 +619,7 @@ export default function CrmPage() {
                         updated.meetingAt = null;
                         updated.signedAt = null;
                       } else if (newStatus === 'Contacted') {
-                        if (!updated.contactedAt) updated.contactedAt = nowStr;
+                        // DO NOT auto check 'Đã kết nối thành công' (contactedAt) just because they reached out.
                         updated.consultingAt = null;
                         updated.meetingAt = null;
                         updated.signedAt = null;
