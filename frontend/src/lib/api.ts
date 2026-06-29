@@ -614,31 +614,27 @@ export const workPlanApi = {
 export const reportApi = {
   getDailyReports: async (params?: any) => {
     const snap = await getDocs(collection(db, 'dailyReports'));
-    let data = snap.docs.map(d => ({ id: d.id, ...d.data() })) as any[];
+    let data = snap.docs.map(d => ({ ...d.data(), id: d.id })) as any[];
     if (params?.date) data = data.filter(r => r.date === params.date);
     if (params?.employeeId) data = data.filter(r => r.employeeId === params.employeeId);
     return toRes(data);
   },
   createDailyReport: async (data: any) => {
     const id = uuidv4();
-    await setDoc(doc(db, 'dailyReports', id), { id, ...data, createdAt: new Date().toISOString() });
+    await setDoc(doc(db, 'dailyReports', id), { ...data, id, createdAt: new Date().toISOString() });
     return toRes({ success: true });
   },
   getWeeklyReports: async () => {
     const snap = await getDocs(collection(db, 'weeklyReports'));
-    return toRes(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+    return toRes(snap.docs.map(d => ({ ...d.data(), id: d.id })));
   },
   createWeeklyReport: async (data: any) => {
     const id = uuidv4();
-    await setDoc(doc(db, 'weeklyReports', id), { id, ...data, createdAt: new Date().toISOString() });
+    await setDoc(doc(db, 'weeklyReports', id), { ...data, id, createdAt: new Date().toISOString() });
     return toRes({ success: true });
   },
-  addDailyFeedback: async (reportId: string, data: any) => {
-    const d = await getDoc(doc(db, 'dailyReports', reportId));
-    if (d.exists()) {
-      const feedbacks = [...(d.data().feedbacks || []), { id: uuidv4(), createdAt: new Date().toISOString(), ...data }];
-      await updateDoc(doc(db, 'dailyReports', reportId), { feedbacks });
-    }
+  addDailyFeedback: async (reportId: string, text: string) => {
+    await updateDoc(doc(db, 'dailyReports', reportId), { adminFeedback: text });
     return toRes({ success: true });
   },
   addWeeklyFeedback: async (reportId: string, data: any) => {

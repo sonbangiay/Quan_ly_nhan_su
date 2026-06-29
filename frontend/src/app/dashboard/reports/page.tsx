@@ -102,7 +102,8 @@ export default function ReportsPage() {
         }
         return r;
       }));
-      alert('Lỗi gửi phản hồi');
+      console.error("Firebase Error:", err);
+      alert('Lỗi gửi phản hồi: ' + ((err as any)?.message || 'Unknown error'));
     }
   };
 
@@ -155,7 +156,15 @@ export default function ReportsPage() {
       const payload: any = { ...tempReport };
       delete payload.isSubmitting;
       if (submittedFile) {
-        payload.attachments = [{ fileName: submittedFile.name }];
+        const formData = new FormData();
+        formData.append('file', submittedFile);
+        const uploadRes = await fetch('/api/upload', { method: 'POST', body: formData });
+        const uploadData = await uploadRes.json();
+        if (uploadData.success) {
+          payload.attachments = [{ fileName: submittedFile.name, filePath: uploadData.fileUrl, fileType: submittedFile.type }];
+        } else {
+          throw new Error('Lỗi upload file: ' + uploadData.error);
+        }
       } else {
         payload.attachments = [];
       }
@@ -272,9 +281,9 @@ export default function ReportsPage() {
                   </div>
                 )}
 
-                {isManagerOrAdmin && replyingTo !== r.id && !r.adminFeedback && (
-                  <button className="btn" style={{ marginTop: 12, background: 'var(--bg-hover)', border: 'none', fontSize: 13 }} onClick={() => { setReplyingTo(r.id); setFeedbackText(''); }}>
-                    Thêm nhận xét / Phản hồi
+                {isManagerOrAdmin && replyingTo !== r.id && (
+                  <button className="btn" style={{ marginTop: 12, background: 'var(--bg-hover)', border: 'none', fontSize: 13 }} onClick={() => { setReplyingTo(r.id); setFeedbackText(r.adminFeedback || ''); }}>
+                    {r.adminFeedback ? 'Sửa nhận xét / Phản hồi' : 'Thêm nhận xét / Phản hồi'}
                   </button>
                 )}
 
