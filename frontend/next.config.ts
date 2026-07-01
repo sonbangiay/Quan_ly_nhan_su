@@ -1,6 +1,12 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  // Add modularizeImports to prevent Webpack OOM with large icon libraries
+  modularizeImports: {
+    'lucide-react': {
+      transform: 'lucide-react/dist/esm/icons/{{kebabCase member}}',
+    }
+  },
   // Allow API images from localhost
   images: {
     remotePatterns: [
