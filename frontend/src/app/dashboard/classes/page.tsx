@@ -1015,7 +1015,7 @@ export default function ClassesPage() {
                       >
                         <ArrowUpRight size={16} /> Vào lớp học
                       </button>
-                      {(user?.role === 'Admin' || user?.role === 'Manager') && (
+                      {user?.role === 'Admin' && (
                         <button
                           className="btn btn-secondary btn-sm"
                           style={{ padding: '8px 12px', color: 'var(--accent-red)' }}
@@ -1311,13 +1311,15 @@ export default function ClassesPage() {
                     >
                       <Edit2 size={16} /> Sửa
                     </button>
-                    <button 
-                      className="btn btn-danger btn-sm"
-                      disabled={isDeletingClassId === selectedClass.id}
-                      onClick={() => handleDeleteClass(selectedClass.id)}
-                    >
-                      {isDeletingClassId === selectedClass.id ? 'Đang xóa...' : <><Trash2 size={16} /> Xóa</>}
-                    </button>
+                    {user?.role === 'Admin' && (
+                      <button 
+                        className="btn btn-danger btn-sm"
+                        disabled={isDeletingClassId === selectedClass.id}
+                        onClick={() => handleDeleteClass(selectedClass.id)}
+                      >
+                        {isDeletingClassId === selectedClass.id ? 'Đang xóa...' : <><Trash2 size={16} /> Xóa</>}
+                      </button>
+                    )}
                   </>
                 )}
                 <button 
