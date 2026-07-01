@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { dashboardApi, aiApi, initApi } from '@/lib/api';
 import { Users, Clock, TrendingUp, AlertCircle, CheckCircle, BarChart2, Target, UserCheck, Bot, Trophy, DollarSign, Activity } from 'lucide-react';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line, Legend } from 'recharts';
+// import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line, Legend } from 'recharts';
 
 interface KpiItem { targetName: string; targetValue: number; currentValue: number; unit: string; progress: number; }
 interface SummaryData {
@@ -170,7 +170,7 @@ export default function DashboardPage() {
                   <Tooltip contentStyle={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 12, boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }} itemStyle={{ fontWeight: 600 }} />
                   <Legend verticalAlign="bottom" height={36} iconType="circle" wrapperStyle={{ fontSize: 13 }} />
                 </PieChart>
-              </ResponsiveContainer>
+              </ResponsiveContainer> */}
             </div>
 
             {/* Lead funnel */}
