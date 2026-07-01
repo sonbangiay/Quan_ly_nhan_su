@@ -23,7 +23,7 @@ const getDisplayUrl = (filePath: string) => {
       return `https://drive.google.com/thumbnail?authuser=0&sz=s4000&id=${fileIdMatch[1]}`;
     }
   }
-  return filePath.startsWith('http') ? filePath : `http://localhost:5000${filePath}`;
+  return filePath;
 };
 
 export default function ReportsPage() {
