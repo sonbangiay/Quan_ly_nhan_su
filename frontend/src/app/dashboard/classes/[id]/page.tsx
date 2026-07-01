@@ -1,6 +1,7 @@
 'use client';
 import { useState, useEffect, useRef } from 'react';
 import { useParams } from 'next/navigation';
+import { useAuth } from '@/contexts/AuthContext';
 import { classApi, employeeApi } from '@/lib/api';
 import { 
   Users, Mail, Phone, Calendar, Clock, Loader2, Download,
@@ -10,6 +11,7 @@ import * as XLSX from 'xlsx';
 
 export default function ClassOverviewPage() {
   const { id } = useParams() as { id: string };
+  const { user } = useAuth();
   const [classData, setClassData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [isEditingClass, setIsEditingClass] = useState(false);
@@ -308,9 +310,11 @@ export default function ClassOverviewPage() {
             }}>
               <Edit2 size={16} /> Chỉnh sửa lớp học
             </button>
-            <button className="btn" style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, background: '#fee2e2', color: '#dc2626', border: 'none' }} onClick={handleDeleteClass}>
-              <Trash2 size={16} /> Xóa lớp học
-            </button>
+            {user?.role === 'Admin' && (
+              <button className="btn" style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, background: '#fee2e2', color: '#dc2626', border: 'none' }} onClick={handleDeleteClass}>
+                <Trash2 size={16} /> Xóa lớp học
+              </button>
+            )}
           </div>
         </div>
 

@@ -372,7 +372,12 @@ export const classApi = {
   // Sessions & Attendance
   getSessions: async (classId: string) => {
     const snap = await getDocs(query(collection(db, 'sessions'), where('classId', '==', classId)));
-    return toRes(snap.docs.map(d => ({ id: d.id, ...d.data() })).sort((a: any, b: any) => new Date(a.date).getTime() - new Date(b.date).getTime()));
+    return toRes(snap.docs.map(d => ({ id: d.id, ...d.data() })).sort((a: any, b: any) => {
+      if (a.order !== undefined && b.order !== undefined) return a.order - b.order;
+      if (!a.date) return 1;
+      if (!b.date) return -1;
+      return new Date(a.date).getTime() - new Date(b.date).getTime();
+    }));
   },
   createSession: async (classId: string, data: any) => {
     const id = uuidv4();

@@ -1,10 +1,11 @@
 'use client';
-import { useState, useEffect, use } from 'react';
+import { useState, useEffect, use, useRef } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { classApi } from '@/lib/api';
-import { ArrowLeft, Check, X, Clock, Calendar, Save, Plus, ChevronRight, AlertCircle, RefreshCw, HelpCircle, Trash2, BarChart2, Users, Download, Edit2, PlayCircle, FileText, MonitorPlay, Link as LinkIcon, Search } from 'lucide-react';
+import { ArrowLeft, Check, X, Clock, Calendar, Save, Plus, ChevronRight, AlertCircle, RefreshCw, HelpCircle, Trash2, BarChart2, Users, Download, Edit2, PlayCircle, FileText, MonitorPlay, Link as LinkIcon, Search, Upload } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import ElearningBuilder from './ElearningBuilder';
+import * as XLSX from 'xlsx';
 
 export default function AttendancePage({ params }: { params: Promise<{ id: string }> }) {
   const { user } = useAuth();
@@ -223,6 +224,127 @@ export default function AttendancePage({ params }: { params: Promise<{ id: strin
         }
       };
     });
+  };
+
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  
+  const handleImportSyllabus = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setSaving(true);
+    try {
+      const data = await file.arrayBuffer();
+      const workbook = XLSX.read(data);
+      const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+      const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+      
+      // Tìm dòng tiêu đề
+      let headerRowIdx = -1;
+      for (let i = 0; i < Math.min(20, jsonData.length); i++) {
+        const row = jsonData[i] as any[];
+        if (row && row.some(cell => typeof cell === 'string' && cell.toUpperCase().includes('NỘI DUNG'))) {
+          headerRowIdx = i;
+          break;
+        }
+      }
+      
+      if (headerRowIdx === -1) {
+        alert("Không tìm thấy dòng tiêu đề chứa 'NỘI DUNG'. Vui lòng kiểm tra lại file Excel.");
+        setSaving(false);
+        return;
+      }
+      
+      const headerRow = jsonData[headerRowIdx] as string[];
+      let weekColIdx = -1, dayColIdx = -1, contentColIdx = -1, dateColIdx = -1, evaluationColIdx = -1;
+      
+      headerRow.forEach((h, idx) => {
+        if (typeof h === 'string') {
+          const upperH = h.toUpperCase();
+          if (upperH.includes('TUẦN')) weekColIdx = idx;
+          else if (upperH.includes('NGÀY') && !upperH.includes('ĐÁNH GIÁ')) dayColIdx = idx;
+          else if (upperH.includes('NỘI DUNG')) contentColIdx = idx;
+          else if (upperH.includes('THỜI GIAN')) dateColIdx = idx;
+          else if (upperH.includes('ĐÁNH GIÁ')) evaluationColIdx = idx;
+        }
+      });
+      
+      if (contentColIdx === -1 || dayColIdx === -1) {
+        alert("Thiếu cột 'NGÀY' hoặc 'NỘI DUNG'.");
+        setSaving(false);
+        return;
+      }
+      
+      const newSessions = [];
+      let currentWeek = '';
+      
+      for (let i = headerRowIdx + 1; i < jsonData.length; i++) {
+        const row = jsonData[i] as any[];
+        if (!row || row.length === 0) continue;
+        
+        const weekVal = row[weekColIdx];
+        if (weekVal && typeof weekVal === 'string' && weekVal.trim() !== '') {
+          currentWeek = weekVal.trim();
+        }
+        
+        const dayVal = row[dayColIdx];
+        const contentVal = row[contentColIdx];
+        const dateVal = dateColIdx !== -1 ? row[dateColIdx] : null;
+        const evalVal = evaluationColIdx !== -1 ? row[evaluationColIdx] : null;
+        
+        if (dayVal && contentVal) {
+          const contentStr = String(contentVal).trim();
+          const firstLine = contentStr.split('\n')[0].trim();
+          const generatedTopic = firstLine.length > 60 ? firstLine.substring(0, 60) + '...' : firstLine;
+          
+          let parsedDate = '';
+          if (dateVal) {
+            if (typeof dateVal === 'number') {
+              const d = new Date(Math.round((dateVal - 25569) * 86400 * 1000));
+              parsedDate = d.toISOString().split('T')[0];
+            } else if (typeof dateVal === 'string') {
+              const parts = dateVal.split('/');
+              if (parts.length === 3) {
+                const d = parts[0].padStart(2, '0');
+                const m = parts[1].padStart(2, '0');
+                const y = parts[2].length === 2 ? '20' + parts[2] : parts[2];
+                parsedDate = `${y}-${m}-${d}`;
+              } else {
+                const dObj = new Date(dateVal);
+                if (!isNaN(dObj.getTime())) {
+                  parsedDate = dObj.toISOString().split('T')[0];
+                }
+              }
+            }
+          }
+          
+          newSessions.push({
+            week: currentWeek,
+            dayName: String(dayVal).trim(),
+            topic: generatedTopic,
+            notes: contentStr,
+            date: parsedDate,
+            evaluation: evalVal ? String(evalVal).trim() : '',
+            status: parsedDate ? 'Active' : 'Pending',
+            order: newSessions.length + 1
+          });
+        }
+      }
+      
+      if (newSessions.length === 0) {
+        alert("Không tìm thấy dữ liệu lộ trình trong file.");
+        setSaving(false);
+        return;
+      }
+      
+      await classApi.createSessionBulk(classId, newSessions);
+      alert(`Đã nhập thành công ${newSessions.length} buổi học!`);
+      fetchClassData();
+    } catch (error) {
+      console.error(error);
+      alert('Lỗi khi đọc file Excel');
+    }
+    setSaving(false);
+    if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
   const saveAttendance = async () => {
@@ -561,6 +683,10 @@ export default function AttendancePage({ params }: { params: Promise<{ id: strin
                 <Calendar size={18} /> Các Buổi học
               </h3>
               <div style={{ display: 'flex', gap: 8 }}>
+                <input type="file" accept=".xlsx,.xls,.csv" ref={fileInputRef} onChange={handleImportSyllabus} style={{ display: 'none' }} />
+                <button onClick={() => fileInputRef.current?.click()} disabled={saving} className="btn btn-secondary btn-sm" style={{ padding: '4px 8px' }} title="Nhập lộ trình từ Excel">
+                  <Upload size={16} />
+                </button>
                 {sessions.length > 0 && (
                   <button onClick={deleteAllSessions} disabled={saving} className="btn btn-secondary btn-sm" style={{ padding: '4px 8px', color: 'var(--danger)' }} title="Xóa toàn bộ">
                     <Trash2 size={16} />
@@ -609,7 +735,9 @@ export default function AttendancePage({ params }: { params: Promise<{ id: strin
                       transition: 'all 0.2s'
                     }}
                   >
-                    <div style={{ fontWeight: 600, marginBottom: 4 }}>Buổi {idx + 1}: {formatDisplayDate(sess.date)}</div>
+                    <div style={{ fontWeight: 600, marginBottom: 4 }}>
+                      {sess.dayName ? `${sess.week ? sess.week + ' - ' : ''}${sess.dayName}` : `Buổi ${idx + 1}`}: {sess.date ? formatDisplayDate(sess.date) : 'Chưa học'}
+                    </div>
                     <div style={{ fontSize: 12, opacity: isActive ? 0.9 : 0.6, marginBottom: 4 }}>{sess.topic || 'Chưa có nội dung'}</div>
                     <div style={{ display: 'flex', gap: 12, fontSize: 11, color: isActive ? 'rgba(255,255,255,0.8)' : 'var(--text-muted)' }}>
                       {sess.videoUrl && <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}><PlayCircle size={12} /> Có Video</span>}
@@ -630,7 +758,7 @@ export default function AttendancePage({ params }: { params: Promise<{ id: strin
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border)', paddingBottom: 16, marginBottom: 16 }}>
                   <div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8, flexWrap: 'wrap' }}>
-                      <h2 style={{ fontSize: 20, margin: 0, whiteSpace: 'nowrap' }}>Điểm danh Buổi {sessions.findIndex(s => s.id === selectedSessionId) + 1}</h2>
+                      <h2 style={{ fontSize: 20, margin: 0, whiteSpace: 'nowrap' }}>Điểm danh {selectedSession?.dayName ? `${selectedSession.week ? selectedSession.week + ' - ' : ''}${selectedSession.dayName}` : `Buổi ${sessions.findIndex(s => s.id === selectedSessionId) + 1}`}</h2>
                       <input type="date" className="form-input" style={{ padding: '4px 8px', height: 32, fontSize: 14 }} value={sessionDate} onChange={e => setSessionDate(e.target.value)} />
                       <input type="text" className="form-input" style={{ padding: '4px 8px', height: 32, fontSize: 14, minWidth: 200, flex: 1 }} placeholder="Tên bài học/Chủ đề" value={sessionTopic} onChange={e => setSessionTopic(e.target.value)} />
                     </div>
