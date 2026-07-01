@@ -5,8 +5,7 @@ import { classApi } from '@/lib/api';
 import { ArrowLeft, Check, X, Clock, Calendar, Save, Plus, ChevronRight, AlertCircle, RefreshCw, HelpCircle, Trash2, BarChart2, Users, Download, Edit2, PlayCircle, FileText, MonitorPlay, Link as LinkIcon, Search, Upload } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import ElearningBuilder from './ElearningBuilder';
-import * as XLSX from 'xlsx';
-
+// import * as XLSX from 'xlsx';
 export default function AttendancePage({ params }: { params: Promise<{ id: string }> }) {
   const { user } = useAuth();
   const router = useRouter();
@@ -228,6 +227,7 @@ export default function AttendancePage({ params }: { params: Promise<{ id: strin
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   
+  /*
   const handleImportSyllabus = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
