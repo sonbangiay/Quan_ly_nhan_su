@@ -1,7 +1,5 @@
 import { NextResponse } from 'next/server';
-import { writeFile } from 'fs/promises';
-import { join } from 'path';
-import fs from 'fs';
+import { put } from '@vercel/blob';
 
 export async function POST(request: Request) {
   try {
@@ -9,27 +7,21 @@ export async function POST(request: Request) {
     const file: File | null = data.get('file') as unknown as File;
 
     if (!file) {
-      return NextResponse.json({ success: false, error: 'No file uploaded' }, { status: 400 });
+      return NextResponse.json({ success: false, error: 'Không có file được tải lên' }, { status: 400 });
     }
 
     const safeName = file.name.replace(/[^a-zA-Z0-9.\-_]/g, '_');
     const timestamp = Date.now();
-    const uniqueName = `${timestamp}_${safeName}`;
+    const uniqueName = `reports/${timestamp}_${safeName}`;
 
-    const bytes = await file.arrayBuffer();
-    const buffer = Buffer.from(bytes);
+    // Upload to Vercel Blob (token is auto-read from BLOB_READ_WRITE_TOKEN env var)
+    const blob = await put(uniqueName, file, {
+      access: 'public',
+    });
 
-    const uploadDir = join(process.cwd(), 'public', 'uploads');
-    if (!fs.existsSync(uploadDir)) {
-      fs.mkdirSync(uploadDir, { recursive: true });
-    }
-
-    const filePath = join(uploadDir, uniqueName);
-    await writeFile(filePath, buffer);
-
-    return NextResponse.json({ success: true, fileUrl: `/uploads/${uniqueName}` });
+    return NextResponse.json({ success: true, fileUrl: blob.url });
   } catch (error: any) {
-    console.error('Lỗi API upload:', error);
-    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+    console.error('Lỗi upload file:', error);
+    return NextResponse.json({ success: false, error: error.message || 'Lỗi upload file' }, { status: 500 });
   }
 }
