@@ -3,9 +3,7 @@ import { useEffect, useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { dashboardApi, aiApi, initApi } from '@/lib/api';
 import { Users, Clock, TrendingUp, AlertCircle, CheckCircle, BarChart2, Target, UserCheck, Bot, Trophy, DollarSign, Activity } from 'lucide-react';
-import dynamic from 'next/dynamic';
-
-const DeptPieChart = dynamic(() => import('./DashboardCharts').then(m => m.DeptPieChart), { ssr: false, loading: () => <div style={{ height: 300, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)' }}>Đang tải biểu đồ...</div> });
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line, Legend } from 'recharts';
 
 interface KpiItem { targetName: string; targetValue: number; currentValue: number; unit: string; progress: number; }
 interface SummaryData {
@@ -152,7 +150,27 @@ export default function DashboardPage() {
             {/* Department chart */}
             <div className="glass-card" style={{ padding: 20 }}>
               <h3 style={{ marginBottom: 16, fontSize: 15, fontWeight: 700 }}>Nhân sự theo Phòng ban</h3>
-              <DeptPieChart data={summary.departmentStats || []} />
+              <ResponsiveContainer width="100%" height={300}>
+                <PieChart margin={{ top: 20, right: 20, bottom: 20, left: 20 }}>
+                  <Pie
+                    data={summary.departmentStats?.map(d => ({ name: d.name.replace('Phòng ', ''), value: d.count }))}
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={60}
+                    outerRadius={80}
+                    paddingAngle={4}
+                    dataKey="value"
+                    label={({ name, percent }: any) => (percent || 0) > 0 ? `${name} ${((percent || 0) * 100).toFixed(0)}%` : ''}
+                    labelLine={{ stroke: 'var(--border)', strokeWidth: 1 }}
+                  >
+                    {summary.departmentStats?.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                    ))}
+                  </Pie>
+                  <Tooltip contentStyle={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 12, boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }} itemStyle={{ fontWeight: 600 }} />
+                  <Legend verticalAlign="bottom" height={36} iconType="circle" wrapperStyle={{ fontSize: 13 }} />
+                </PieChart>
+              </ResponsiveContainer>
             </div>
 
             {/* Lead funnel */}
