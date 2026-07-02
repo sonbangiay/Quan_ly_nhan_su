@@ -141,6 +141,26 @@ export default function AttendancePage({ params }: { params: Promise<{ id: strin
     loadAttendanceFromSession(sessionId, sessions, students);
   };
 
+  // Ensure selectedSessionId is valid when search changes
+  useEffect(() => {
+    if (sessions.length > 0) {
+      const filtered = sessions.filter(sess => {
+        if (!searchSessionQuery) return true;
+        const q = searchSessionQuery.toLowerCase();
+        const sessionDateStr = formatDisplayDate(sess.date);
+        const topicStr = (sess.topic || '').toLowerCase();
+        const dayNameStr = (sess.dayName || '').toLowerCase();
+        const weekStr = (sess.week || '').toLowerCase();
+        const idxStr = `buổi ${sessions.findIndex(s => s.id === sess.id) + 1}`;
+        return sessionDateStr.includes(q) || topicStr.includes(q) || idxStr.includes(q) || dayNameStr.includes(q) || weekStr.includes(q);
+      });
+      
+      if (filtered.length > 0 && !filtered.find(s => s.id === selectedSessionId)) {
+        handleSessionChange(filtered[0].id);
+      }
+    }
+  }, [searchSessionQuery, sessions]);
+
   const openAddSessionModal = () => {
     // Determine next date
     let nextDate = new Date();
@@ -783,8 +803,10 @@ export default function AttendancePage({ params }: { params: Promise<{ id: strin
                 const q = searchSessionQuery.toLowerCase();
                 const sessionDateStr = formatDisplayDate(sess.date);
                 const topicStr = (sess.topic || '').toLowerCase();
+                const dayNameStr = (sess.dayName || '').toLowerCase();
+                const weekStr = (sess.week || '').toLowerCase();
                 const idxStr = `buổi ${sessions.findIndex(s => s.id === sess.id) + 1}`;
-                return sessionDateStr.includes(q) || topicStr.includes(q) || idxStr.includes(q);
+                return sessionDateStr.includes(q) || topicStr.includes(q) || idxStr.includes(q) || dayNameStr.includes(q) || weekStr.includes(q);
               }).map((sess) => {
                 const idx = sessions.findIndex(s => s.id === sess.id);
                 const isActive = sess.id === selectedSessionId;
@@ -793,20 +815,33 @@ export default function AttendancePage({ params }: { params: Promise<{ id: strin
                     key={sess.id}
                     onClick={() => handleSessionChange(sess.id)}
                     style={{ 
-                      padding: '12px 16px', 
+                      padding: '12px', 
                       borderRadius: 8, 
                       cursor: 'pointer',
                       background: isActive ? 'var(--accent-blue)' : 'var(--bg-secondary)',
                       color: isActive ? 'white' : 'var(--text-primary)',
                       border: `1px solid ${isActive ? 'var(--accent-blue)' : 'var(--border)'}`,
-                      transition: 'all 0.2s'
+                      transition: 'all 0.2s',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: 4
                     }}
                   >
-                    <div style={{ fontWeight: 600, marginBottom: 4 }}>
-                      {sess.dayName ? `${sess.week ? sess.week + ' - ' : ''}${sess.dayName}` : `Buổi ${idx + 1}`}: {sess.date ? formatDisplayDate(sess.date) : 'Chưa học'}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span style={{ fontWeight: 700, fontSize: 14 }}>{sess.dayName ? sess.dayName.split(':')[0] : `Buổi ${idx + 1}`}</span>
+                      <span style={{ fontSize: 12, fontWeight: 600, background: isActive ? 'rgba(255,255,255,0.2)' : 'var(--bg-primary)', padding: '2px 8px', borderRadius: 12 }}>
+                        {sess.date ? formatDisplayDate(sess.date) : 'Chưa học'}
+                      </span>
                     </div>
-                    <div style={{ fontSize: 12, opacity: isActive ? 0.9 : 0.6, marginBottom: 4 }}>{sess.topic || 'Chưa có nội dung'}</div>
-                    <div style={{ display: 'flex', gap: 12, fontSize: 11, color: isActive ? 'rgba(255,255,255,0.8)' : 'var(--text-muted)' }}>
+                    {sess.topic && sess.topic.includes(':') && (
+                      <div style={{ fontSize: 12, fontWeight: 600, color: isActive ? 'white' : 'var(--accent-blue)' }}>
+                        🕒 {sess.topic.split(':')[0].replace(/^- /g, '').trim()}
+                      </div>
+                    )}
+                    <div style={{ fontSize: 12, opacity: isActive ? 0.9 : 0.6, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      {sess.topic && sess.topic.includes(':') ? sess.topic.split(':').slice(1).join(':').trim() : (sess.topic || 'Chưa có nội dung')}
+                    </div>
+                    <div style={{ display: 'flex', gap: 12, fontSize: 11, color: isActive ? 'rgba(255,255,255,0.8)' : 'var(--text-muted)', marginTop: 2 }}>
                       {sess.videoUrl && <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}><PlayCircle size={12} /> Có Video</span>}
                       {sess.materialUrl && <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}><FileText size={12} /> Tài liệu</span>}
                     </div>
@@ -858,39 +893,51 @@ export default function AttendancePage({ params }: { params: Promise<{ id: strin
                   </div>
                 </div>
 
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 20 }}>
+
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, borderBottom: '1px solid var(--border)', paddingBottom: 16, flexWrap: 'wrap', gap: 16 }}>
                   <div>
-                    <label style={{ display: 'block', marginBottom: 8, fontWeight: 600, fontSize: 14, color: 'var(--text-secondary)' }}>Nội dung / Chi tiết buổi học</label>
-                    <textarea 
-                      className="form-input" 
-                      style={{ width: '100%', height: 100, resize: 'vertical' }} 
-                      placeholder="Nhập ghi chú, chi tiết bài giảng, bài tập về nhà..."
-                      value={sessionNotes}
-                      onChange={e => setSessionNotes(e.target.value)}
-                    />
+                    <h3 style={{ margin: '0 0 4px', fontSize: 16 }}>Danh sách điểm danh</h3>
+                    <div style={{ fontSize: 13, color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <span>Sĩ số: <strong style={{ color: 'var(--text-primary)' }}>{Object.values(attendanceData).filter((a: any) => a.status === 'Present').length}/{students.length}</strong></span>
+                      <span style={{ color: 'var(--danger)' }}>(Vắng {Object.values(attendanceData).filter((a: any) => a.status === 'Absent').length})</span>
+                      <span style={{ color: 'var(--accent-orange)' }}>(Trễ {Object.values(attendanceData).filter((a: any) => a.status === 'Late').length})</span>
+                    </div>
                   </div>
-                  <div>
-                    <label style={{ display: 'block', marginBottom: 8, fontWeight: 600, fontSize: 14, color: 'var(--text-secondary)' }}>Nhận xét / Đánh giá lớp học</label>
-                    <textarea 
-                      className="form-input" 
-                      style={{ width: '100%', height: 100, resize: 'vertical' }} 
-                      placeholder="Nhập nhận xét chung về thái độ, mức độ tiếp thu của lớp..."
-                      value={sessionEvaluation}
-                      onChange={e => setSessionEvaluation(e.target.value)}
-                    />
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+                    <button 
+                      className="btn btn-secondary btn-sm" 
+                      style={{ padding: '6px 12px', borderRadius: 20 }}
+                      onClick={() => {
+                        const newAtt = { ...attendanceData };
+                        students.forEach(st => {
+                          if (newAtt[st.id]?.status === 'NotMarked' || !newAtt[st.id]) {
+                            newAtt[st.id] = { status: 'Present' };
+                          }
+                        });
+                        setAttendanceData(newAtt);
+                      }}
+                      title="Đánh dấu tất cả học sinh chưa điểm danh là Có mặt"
+                    >
+                      <Check size={14} style={{ color: 'var(--accent-green)' }} /> Điểm danh nhanh (Tất cả Có mặt)
+                    </button>
+                    <div style={{ fontSize: 13, color: 'var(--text-secondary)' }}>
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, marginRight: 12 }}>
+                        <div style={{ width: 10, height: 10, borderRadius: '50%', background: 'var(--text-muted)' }}></div> Chưa ĐD
+                      </span>
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, marginRight: 12 }}>
+                        <div style={{ width: 10, height: 10, borderRadius: '50%', background: 'var(--accent-green)' }}></div> Có mặt
+                      </span>
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, marginRight: 12 }}>
+                        <div style={{ width: 10, height: 10, borderRadius: '50%', background: 'var(--danger)' }}></div> Vắng
+                      </span>
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                        <div style={{ width: 10, height: 10, borderRadius: '50%', background: 'var(--accent-orange)' }}></div> Trễ
+                      </span>
+                    </div>
                   </div>
                 </div>
-                
-                {/* Hướng dẫn thao tác */}
-                <div style={{ display: 'flex', gap: 16, marginBottom: 20, fontSize: 13, background: 'var(--bg-secondary)', padding: '10px 16px', borderRadius: 8 }}>
-                  <span><strong>Cách điểm danh:</strong> Nhấn vào nút trạng thái của từng học viên để thay đổi.</span>
-                  <div style={{ display: 'flex', gap: 12, marginLeft: 'auto' }}>
-                    <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}><div style={{ width: 10, height: 10, borderRadius: '50%', background: 'var(--text-muted)' }}/> Chưa ĐD</span>
-                    <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}><div style={{ width: 10, height: 10, borderRadius: '50%', background: 'var(--accent-green)' }}/> Có mặt</span>
-                    <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}><div style={{ width: 10, height: 10, borderRadius: '50%', background: 'var(--accent-red)' }}/> Vắng</span>
-                    <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}><div style={{ width: 10, height: 10, borderRadius: '50%', background: 'var(--accent-orange)' }}/> Trễ</span>
-                  </div>
-                </div>
+
+                <div className="table-responsive">
 
                 <table className="data-table">
                   <thead>
@@ -952,7 +999,32 @@ export default function AttendancePage({ params }: { params: Promise<{ id: strin
                     )}
                   </tbody>
                 </table>
-              </>
+              </div>
+
+              <div style={{ display: 'flex', gap: 24, marginTop: 32, paddingTop: 32, borderTop: '1px solid var(--border)', flexWrap: 'wrap' }}>
+                <div style={{ flex: 1, minWidth: 250 }}>
+                  <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 6 }}>Nội dung / Chi tiết buổi học</label>
+                  <textarea 
+                    className="form-input" 
+                    style={{ width: '100%', minHeight: 100, padding: 12, fontSize: 14 }}
+                    placeholder="Nhập nội dung chi tiết..."
+                    value={sessionNotes}
+                    onChange={e => setSessionNotes(e.target.value)}
+                  />
+                </div>
+                
+                <div style={{ flex: 1, minWidth: 250 }}>
+                  <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 6 }}>Nhận xét / Đánh giá lớp học</label>
+                  <textarea 
+                    className="form-input" 
+                    style={{ width: '100%', minHeight: 100, padding: 12, fontSize: 14, background: 'var(--bg-secondary)' }}
+                    placeholder="Nhập nhận xét chung về thái độ, mức độ tiếp thu của lớp..."
+                    value={sessionEvaluation}
+                    onChange={e => setSessionEvaluation(e.target.value)}
+                  />
+                </div>
+              </div>
+            </>
             ) : (
               <div style={{ textAlign: 'center', padding: 60, color: 'var(--text-muted)' }}>
                 <AlertCircle size={40} style={{ margin: '0 auto 16px', opacity: 0.3 }} />
@@ -996,22 +1068,22 @@ export default function AttendancePage({ params }: { params: Promise<{ id: strin
           
           <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: 14 }}>
             <thead>
-              <tr style={{ background: 'var(--bg-secondary)', color: 'var(--text-secondary)' }}>
-                <th style={{ padding: '12px 16px', borderBottom: '1px solid var(--border)', minWidth: 200 }}>Học viên</th>
+              <tr style={{ background: 'rgba(0,102,255,0.05)', color: 'var(--accent-blue)' }}>
+                <th style={{ padding: '14px 16px', borderBottom: '2px solid rgba(0,102,255,0.2)', minWidth: 200, fontWeight: 700 }}>Học viên</th>
                 {sessions.map((sess, idx) => (
-                  <th key={sess.id} style={{ padding: '12px 8px', borderBottom: '1px solid var(--border)', textAlign: 'center', minWidth: 60 }}>
+                  <th key={sess.id} style={{ padding: '14px 8px', borderBottom: '2px solid rgba(0,102,255,0.2)', textAlign: 'center', minWidth: 60, fontWeight: 700 }}>
                     B{idx + 1}<br/>
-                    <span style={{ fontSize: 11, fontWeight: 'normal' }}>{formatDisplayDate(sess.date)}</span>
+                    <span style={{ fontSize: 11, fontWeight: 'normal', opacity: 0.8 }}>{formatDisplayDate(sess.date)}</span>
                   </th>
                 ))}
-                <th style={{ padding: '12px 16px', borderBottom: '1px solid var(--border)', textAlign: 'center', borderLeft: '1px solid var(--border)', minWidth: 100 }}>Tổng kết</th>
-                <th style={{ padding: '12px 16px', borderBottom: '1px solid var(--border)', textAlign: 'center', minWidth: 80 }}>Tỷ lệ đi học</th>
-                <th style={{ padding: '12px 16px', borderBottom: '1px solid var(--border)', textAlign: 'center', minWidth: 100 }}>Tiến độ E-learning</th>
+                <th style={{ padding: '14px 16px', borderBottom: '2px solid rgba(0,102,255,0.2)', textAlign: 'center', borderLeft: '1px solid rgba(0,102,255,0.2)', minWidth: 100, fontWeight: 700 }}>Tổng kết</th>
+                <th style={{ padding: '14px 16px', borderBottom: '2px solid rgba(0,102,255,0.2)', textAlign: 'center', minWidth: 80, fontWeight: 700 }}>Tỷ lệ đi học</th>
+                <th style={{ padding: '14px 16px', borderBottom: '2px solid rgba(0,102,255,0.2)', textAlign: 'center', minWidth: 100, fontWeight: 700 }}>Tiến độ E-learning</th>
               </tr>
             </thead>
             <tbody>
               {overviewStats.length > 0 ? overviewStats.map((st, idx) => (
-                <tr key={st.id} style={{ borderBottom: idx < overviewStats.length - 1 ? '1px solid var(--border)' : 'none', transition: 'background 0.2s' }} onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-secondary)'} onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
+                <tr key={st.id} style={{ borderBottom: idx < overviewStats.length - 1 ? '1px solid var(--border)' : 'none', transition: 'all 0.2s', background: idx % 2 === 0 ? 'transparent' : 'rgba(0,0,0,0.015)' }} onMouseEnter={e => e.currentTarget.style.background = 'rgba(0,102,255,0.03)'} onMouseLeave={e => e.currentTarget.style.background = idx % 2 === 0 ? 'transparent' : 'rgba(0,0,0,0.015)'}>
                   <td style={{ padding: '12px 16px', fontWeight: 600 }}>{st.name}</td>
                   {st.sessions.map((sessAtt: any) => {
                     let display = <span style={{ color: 'var(--text-muted)' }}>-</span>;
@@ -1087,11 +1159,11 @@ export default function AttendancePage({ params }: { params: Promise<{ id: strin
           
           <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: 14 }}>
             <thead>
-              <tr style={{ background: 'var(--bg-secondary)', color: 'var(--text-secondary)' }}>
-                <th style={{ padding: '12px 16px', borderBottom: '1px solid var(--border)', minWidth: 80 }}>Ngày</th>
-                <th style={{ padding: '12px 16px', borderBottom: '1px solid var(--border)', minWidth: 120 }}>Thời gian dạy</th>
-                <th style={{ padding: '12px 16px', borderBottom: '1px solid var(--border)', minWidth: 300 }}>Nội dung chi tiết</th>
-                <th style={{ padding: '12px 16px', borderBottom: '1px solid var(--border)', minWidth: 250 }}>Đánh giá học sinh</th>
+              <tr style={{ background: 'rgba(0,102,255,0.05)', color: 'var(--accent-blue)' }}>
+                <th style={{ padding: '14px 16px', borderBottom: '2px solid rgba(0,102,255,0.2)', minWidth: 80, fontWeight: 700 }}>Ngày</th>
+                <th style={{ padding: '14px 16px', borderBottom: '2px solid rgba(0,102,255,0.2)', minWidth: 120, fontWeight: 700 }}>Thời gian dạy</th>
+                <th style={{ padding: '14px 16px', borderBottom: '2px solid rgba(0,102,255,0.2)', minWidth: 300, fontWeight: 700 }}>Nội dung chi tiết</th>
+                <th style={{ padding: '14px 16px', borderBottom: '2px solid rgba(0,102,255,0.2)', minWidth: 250, fontWeight: 700 }}>Đánh giá học sinh</th>
               </tr>
             </thead>
             <tbody>
@@ -1106,14 +1178,22 @@ export default function AttendancePage({ params }: { params: Promise<{ id: strin
                 const text = `${sess.week} ${sess.dayName} ${formatDisplayDate(sess.date)} ${sess.topic} ${sess.notes} ${sess.evaluation}`.toLowerCase();
                 return text.includes(q);
               }).map((sess, idx) => (
-                <tr key={sess.id} style={{ borderBottom: '1px solid var(--border)', transition: 'background 0.2s', background: idx % 2 === 0 ? 'transparent' : 'rgba(0,0,0,0.02)' }} onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-secondary)'} onMouseLeave={e => e.currentTarget.style.background = idx % 2 === 0 ? 'transparent' : 'rgba(0,0,0,0.02)'}>
-                  <td style={{ padding: '12px 16px', fontWeight: 600, color: 'var(--danger)' }}>{sess.dayName || `Ngày ${idx + 1}`}</td>
-                  <td style={{ padding: '12px 16px' }}>{sess.date ? formatDisplayDate(sess.date) : 'Chưa xếp lịch'}</td>
-                  <td style={{ padding: '12px 16px', whiteSpace: 'pre-line' }}>
-                    <div style={{ fontWeight: 600, marginBottom: 4 }}>{sess.topic}</div>
-                    <div style={{ color: 'var(--text-secondary)', fontSize: 13 }}>{sess.notes}</div>
+                <tr key={sess.id} style={{ borderBottom: '1px solid var(--border)', transition: 'all 0.2s', background: idx % 2 === 0 ? 'transparent' : 'rgba(0,0,0,0.015)' }} onMouseEnter={e => e.currentTarget.style.background = 'rgba(0,102,255,0.03)'} onMouseLeave={e => e.currentTarget.style.background = idx % 2 === 0 ? 'transparent' : 'rgba(0,0,0,0.015)'}>
+                  <td style={{ padding: '16px', verticalAlign: 'top' }}>
+                    <span style={{ display: 'inline-block', padding: '4px 10px', background: 'rgba(239,68,68,0.1)', color: 'var(--danger)', borderRadius: 20, fontWeight: 700, fontSize: 13 }}>
+                      {sess.dayName || `Ngày ${idx + 1}`}
+                    </span>
                   </td>
-                  <td style={{ padding: '12px 16px', whiteSpace: 'pre-line', color: 'var(--text-secondary)' }}>{sess.evaluation || '-'}</td>
+                  <td style={{ padding: '16px', verticalAlign: 'top', fontWeight: 500, color: sess.date ? 'var(--text-primary)' : 'var(--text-muted)' }}>
+                    {sess.date ? formatDisplayDate(sess.date) : 'Chưa xếp lịch'}
+                  </td>
+                  <td style={{ padding: '16px', verticalAlign: 'top', whiteSpace: 'pre-line' }}>
+                    <div style={{ fontWeight: 600, marginBottom: 6, color: 'var(--accent-blue)', fontSize: 15 }}>{sess.topic}</div>
+                    <div style={{ color: 'var(--text-secondary)', fontSize: 13, lineHeight: 1.5 }}>{sess.notes}</div>
+                  </td>
+                  <td style={{ padding: '16px', verticalAlign: 'top', whiteSpace: 'pre-line', color: 'var(--text-secondary)', fontSize: 13, lineHeight: 1.5 }}>
+                    {sess.evaluation || <span style={{ fontStyle: 'italic', opacity: 0.5 }}>Chưa có đánh giá</span>}
+                  </td>
                 </tr>
               )) : (
                 <tr>
