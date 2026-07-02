@@ -1,19 +1,14 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  // Add modularizeImports to prevent Webpack OOM with large icon libraries
-  modularizeImports: {
-    'lucide-react': {
-      transform: 'lucide-react/dist/esm/icons/{{kebabCase member}}',
-    }
-  },
-  // Allow API images from localhost
+  // Allow API images from localhost and Vercel Blob
   images: {
     remotePatterns: [
       { protocol: 'http', hostname: 'localhost', port: '5000', pathname: '/uploads/**' },
+      { protocol: 'https', hostname: '*.public.blob.vercel-storage.com', pathname: '/**' },
     ],
   },
-  // Proxy /api calls to backend during development
+  // Proxy uploads from backend during development
   async rewrites() {
     return [
       {
