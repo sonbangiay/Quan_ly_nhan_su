@@ -346,6 +346,7 @@ export default function AttendancePage({ params }: { params: Promise<{ id: strin
     setSaving(false);
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
+  */
 
   const saveAttendance = async () => {
     setSaving(true);
@@ -683,7 +684,7 @@ export default function AttendancePage({ params }: { params: Promise<{ id: strin
                 <Calendar size={18} /> Các Buổi học
               </h3>
               <div style={{ display: 'flex', gap: 8 }}>
-                <input type="file" accept=".xlsx,.xls,.csv" ref={fileInputRef} onChange={handleImportSyllabus} style={{ display: 'none' }} />
+                <input type="file" accept=".xlsx,.xls,.csv" ref={fileInputRef} onChange={() => alert('Chức năng này đã bị tắt để fix lỗi treo Vercel')} style={{ display: 'none' }} />
                 <button onClick={() => fileInputRef.current?.click()} disabled={saving} className="btn btn-secondary btn-sm" style={{ padding: '4px 8px' }} title="Nhập lộ trình từ Excel">
                   <Upload size={16} />
                 </button>
