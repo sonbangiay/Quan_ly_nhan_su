@@ -79,7 +79,7 @@ function CheckInWidget() {
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '6px 12px',
       background: 'var(--bg-hover)', borderRadius: 10, border: '1px solid var(--border)' }}>
-      <div style={{ textAlign: 'right' }}>
+      <div className="desktop-only" style={{ textAlign: 'right' }}>
         <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--accent-blue)', fontVariantNumeric: 'tabular-nums' }}>
           {hms}
         </div>
@@ -420,7 +420,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         </header>
 
         {/* Page Content */}
-        <main style={{ flex: 1, padding: 0 }}>
+        <main style={{ flex: 1, padding: 0, minWidth: 0 }}>
           {children}
         </main>
       </div>

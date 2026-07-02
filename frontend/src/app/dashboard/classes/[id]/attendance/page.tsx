@@ -715,7 +715,7 @@ export default function AttendancePage({ params }: { params: Promise<{ id: strin
       ) : (
         <>
           {/* Tabs */}
-          <div style={{ display: 'flex', gap: 12, marginBottom: 24, borderBottom: '1px solid var(--border)', paddingBottom: 16 }}>
+          <div className="tabs-container" style={{ marginBottom: 24, borderBottom: '1px solid var(--border)', paddingBottom: 16 }}>
         <button 
           onClick={() => setActiveTab('daily')}
           className={`btn ${activeTab === 'daily' ? 'btn-primary' : ''}`}
@@ -758,10 +758,10 @@ export default function AttendancePage({ params }: { params: Promise<{ id: strin
       </div>
 
       {activeTab === 'daily' ? (
-        <div style={{ display: 'flex', gap: 24, flexWrap: 'wrap', alignItems: 'flex-start' }}>
+        <div className="attendance-layout">
         
         {/* Left Col: Sessions List */}
-        <div style={{ flex: '0 0 280px', position: 'sticky', top: 24, paddingRight: 4, height: 'calc(100vh - 140px)' }}>
+        <div className="sessions-sidebar">
           <div className="glass-card" style={{ padding: 16, display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
             <div style={{ flexShrink: 0 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
@@ -853,14 +853,14 @@ export default function AttendancePage({ params }: { params: Promise<{ id: strin
         </div>
 
         {/* Right Col: Attendance Grid */}
-        <div style={{ flex: 1 }}>
-          <div className="glass-card" style={{ padding: 24 }}>
+        <div className="attendance-main">
+          <div className="glass-card mobile-p-16" style={{ padding: 24 }}>
             {selectedSession ? (
               <>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border)', paddingBottom: 16, marginBottom: 16 }}>
-                  <div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', borderBottom: '1px solid var(--border)', paddingBottom: 16, marginBottom: 16, flexWrap: 'wrap', gap: 16 }}>
+                  <div style={{ flex: 1, minWidth: '100%' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8, flexWrap: 'wrap' }}>
-                      <h2 style={{ fontSize: 20, margin: 0, whiteSpace: 'nowrap' }}>Điểm danh {selectedSession?.dayName ? `${selectedSession.week ? selectedSession.week + ' - ' : ''}${selectedSession.dayName}` : `Buổi ${sessions.findIndex(s => s.id === selectedSessionId) + 1}`}</h2>
+                      <h2 style={{ fontSize: 20, margin: 0 }}>Điểm danh {selectedSession?.dayName ? `${selectedSession.week ? selectedSession.week + ' - ' : ''}${selectedSession.dayName}` : `Buổi ${sessions.findIndex(s => s.id === selectedSessionId) + 1}`}</h2>
                       <input type="date" className="form-input" style={{ padding: '4px 8px', height: 32, fontSize: 14 }} value={sessionDate} onChange={e => setSessionDate(e.target.value)} />
                       <input type="text" className="form-input" style={{ padding: '4px 8px', height: 32, fontSize: 14, minWidth: 200, flex: 1 }} placeholder="Tên bài học/Chủ đề" value={sessionTopic} onChange={e => setSessionTopic(e.target.value)} />
                     </div>
@@ -937,7 +937,7 @@ export default function AttendancePage({ params }: { params: Promise<{ id: strin
                   </div>
                 </div>
 
-                <div className="table-responsive">
+                <div className="table-responsive desktop-only">
 
                 <table className="data-table">
                   <thead>
@@ -1001,6 +1001,58 @@ export default function AttendancePage({ params }: { params: Promise<{ id: strin
                 </table>
               </div>
 
+              {/* Mobile Card View for Attendance */}
+              <div className="mobile-only" style={{ marginTop: 16 }}>
+                {students.length > 0 ? students.map((student, idx) => {
+                  const status = attendanceData[student.id]?.status || 'NotMarked';
+                  let btnClass = 'badge-green';
+                  let btnIcon = <Check size={16} />;
+                  let btnLabel = 'Có mặt';
+                  
+                  if (status === 'NotMarked') {
+                    btnClass = '';
+                    btnIcon = <HelpCircle size={16} />;
+                    btnLabel = 'Chưa điểm danh';
+                  } else if (status === 'Absent') {
+                    btnClass = 'badge-red';
+                    btnIcon = <X size={16} />;
+                    btnLabel = 'Vắng mặt';
+                  } else if (status === 'Late') {
+                    btnClass = 'badge-orange';
+                    btnIcon = <Clock size={16} />;
+                    btnLabel = 'Đi trễ';
+                  }
+
+                  return (
+                    <div key={student.id} className="mobile-card" style={{ marginBottom: 0 }}>
+                      <div className="mobile-card-title" style={{ fontSize: 18, marginBottom: 16 }}>
+                        <span style={{ color: 'var(--text-muted)', fontSize: 14, fontWeight: 500 }}>#{idx + 1}</span>
+                        {student.name}
+                      </div>
+                      <button
+                        onClick={() => handleStatusToggle(student.id)}
+                        className={`badge ${btnClass}`}
+                        style={{ 
+                          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, 
+                          width: '100%', padding: '14px', border: 'none', cursor: 'pointer',
+                          fontSize: 16, fontWeight: 700, userSelect: 'none', transition: 'transform 0.1s',
+                          borderRadius: 12
+                        }}
+                        onMouseDown={e => e.currentTarget.style.transform = 'scale(0.95)'}
+                        onMouseUp={e => e.currentTarget.style.transform = 'scale(1)'}
+                        onMouseLeave={e => e.currentTarget.style.transform = 'scale(1)'}
+                      >
+                        {btnIcon} {btnLabel}
+                      </button>
+                    </div>
+                  );
+                }) : (
+                  <div style={{ textAlign: 'center', padding: 40, color: 'var(--text-muted)' }}>
+                    Lớp chưa có học viên nào.
+                  </div>
+                )}
+              </div>
+
               <div style={{ display: 'flex', gap: 24, marginTop: 32, paddingTop: 32, borderTop: '1px solid var(--border)', flexWrap: 'wrap' }}>
                 <div style={{ flex: 1, minWidth: 250 }}>
                   <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 6 }}>Nội dung / Chi tiết buổi học</label>
@@ -1051,8 +1103,8 @@ export default function AttendancePage({ params }: { params: Promise<{ id: strin
         </div>
         </div>
       ) : activeTab === 'overview' ? (
-        <div className="glass-card" style={{ padding: 24, overflowX: 'auto' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+        <div className="glass-card mobile-p-16" style={{ padding: 24 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, flexWrap: 'wrap', gap: 16 }}>
             <h3 style={{ margin: 0, fontSize: 16, display: 'flex', alignItems: 'center', gap: 6 }}>
               <Users size={18} /> Thống kê Tổng quát Điểm danh
             </h3>
@@ -1066,7 +1118,8 @@ export default function AttendancePage({ params }: { params: Promise<{ id: strin
             </button>
           </div>
           
-          <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: 14 }}>
+          <div className="table-responsive desktop-only">
+            <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: 14 }}>
             <thead>
               <tr style={{ background: 'rgba(0,102,255,0.05)', color: 'var(--accent-blue)' }}>
                 <th style={{ padding: '14px 16px', borderBottom: '2px solid rgba(0,102,255,0.2)', minWidth: 200, fontWeight: 700 }}>Học viên</th>
@@ -1120,6 +1173,52 @@ export default function AttendancePage({ params }: { params: Promise<{ id: strin
               )}
             </tbody>
           </table>
+          </div>
+
+          {/* Mobile Card View for Overview */}
+          <div className="mobile-only">
+            {overviewStats.length > 0 ? overviewStats.map((st, idx) => (
+              <div key={st.id} className="mobile-card" style={{ marginBottom: 0 }}>
+                <div className="mobile-card-title">
+                  {st.name}
+                </div>
+                <div className="mobile-card-row">
+                  <span className="mobile-card-label">Tổng kết (V/X/T):</span>
+                  <span className="mobile-card-value" style={{ display: 'flex', gap: 12 }}>
+                    <span style={{ color: 'var(--accent-green)', fontWeight: 600 }}>{st.present} Có mặt</span>
+                    <span style={{ color: 'var(--danger)', fontWeight: 600 }}>{st.absent} Vắng</span>
+                    <span style={{ color: 'var(--accent-orange)', fontWeight: 600 }}>{st.late} Trễ</span>
+                  </span>
+                </div>
+                <div className="mobile-card-row" style={{ alignItems: 'center' }}>
+                  <span className="mobile-card-label">Tỷ lệ đi học:</span>
+                  <span className="mobile-card-value" style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                    <span style={{ color: st.rate >= 80 ? 'var(--accent-green)' : (st.rate >= 50 ? 'var(--accent-orange)' : 'var(--danger)'), fontWeight: 700, minWidth: 40 }}>
+                      {st.rate}%
+                    </span>
+                    <div style={{ flex: 1, height: 6, background: 'var(--bg-secondary)', borderRadius: 4, overflow: 'hidden' }}>
+                      <div style={{ width: `${st.rate}%`, height: '100%', background: st.rate >= 80 ? 'var(--accent-green)' : (st.rate >= 50 ? 'var(--accent-orange)' : 'var(--danger)'), borderRadius: 4 }}></div>
+                    </div>
+                  </span>
+                </div>
+                <div className="mobile-card-row" style={{ alignItems: 'center' }}>
+                  <span className="mobile-card-label">E-Learning:</span>
+                  <span className="mobile-card-value" style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                    <span style={{ color: st.elearningRate >= 80 ? 'var(--accent-purple)' : 'var(--text-secondary)', fontWeight: 700, minWidth: 40 }}>
+                      {st.elearningRate}%
+                    </span>
+                    <div style={{ flex: 1, height: 6, background: 'var(--bg-secondary)', borderRadius: 4, overflow: 'hidden' }}>
+                      <div style={{ width: `${st.elearningRate}%`, height: '100%', background: st.elearningRate >= 80 ? 'var(--accent-purple)' : 'var(--text-secondary)', borderRadius: 4 }}></div>
+                    </div>
+                  </span>
+                </div>
+              </div>
+            )) : (
+              <div style={{ textAlign: 'center', padding: 40, color: 'var(--text-muted)' }}>
+                Chưa có dữ liệu học viên
+              </div>
+            )}
+          </div>
           
           <div style={{ display: 'flex', gap: 16, marginTop: 16, fontSize: 12, color: 'var(--text-secondary)', justifyContent: 'flex-end', padding: '0 16px' }}>
             <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}><span style={{ color: 'var(--accent-green)', fontWeight: 600 }}>V</span>: Có mặt</span>
@@ -1128,8 +1227,8 @@ export default function AttendancePage({ params }: { params: Promise<{ id: strin
           </div>
         </div>
       ) : (
-        <div className="glass-card" style={{ padding: 24, overflowX: 'auto' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
+        <div className="glass-card mobile-p-16" style={{ padding: 24 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24, flexWrap: 'wrap', gap: 16 }}>
             <h3 style={{ margin: 0, fontSize: 16, display: 'flex', alignItems: 'center', gap: 6 }}>
               <Table size={18} /> Lộ trình & Đánh giá toàn bộ buổi học
             </h3>
@@ -1157,7 +1256,8 @@ export default function AttendancePage({ params }: { params: Promise<{ id: strin
             </div>
           </div>
           
-          <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: 14 }}>
+          <div className="table-responsive desktop-only">
+            <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: 14 }}>
             <thead>
               <tr style={{ background: 'rgba(0,102,255,0.05)', color: 'var(--accent-blue)' }}>
                 <th style={{ padding: '14px 16px', borderBottom: '2px solid rgba(0,102,255,0.2)', minWidth: 80, fontWeight: 700 }}>Ngày</th>
@@ -1204,6 +1304,52 @@ export default function AttendancePage({ params }: { params: Promise<{ id: strin
               )}
             </tbody>
           </table>
+          </div>
+
+          {/* Mobile Card View for Syllabus */}
+          <div className="mobile-only">
+            {sessions.filter(sess => {
+              if (!searchSyllabusQuery) return true;
+              const q = searchSyllabusQuery.toLowerCase();
+              const text = `${sess.week} ${sess.dayName} ${formatDisplayDate(sess.date)} ${sess.topic} ${sess.notes} ${sess.evaluation}`.toLowerCase();
+              return text.includes(q);
+            }).length > 0 ? sessions.filter(sess => {
+              if (!searchSyllabusQuery) return true;
+              const q = searchSyllabusQuery.toLowerCase();
+              const text = `${sess.week} ${sess.dayName} ${formatDisplayDate(sess.date)} ${sess.topic} ${sess.notes} ${sess.evaluation}`.toLowerCase();
+              return text.includes(q);
+            }).map((sess, idx) => (
+              <div key={sess.id} className="mobile-card" style={{ marginBottom: 0 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                  <span style={{ display: 'inline-block', padding: '4px 10px', background: 'rgba(239,68,68,0.1)', color: 'var(--danger)', borderRadius: 20, fontWeight: 700, fontSize: 13 }}>
+                    {sess.dayName || `Ngày ${idx + 1}`}
+                  </span>
+                  <span style={{ fontWeight: 600, color: sess.date ? 'var(--text-primary)' : 'var(--text-muted)', fontSize: 13 }}>
+                    {sess.date ? formatDisplayDate(sess.date) : 'Chưa xếp lịch'}
+                  </span>
+                </div>
+                
+                <div style={{ fontWeight: 700, marginBottom: 8, color: 'var(--accent-blue)', fontSize: 16 }}>
+                  {sess.topic || 'Chưa có chủ đề'}
+                </div>
+                
+                <div style={{ color: 'var(--text-secondary)', fontSize: 14, lineHeight: 1.5, marginBottom: 12, whiteSpace: 'pre-line' }}>
+                  {sess.notes || <span style={{ fontStyle: 'italic', opacity: 0.5 }}>Chưa có nội dung chi tiết</span>}
+                </div>
+
+                <div style={{ background: 'var(--bg-secondary)', padding: 12, borderRadius: 8 }}>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-muted)', marginBottom: 4 }}>Đánh giá / Nhận xét:</div>
+                  <div style={{ color: 'var(--text-primary)', fontSize: 13, lineHeight: 1.5, whiteSpace: 'pre-line' }}>
+                    {sess.evaluation || <span style={{ fontStyle: 'italic', opacity: 0.5 }}>Chưa có đánh giá</span>}
+                  </div>
+                </div>
+              </div>
+            )) : (
+              <div style={{ textAlign: 'center', padding: 40, color: 'var(--text-muted)' }}>
+                Không tìm thấy kết quả phù hợp.
+              </div>
+            )}
+          </div>
         </div>
       )}
 

@@ -289,9 +289,9 @@ export default function ClassOverviewPage() {
   const dayMap = ['Chủ nhật', 'Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7'];
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 24, width: '100%', minWidth: 0 }}>
       {/* ===== HEADER INFO CARDS ===== */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 24 }}>
+      <div className="responsive-grid">
         
         {/* Card: Quản lý Lớp học */}
         <div className="glass-card" style={{ padding: 24, display: 'flex', flexDirection: 'column' }}>
@@ -377,14 +377,14 @@ export default function ClassOverviewPage() {
 
       {/* ===== DANH SÁCH HỌC VIÊN ===== */}
       <div className="glass-card" style={{ padding: 32 }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
+        <div className="section-header">
           <div>
             <h2 style={{ fontSize: 20, fontWeight: 700, margin: '0 0 4px', display: 'flex', alignItems: 'center', gap: 8 }}>
               Danh sách Học viên
             </h2>
             <p style={{ margin: 0, color: 'var(--text-secondary)', fontSize: 14 }}>Quản lý thông tin và học phí của học viên trong lớp</p>
           </div>
-          <div style={{ display: 'flex', gap: 12 }}>
+          <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
             {selectedEnrollmentIds.length > 0 && (
               <button className="btn btn-danger" onClick={handleBulkRemoveStudents} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 20px', borderRadius: 8, fontWeight: 600 }}>
                 <Trash2 size={18} /> Xóa đã chọn ({selectedEnrollmentIds.length})
@@ -410,7 +410,8 @@ export default function ClassOverviewPage() {
             <p style={{ marginTop: 8, fontSize: 14 }}>Hãy nhấn nút "Thêm Học viên" để bắt đầu ghi danh</p>
           </div>
         ) : (
-          <div className="table-responsive" style={{ overflowX: 'auto', margin: '0 -16px' }}>
+          <>
+          <div className="table-responsive desktop-only" style={{ overflowX: 'auto', margin: '0 -16px' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', minWidth: 800 }}>
               <thead>
                 <tr style={{ borderBottom: '2px solid var(--border)', background: 'var(--bg-secondary)' }}>
@@ -521,6 +522,92 @@ export default function ClassOverviewPage() {
               </tbody>
             </table>
           </div>
+          
+          {/* Mobile Card View for Students */}
+          <div className="mobile-only" style={{ marginTop: 16 }}>
+            {students.map((student: any, idx: number) => {
+              const en = enrollments.find((e: any) => e.studentId === student.id);
+              return (
+                <div key={student.id} className="mobile-card" style={{ marginBottom: 0 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                      <div style={{ width: 40, height: 40, borderRadius: '50%', background: 'var(--accent-purple)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: 16 }}>
+                        {student.fullName.charAt(0)}
+                      </div>
+                      <div>
+                        <div style={{ fontWeight: 700, color: 'var(--text-primary)', fontSize: 16 }}>{student.fullName}</div>
+                        <div style={{ fontSize: 13, color: 'var(--text-secondary)', display: 'flex', alignItems: 'center' }}><Phone size={12} style={{marginRight:4}}/>{student.phone}</div>
+                      </div>
+                    </div>
+                    {en && (
+                      <input 
+                        type="checkbox" 
+                        checked={selectedEnrollmentIds.includes(en.id)}
+                        onChange={(e) => {
+                          if (e.target.checked) setSelectedEnrollmentIds(prev => [...prev, en.id]);
+                          else setSelectedEnrollmentIds(prev => prev.filter(id => id !== en.id));
+                        }}
+                        style={{ width: 20, height: 20, cursor: 'pointer' }}
+                      />
+                    )}
+                  </div>
+                  
+                  <div className="mobile-card-row">
+                    <span className="mobile-card-label">Học phí:</span>
+                    <span className="mobile-card-value">
+                      {en ? (
+                        <div style={{ 
+                          display: 'inline-flex', padding: '6px 12px', borderRadius: 20, fontSize: 12, fontWeight: 600,
+                          background: en.tuitionStatus === 1 ? '#dcfce7' : en.tuitionStatus === 2 ? '#fef08a' : '#fee2e2',
+                          color: en.tuitionStatus === 1 ? '#166534' : en.tuitionStatus === 2 ? '#854d0e' : '#991b1b'
+                        }}>
+                          {en.tuitionStatus === 1 ? 'Đã thu đủ' : en.tuitionStatus === 2 ? 'Thu 1 phần' : 'Chưa thu'}
+                        </div>
+                      ) : <span style={{ color: 'var(--text-muted)' }}>---</span>}
+                    </span>
+                  </div>
+
+                  <div className="mobile-card-row">
+                    <span className="mobile-card-label">Ghi chú:</span>
+                    <span className="mobile-card-value" style={{ fontSize: 13, color: 'var(--text-secondary)' }}>
+                      {en?.learningGoal || en?.notes ? (
+                        <span>{en?.learningGoal ? `MT: ${en.learningGoal} ` : ''} {en?.notes ? `- ${en.notes}` : ''}</span>
+                      ) : (
+                        <span style={{ fontStyle: 'italic', opacity: 0.5 }}>Không có ghi chú</span>
+                      )}
+                    </span>
+                  </div>
+
+                  {en && (
+                    <div style={{ display: 'flex', gap: 8, marginTop: 16, borderTop: '1px solid var(--border)', paddingTop: 16 }}>
+                      <button 
+                        className="btn btn-secondary"
+                        style={{ flex: 1, display: 'flex', justifyContent: 'center', gap: 8 }}
+                        onClick={() => {
+                          setEditingEnrollment(en);
+                          setEditEnrollmentForm({
+                            tuitionStatus: en.tuitionStatus || 3,
+                            learningGoal: en.learningGoal || '',
+                            notes: en.notes || ''
+                          });
+                        }}
+                      >
+                        <Edit2 size={16} /> Sửa
+                      </button>
+                      <button 
+                        className="btn"
+                        style={{ flex: 1, display: 'flex', justifyContent: 'center', gap: 8, background: '#fee2e2', color: '#dc2626', border: 'none' }}
+                        onClick={() => handleRemoveStudent(en.id)}
+                      >
+                        <Trash2 size={16} /> Xóa
+                      </button>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+          </>
         )}
       </div>
 

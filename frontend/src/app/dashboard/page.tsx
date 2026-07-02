@@ -290,7 +290,7 @@ export default function DashboardPage() {
       {/* EMPLOYEE DASHBOARD */}
       {user?.role === 'Employee' && summary && (
         <>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 16, marginBottom: 24 }}>
+          <div className="responsive-grid-sm" style={{ marginBottom: 24 }}>
             <StatCard icon={Clock} label="Giờ làm hôm nay" value={`${(summary.workHoursToday ?? 0).toFixed(1)}h`} color="var(--accent-blue)" sub={summary.checkedIn ? (summary.checkedOut ? 'Đã kết thúc' : 'Đang làm việc') : 'Chưa check-in'} />
             <StatCard icon={UserCheck} label="Khách hàng của tôi" value={summary.myLeads ?? 0} color="var(--accent-cyan)" />
             <StatCard icon={AlertCircle} label="Đơn nghỉ chờ duyệt" value={summary.myPendingLeave ?? 0} color="var(--accent-orange)" />
