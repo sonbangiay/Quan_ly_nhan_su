@@ -2,7 +2,7 @@
 import { useState, useEffect, use, useRef } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { classApi } from '@/lib/api';
-import { ArrowLeft, Check, X, Clock, Calendar, Save, Plus, ChevronRight, AlertCircle, RefreshCw, HelpCircle, Trash2, BarChart2, Users, Download, Edit2, PlayCircle, FileText, MonitorPlay, Link as LinkIcon, Search, Upload } from 'lucide-react';
+import { ArrowLeft, Check, X, Clock, Calendar, Save, Plus, ChevronRight, AlertCircle, RefreshCw, HelpCircle, Trash2, BarChart2, Users, Download, Edit2, PlayCircle, FileText, MonitorPlay, Link as LinkIcon, Search, Upload, Table } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import ElearningBuilder from './ElearningBuilder';
 import * as XLSX from 'xlsx';
@@ -26,12 +26,13 @@ export default function AttendancePage({ params }: { params: Promise<{ id: strin
   const [sessionTopic, setSessionTopic] = useState<string>('');
   const [sessionDate, setSessionDate] = useState<string>('');
   const [errorMsg, setErrorMsg] = useState<string>('');
-  const [activeTab, setActiveTab] = useState<'daily' | 'overview'>('daily');
+  const [activeTab, setActiveTab] = useState<'daily' | 'overview' | 'syllabus'>('daily');
   const [editingSession, setEditingSession] = useState<any>(null);
   const [showAddSession, setShowAddSession] = useState(false);
   const [newSessionForm, setNewSessionForm] = useState({ date: '', topic: '' });
   const [elearningProgressData, setElearningProgressData] = useState<any[]>([]);
   const [searchSessionQuery, setSearchSessionQuery] = useState('');
+  const [searchSyllabusQuery, setSearchSyllabusQuery] = useState('');
   
   useEffect(() => {
     fetchClassData();
@@ -125,7 +126,17 @@ export default function AttendancePage({ params }: { params: Promise<{ id: strin
     setSessionNotes(session?.notes || '');
     setSessionEvaluation(session?.evaluation || '');
     setSessionTopic(session?.topic || '');
-    setSessionDate(session?.date || '');
+    
+    // Đảm bảo sessionDate luôn đúng chuẩn YYYY-MM-DD để hiển thị trong input type="date"
+    let d = session?.date || '';
+    if (d && d.includes('/')) {
+      const p = d.split('/');
+      if (p.length === 3) d = `${p[2]}-${p[1].padStart(2, '0')}-${p[0].padStart(2, '0')}`;
+    } else if (d && d.includes('T')) {
+      d = d.split('T')[0];
+    }
+    setSessionDate(d);
+    
     // Load local data immediately for fast UI switch
     loadAttendanceFromSession(sessionId, sessions, students);
   };
@@ -236,7 +247,8 @@ export default function AttendancePage({ params }: { params: Promise<{ id: strin
       const data = await file.arrayBuffer();
       const workbook = XLSX.read(data);
       const worksheet = workbook.Sheets[workbook.SheetNames[0]];
-      const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+      // Dùng raw: false để lấy đúng chuỗi ngày tháng hiển thị trên Excel (ngăn Excel tự đảo ngày/tháng)
+      const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, raw: false });
       
       // Tìm dòng tiêu đề
       let headerRowIdx = -1;
@@ -291,35 +303,43 @@ export default function AttendancePage({ params }: { params: Promise<{ id: strin
         const dateVal = dateColIdx !== -1 ? row[dateColIdx] : null;
         const evalVal = evaluationColIdx !== -1 ? row[evaluationColIdx] : null;
         
-        if (dayVal && contentVal) {
-          const contentStr = String(contentVal).trim();
+        if (dayVal || contentVal || dateVal || evalVal) {
+          const contentStr = contentVal ? String(contentVal).trim() : '';
           const firstLine = contentStr.split('\n')[0].trim();
-          const generatedTopic = firstLine.length > 60 ? firstLine.substring(0, 60) + '...' : firstLine;
+          
+          let generatedTopic = 'Buổi học mới';
+          if (firstLine) {
+            generatedTopic = firstLine.length > 60 ? firstLine.substring(0, 60) + '...' : firstLine;
+          } else if (evalVal) {
+            generatedTopic = 'Đánh giá / Kiểm tra';
+          }
           
           let parsedDate = '';
           if (dateVal) {
-            if (typeof dateVal === 'number') {
-              const d = new Date(Math.round((dateVal - 25569) * 86400 * 1000));
-              parsedDate = d.toISOString().split('T')[0];
-            } else if (typeof dateVal === 'string') {
-              const parts = dateVal.split('/');
-              if (parts.length === 3) {
-                const d = parts[0].padStart(2, '0');
-                const m = parts[1].padStart(2, '0');
-                const y = parts[2].length === 2 ? '20' + parts[2] : parts[2];
-                parsedDate = `${y}-${m}-${d}`;
-              } else {
-                const dObj = new Date(dateVal);
-                if (!isNaN(dObj.getTime())) {
-                  parsedDate = dObj.toISOString().split('T')[0];
-                }
+            // Do raw: false, dateVal luôn là string theo đúng những gì hiển thị trên Excel
+            let dStr = String(dateVal).trim();
+            // Xử lý các dấu phân cách thông dụng
+            dStr = dStr.replace(/-/g, '/').replace(/\./g, '/');
+            
+            const parts = dStr.split('/');
+            if (parts.length === 3) {
+              // Ở VN, người dùng luôn gõ DD/MM/YYYY
+              const d = parts[0].padStart(2, '0');
+              const m = parts[1].padStart(2, '0');
+              const y = parts[2].length === 2 ? '20' + parts[2] : parts[2];
+              parsedDate = `${y}-${m}-${d}`;
+            } else {
+              // Fallback nếu không phải định dạng D/M/Y
+              const dObj = new Date(dStr);
+              if (!isNaN(dObj.getTime())) {
+                parsedDate = dObj.toISOString().split('T')[0];
               }
             }
           }
           
           newSessions.push({
             week: currentWeek,
-            dayName: String(dayVal).trim(),
+            dayName: dayVal ? String(dayVal).trim() : '',
             topic: generatedTopic,
             notes: contentStr,
             date: parsedDate,
@@ -552,6 +572,38 @@ export default function AttendancePage({ params }: { params: Promise<{ id: strin
     document.body.removeChild(link);
   };
 
+  const exportSyllabusToExcel = () => {
+    if (sessions.length === 0) return;
+    
+    const data = [
+      ["Ngày", "Thời gian dạy", "Nội dung chi tiết", "Đánh giá học sinh"]
+    ];
+
+    sessions.forEach(sess => {
+      data.push([
+        sess.dayName || '',
+        sess.date ? formatDisplayDate(sess.date) : '',
+        `${sess.topic || ''}\n${sess.notes || ''}`.trim(),
+        sess.evaluation || ''
+      ]);
+    });
+
+    const worksheet = XLSX.utils.aoa_to_sheet(data);
+    
+    // Tùy chỉnh độ rộng cột
+    worksheet['!cols'] = [
+      { wch: 10 }, // Ngày
+      { wch: 15 }, // Thời gian dạy
+      { wch: 50 }, // Nội dung chi tiết
+      { wch: 40 }  // Đánh giá học sinh
+    ];
+
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Syllabus");
+    
+    XLSX.writeFile(workbook, `LoTrinh_${classData?.className || 'LopHoc'}.xlsx`);
+  };
+
   if (loading) {
     return (
       <div style={{ display: 'flex', justifyContent: 'center', padding: 100 }}>
@@ -670,15 +722,29 @@ export default function AttendancePage({ params }: { params: Promise<{ id: strin
         >
           <BarChart2 size={18} /> Thống kê Tổng quát
         </button>
+        <button 
+          onClick={() => setActiveTab('syllabus')}
+          className={`btn ${activeTab === 'syllabus' ? 'btn-primary' : ''}`}
+          style={{ 
+            padding: '8px 16px', 
+            borderRadius: 20, 
+            background: activeTab === 'syllabus' ? 'var(--accent-blue)' : 'var(--bg-secondary)',
+            color: activeTab === 'syllabus' ? 'white' : 'var(--text-primary)',
+            border: `1px solid ${activeTab === 'syllabus' ? 'var(--accent-blue)' : 'var(--border)'}`
+          }}
+        >
+          <Table size={18} /> Bảng Lộ trình (Excel)
+        </button>
       </div>
 
       {activeTab === 'daily' ? (
-        <div style={{ display: 'flex', gap: 24, flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', gap: 24, flexWrap: 'wrap', alignItems: 'flex-start' }}>
         
         {/* Left Col: Sessions List */}
-        <div style={{ flex: '0 0 280px' }}>
-          <div className="glass-card" style={{ padding: 16 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+        <div style={{ flex: '0 0 280px', position: 'sticky', top: 24, paddingRight: 4, height: 'calc(100vh - 140px)' }}>
+          <div className="glass-card" style={{ padding: 16, display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
+            <div style={{ flexShrink: 0 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
               <h3 style={{ margin: 0, fontSize: 16, display: 'flex', alignItems: 'center', gap: 6 }}>
                 <Calendar size={18} /> Các Buổi học
               </h3>
@@ -709,8 +775,9 @@ export default function AttendancePage({ params }: { params: Promise<{ id: strin
                 style={{ width: '100%', paddingLeft: 34, fontSize: 13, height: 36, borderRadius: 20 }}
               />
             </div>
+            </div>
             
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, overflowY: 'auto', flex: 1, paddingRight: 4 }}>
               {sessions.filter(sess => {
                 if (!searchSessionQuery) return true;
                 const q = searchSessionQuery.toLowerCase();
@@ -911,7 +978,7 @@ export default function AttendancePage({ params }: { params: Promise<{ id: strin
           </div>
         </div>
         </div>
-      ) : (
+      ) : activeTab === 'overview' ? (
         <div className="glass-card" style={{ padding: 24, overflowX: 'auto' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
             <h3 style={{ margin: 0, fontSize: 16, display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -987,6 +1054,76 @@ export default function AttendancePage({ params }: { params: Promise<{ id: strin
             <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}><span style={{ color: 'var(--danger)', fontWeight: 600 }}>X</span>: Vắng mặt</span>
             <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}><span style={{ color: 'var(--accent-orange)', fontWeight: 600 }}>T</span>: Đi trễ</span>
           </div>
+        </div>
+      ) : (
+        <div className="glass-card" style={{ padding: 24, overflowX: 'auto' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
+            <h3 style={{ margin: 0, fontSize: 16, display: 'flex', alignItems: 'center', gap: 6 }}>
+              <Table size={18} /> Lộ trình & Đánh giá toàn bộ buổi học
+            </h3>
+            
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              <div style={{ position: 'relative', width: 300 }}>
+                <Search size={14} style={{ position: 'absolute', left: 12, top: 11, color: 'var(--text-muted)' }} />
+                <input 
+                  type="text" 
+                  className="form-input" 
+                  placeholder="Tìm nội dung, đánh giá..." 
+                  value={searchSyllabusQuery}
+                  onChange={e => setSearchSyllabusQuery(e.target.value)}
+                  style={{ width: '100%', paddingLeft: 34, fontSize: 13, height: 36, borderRadius: 20 }}
+                />
+              </div>
+              <button 
+                onClick={exportSyllabusToExcel}
+                disabled={sessions.length === 0}
+                className="btn btn-secondary btn-sm" 
+                style={{ padding: '6px 16px', height: 36, borderRadius: 20 }}
+              >
+                <Download size={16} /> Xuất file Excel
+              </button>
+            </div>
+          </div>
+          
+          <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: 14 }}>
+            <thead>
+              <tr style={{ background: 'var(--bg-secondary)', color: 'var(--text-secondary)' }}>
+                <th style={{ padding: '12px 16px', borderBottom: '1px solid var(--border)', minWidth: 80 }}>Ngày</th>
+                <th style={{ padding: '12px 16px', borderBottom: '1px solid var(--border)', minWidth: 120 }}>Thời gian dạy</th>
+                <th style={{ padding: '12px 16px', borderBottom: '1px solid var(--border)', minWidth: 300 }}>Nội dung chi tiết</th>
+                <th style={{ padding: '12px 16px', borderBottom: '1px solid var(--border)', minWidth: 250 }}>Đánh giá học sinh</th>
+              </tr>
+            </thead>
+            <tbody>
+              {sessions.filter(sess => {
+                if (!searchSyllabusQuery) return true;
+                const q = searchSyllabusQuery.toLowerCase();
+                const text = `${sess.week} ${sess.dayName} ${formatDisplayDate(sess.date)} ${sess.topic} ${sess.notes} ${sess.evaluation}`.toLowerCase();
+                return text.includes(q);
+              }).length > 0 ? sessions.filter(sess => {
+                if (!searchSyllabusQuery) return true;
+                const q = searchSyllabusQuery.toLowerCase();
+                const text = `${sess.week} ${sess.dayName} ${formatDisplayDate(sess.date)} ${sess.topic} ${sess.notes} ${sess.evaluation}`.toLowerCase();
+                return text.includes(q);
+              }).map((sess, idx) => (
+                <tr key={sess.id} style={{ borderBottom: '1px solid var(--border)', transition: 'background 0.2s', background: idx % 2 === 0 ? 'transparent' : 'rgba(0,0,0,0.02)' }} onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-secondary)'} onMouseLeave={e => e.currentTarget.style.background = idx % 2 === 0 ? 'transparent' : 'rgba(0,0,0,0.02)'}>
+                  <td style={{ padding: '12px 16px', fontWeight: 600, color: 'var(--danger)' }}>{sess.dayName || `Ngày ${idx + 1}`}</td>
+                  <td style={{ padding: '12px 16px' }}>{sess.date ? formatDisplayDate(sess.date) : 'Chưa xếp lịch'}</td>
+                  <td style={{ padding: '12px 16px', whiteSpace: 'pre-line' }}>
+                    <div style={{ fontWeight: 600, marginBottom: 4 }}>{sess.topic}</div>
+                    <div style={{ color: 'var(--text-secondary)', fontSize: 13 }}>{sess.notes}</div>
+                  </td>
+                  <td style={{ padding: '12px 16px', whiteSpace: 'pre-line', color: 'var(--text-secondary)' }}>{sess.evaluation || '-'}</td>
+                </tr>
+              )) : (
+                <tr>
+                  <td colSpan={4} style={{ textAlign: 'center', padding: 40, color: 'var(--text-muted)' }}>
+                    {sessions.length === 0 ? 'Chưa có dữ liệu buổi học nào.' : 'Không tìm thấy kết quả phù hợp.'}
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
         </div>
       )}
 
