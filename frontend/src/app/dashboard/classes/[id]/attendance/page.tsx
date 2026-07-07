@@ -26,13 +26,24 @@ export default function AttendancePage({ params }: { params: Promise<{ id: strin
   const [sessionTopic, setSessionTopic] = useState<string>('');
   const [sessionDate, setSessionDate] = useState<string>('');
   const [errorMsg, setErrorMsg] = useState<string>('');
-  const [activeTab, setActiveTab] = useState<'daily' | 'overview' | 'syllabus'>('daily');
+  const [activeTab, setActiveTab] = useState<'daily' | 'overview' | 'syllabus' | 'testing-roadmap'>('daily');
   const [editingSession, setEditingSession] = useState<any>(null);
   const [showAddSession, setShowAddSession] = useState(false);
   const [newSessionForm, setNewSessionForm] = useState({ date: '', topic: '' });
   const [elearningProgressData, setElearningProgressData] = useState<any[]>([]);
   const [searchSessionQuery, setSearchSessionQuery] = useState('');
   const [searchSyllabusQuery, setSearchSyllabusQuery] = useState('');
+  
+  // States for Testing Roadmap
+  const [tests, setTests] = useState<any[]>([]);
+  const [showExportModal, setShowExportModal] = useState(false);
+  const [exportOptions, setExportOptions] = useState({
+    type: 'all',
+    startTestId: '',
+    endTestId: '',
+    comment: ''
+  });
+  const [selectedStudents, setSelectedStudents] = useState<string[]>([]);
   
   useEffect(() => {
     fetchClassData();
@@ -76,7 +87,8 @@ export default function AttendancePage({ params }: { params: Promise<{ id: strin
       
       const studentsList = cData.students ? cData.students.map((s: any) => ({
         id: s.id,
-        name: s.fullName
+        name: s.fullName,
+        phone: s.phone || s.phoneNumber || ''
       })) : [];
       setStudents(studentsList);
 
@@ -87,6 +99,13 @@ export default function AttendancePage({ params }: { params: Promise<{ id: strin
       
       const elpRes = await classApi.getAllElearningProgress(classId as string).catch(() => ({ data: [] }));
       setElearningProgressData(elpRes?.data || []);
+
+      // Gọi API lấy bài thi
+      const testRes = await classApi.getTests(classId).catch(() => ({ data: [] }));
+      let testData = testRes?.data || [];
+      // Sắp xếp bài kiểm tra theo created_at (nếu có)
+      testData.sort((a: any, b: any) => new Date(a.createdAt || 0).getTime() - new Date(b.createdAt || 0).getTime());
+      setTests(testData);
 
       if (sessData.length > 0) {
         setSelectedSessionId(sessData[0].id);
@@ -118,6 +137,74 @@ export default function AttendancePage({ params }: { params: Promise<{ id: strin
     });
     
     setAttendanceData(attMap);
+  };
+
+  const handleExportTestingRoadmap = () => {
+    let testsToExport = tests;
+    if (exportOptions.type === 'range') {
+      const startIndex = tests.findIndex(t => t.id === exportOptions.startTestId);
+      const endIndex = tests.findIndex(t => t.id === exportOptions.endTestId);
+      if (startIndex !== -1 && endIndex !== -1) {
+        const start = Math.min(startIndex, endIndex);
+        const end = Math.max(startIndex, endIndex);
+        testsToExport = tests.slice(start, end + 1);
+      }
+    }
+
+    const data: any[] = [];
+    if (exportOptions.comment) {
+      data.push([`Nhận xét chung: ${exportOptions.comment}`]);
+      data.push([]);
+    }
+
+    const headers = ['STT', 'Họ tên', 'Số điện thoại'];
+    testsToExport.forEach(t => headers.push(t.title || 'Bài kiểm tra'));
+    headers.push('Điểm trung bình');
+    data.push(headers);
+
+    const studentsToExport = selectedStudents.length > 0 
+      ? students.filter(s => selectedStudents.includes(s.id))
+      : students;
+
+    studentsToExport.forEach((student, index) => {
+      const row: any[] = [index + 1, student.name, student.phone || ''];
+      let totalScore = 0;
+      let validScores = 0;
+      testsToExport.forEach(test => {
+        const scoreObj = (test.scores || []).find((s: any) => s.studentId === student.id);
+        const scoreVal = scoreObj ? parseFloat(scoreObj.score) : NaN;
+        if (!isNaN(scoreVal)) {
+          totalScore += scoreVal;
+          validScores++;
+          row.push(scoreVal);
+        } else {
+          row.push('');
+        }
+      });
+      const avg = validScores > 0 ? (totalScore / validScores).toFixed(2) : '';
+      row.push(avg);
+      data.push(row);
+    });
+
+    const worksheet = XLSX.utils.aoa_to_sheet(data);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Lo_trinh_kiem_tra');
+    XLSX.writeFile(workbook, `Lo_trinh_kiem_tra_${classData?.name || 'Lop'}.xlsx`);
+    setShowExportModal(false);
+  };
+
+  const calculateStudentAverage = (studentId: string) => {
+    let totalScore = 0;
+    let validScores = 0;
+    tests.forEach(test => {
+      const scoreObj = (test.scores || []).find((s: any) => s.studentId === studentId);
+      const scoreVal = scoreObj ? parseFloat(scoreObj.score) : NaN;
+      if (!isNaN(scoreVal)) {
+        totalScore += scoreVal;
+        validScores++;
+      }
+    });
+    return validScores > 0 ? (totalScore / validScores).toFixed(2) : '-';
   };
 
   const handleSessionChange = (sessionId: string) => {
@@ -755,6 +842,19 @@ export default function AttendancePage({ params }: { params: Promise<{ id: strin
         >
           <Table size={18} /> Bảng Lộ trình (Excel)
         </button>
+        <button 
+          onClick={() => setActiveTab('testing-roadmap')}
+          className={`btn ${activeTab === 'testing-roadmap' ? 'btn-primary' : ''}`}
+          style={{ 
+            padding: '8px 16px', 
+            borderRadius: 20, 
+            background: activeTab === 'testing-roadmap' ? 'var(--accent-blue)' : 'var(--bg-secondary)',
+            color: activeTab === 'testing-roadmap' ? 'white' : 'var(--text-primary)',
+            border: `1px solid ${activeTab === 'testing-roadmap' ? 'var(--accent-blue)' : 'var(--border)'}`
+          }}
+        >
+          <FileText size={18} /> Lộ trình kiểm tra
+        </button>
       </div>
 
       {activeTab === 'daily' ? (
@@ -1102,6 +1202,80 @@ export default function AttendancePage({ params }: { params: Promise<{ id: strin
           </div>
         </div>
         </div>
+      ) : activeTab === 'testing-roadmap' ? (
+        <div className="glass-card" style={{ padding: 24, boxShadow: '0 4px 12px rgba(0,0,0,0.05)', borderRadius: 12 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+            <h3 style={{ margin: 0, fontSize: 18, display: 'flex', alignItems: 'center', gap: 8, color: 'var(--text-primary)' }}>
+              <FileText size={20} color="var(--accent-blue)" /> Tổng hợp Điểm số Kiểm tra
+            </h3>
+            <button 
+              onClick={() => setShowExportModal(true)}
+              className="btn btn-primary" 
+              style={{ padding: '8px 16px', borderRadius: 8, boxShadow: '0 2px 4px rgba(0,102,255,0.2)', fontSize: 14 }}
+            >
+              <Download size={16} style={{ marginRight: 6 }} /> Xuất {selectedStudents.length > 0 ? `${selectedStudents.length} HV` : 'Excel'}
+            </button>
+          </div>
+          
+          <div className="table-responsive" style={{ border: '1px solid var(--border)', borderRadius: 8, overflow: 'hidden' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: 14 }}>
+              <thead>
+                <tr style={{ background: '#f8fafc' }}>
+                  <th style={{ padding: '16px 12px', borderBottom: '2px solid var(--border)', fontWeight: 600, width: 40, textAlign: 'center' }}>
+                    <input 
+                      type="checkbox" 
+                      checked={students.length > 0 && selectedStudents.length === students.length}
+                      onChange={e => setSelectedStudents(e.target.checked ? students.map(s => s.id) : [])}
+                      style={{ cursor: 'pointer', width: 16, height: 16, accentColor: 'var(--accent-blue)' }}
+                    />
+                  </th>
+                  <th style={{ padding: '16px 12px', borderBottom: '2px solid var(--border)', fontWeight: 600, color: 'var(--text-secondary)' }}>Học viên</th>
+                  <th style={{ padding: '16px 12px', borderBottom: '2px solid var(--border)', fontWeight: 600, color: 'var(--text-secondary)' }}>SĐT</th>
+                  {tests.map(t => (
+                    <th key={t.id} style={{ padding: '16px 12px', borderBottom: '2px solid var(--border)', fontWeight: 600, textAlign: 'center', color: 'var(--text-secondary)' }}>
+                      {t.title || 'Bài thi'}
+                    </th>
+                  ))}
+                  <th style={{ padding: '16px 12px', borderBottom: '2px solid var(--border)', fontWeight: 600, textAlign: 'center', color: 'var(--text-secondary)' }}>Điểm TB</th>
+                </tr>
+              </thead>
+              <tbody>
+                {students.map(s => (
+                  <tr key={s.id} style={{ borderBottom: '1px solid var(--border)', background: selectedStudents.includes(s.id) ? 'rgba(0,102,255,0.03)' : 'transparent', transition: 'all 0.2s' }}>
+                    <td style={{ padding: '12px', textAlign: 'center' }}>
+                      <input 
+                        type="checkbox" 
+                        checked={selectedStudents.includes(s.id)}
+                        onChange={e => setSelectedStudents(prev => e.target.checked ? [...prev, s.id] : prev.filter(id => id !== s.id))}
+                        style={{ cursor: 'pointer', width: 16, height: 16, accentColor: 'var(--accent-blue)' }}
+                      />
+                    </td>
+                    <td style={{ padding: '12px', fontWeight: 500, color: 'var(--text-primary)' }}>{s.name}</td>
+                    <td style={{ padding: '12px', color: 'var(--text-muted)' }}>{s.phone || '-'}</td>
+                    {tests.map(t => {
+                      const scoreObj = (t.scores || []).find((sc: any) => sc.studentId === s.id);
+                      return (
+                        <td key={t.id} style={{ padding: '12px', textAlign: 'center', fontWeight: scoreObj?.score ? 500 : 400 }}>
+                          {scoreObj?.score || <span style={{ color: 'var(--text-muted)', opacity: 0.5 }}>-</span>}
+                        </td>
+                      );
+                    })}
+                    <td style={{ padding: '12px', textAlign: 'center', fontWeight: 700, color: 'var(--accent-blue)', fontSize: 15 }}>
+                      {calculateStudentAverage(s.id)}
+                    </td>
+                  </tr>
+                ))}
+                {students.length === 0 && (
+                  <tr>
+                    <td colSpan={tests.length + 4} style={{ padding: 32, textAlign: 'center', color: 'var(--text-muted)' }}>
+                      Chưa có học viên nào trong lớp.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
       ) : activeTab === 'overview' ? (
         <div className="glass-card mobile-p-16" style={{ padding: 24 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, flexWrap: 'wrap', gap: 16 }}>
@@ -1419,6 +1593,78 @@ export default function AttendancePage({ params }: { params: Promise<{ id: strin
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+      {/* Modal Xuất Lộ Trình Kiểm Tra */}
+      {showExportModal && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.5)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', backdropFilter: 'blur(4px)' }}>
+          <div className="glass-card animate-fadeInUp" style={{ width: 500, maxWidth: '90%', padding: 32, maxHeight: '90vh', overflowY: 'auto', background: 'white' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, borderBottom: '1px solid var(--border)', paddingBottom: 16 }}>
+              <h2 style={{ margin: 0, fontSize: 20 }}>Xuất Lộ trình Kiểm tra</h2>
+              <button className="btn-icon" onClick={() => setShowExportModal(false)}><X size={20} /></button>
+            </div>
+            
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 16, marginBottom: 20 }}>
+              <div>
+                <label style={{ fontWeight: 600, fontSize: 14, color: 'var(--text-primary)', display: 'block', marginBottom: 8 }}>Phạm vi tải</label>
+                <div style={{ display: 'flex', gap: 16 }}>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
+                    <input 
+                      type="radio" 
+                      checked={exportOptions.type === 'all'} 
+                      onChange={() => setExportOptions({...exportOptions, type: 'all'})}
+                    /> Tải toàn bộ
+                  </label>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
+                    <input 
+                      type="radio" 
+                      checked={exportOptions.type === 'range'} 
+                      onChange={() => setExportOptions({...exportOptions, type: 'range'})}
+                    /> Chọn khoảng bài kiểm tra
+                  </label>
+                </div>
+              </div>
+
+              {exportOptions.type === 'range' && (
+                <div style={{ display: 'flex', gap: 12, alignItems: 'center', background: 'var(--bg-secondary)', padding: 12, borderRadius: 8 }}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <label style={{ fontSize: 12, color: 'var(--text-muted)' }}>Từ bài:</label>
+                    <select className="input" value={exportOptions.startTestId} onChange={e => setExportOptions({...exportOptions, startTestId: e.target.value})} style={{ padding: '8px', fontSize: 13, width: '100%', textOverflow: 'ellipsis' }}>
+                      <option value="">-- Chọn bài --</option>
+                      {tests.map(t => <option key={t.id} value={t.id}>{t.title?.length > 25 ? t.title.substring(0, 25) + '...' : (t.title || 'Bài thi')}</option>)}
+                    </select>
+                  </div>
+                  <ArrowLeft size={16} style={{ color: 'var(--text-muted)', transform: 'rotate(180deg)', marginTop: 18, flexShrink: 0 }} />
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <label style={{ fontSize: 12, color: 'var(--text-muted)' }}>Đến bài:</label>
+                    <select className="input" value={exportOptions.endTestId} onChange={e => setExportOptions({...exportOptions, endTestId: e.target.value})} style={{ padding: '8px', fontSize: 13, width: '100%', textOverflow: 'ellipsis' }}>
+                      <option value="">-- Chọn bài --</option>
+                      {tests.map(t => <option key={t.id} value={t.id}>{t.title?.length > 25 ? t.title.substring(0, 25) + '...' : (t.title || 'Bài thi')}</option>)}
+                    </select>
+                  </div>
+                </div>
+              )}
+              
+              <div>
+                <label style={{ fontWeight: 600, fontSize: 14, color: 'var(--text-primary)', display: 'block', marginBottom: 8 }}>Nhận xét chung (Sẽ hiển thị trong file Excel)</label>
+                <textarea 
+                  className="input" 
+                  rows={3} 
+                  value={exportOptions.comment} 
+                  onChange={e => setExportOptions({...exportOptions, comment: e.target.value})} 
+                  placeholder="Nhập nhận xét chung về tình hình lớp..." 
+                  style={{ padding: '10px 14px', resize: 'vertical' }} 
+                />
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 12, marginTop: 24, paddingTop: 16, borderTop: '1px solid var(--border)' }}>
+              <button type="button" onClick={() => setShowExportModal(false)} className="btn btn-secondary" style={{ padding: '8px 24px' }}>Hủy</button>
+              <button onClick={handleExportTestingRoadmap} className="btn btn-primary" style={{ padding: '8px 24px' }}>
+                <Download size={16} style={{ marginRight: 6 }} /> OK, Tải xuống
+              </button>
+            </div>
           </div>
         </div>
       )}

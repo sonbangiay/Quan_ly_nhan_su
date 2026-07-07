@@ -389,7 +389,7 @@ export default function CrmPage() {
               style={{ background: activeTab !== tab ? 'transparent' : undefined, border: 'none' }} 
               onClick={() => setActiveTab(tab as 'Tiềm năng' | 'Khách cũ')}
             >
-              {tab === 'Tiềm năng' ? 'Khách hàng Tiềm năng' : 'Danh sách Khách cũ'}
+              {tab === 'Tiềm năng' ? 'Khách hàng Tiềm năng' : 'Đã ký hợp đồng'}
             </button>
           ))}
         </div>
