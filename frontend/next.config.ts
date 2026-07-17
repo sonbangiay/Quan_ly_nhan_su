@@ -1,4 +1,5 @@
 import type { NextConfig } from "next";
+import path from "path";
 
 const nextConfig: NextConfig = {
   // Allow API images from localhost
@@ -15,6 +16,10 @@ const nextConfig: NextConfig = {
         destination: 'http://localhost:5000/uploads/:path*',
       },
     ];
+  },
+  // Explicitly set the Turbopack root to the project folder to prevent scanning user home directory
+  turbopack: {
+    root: path.resolve(process.cwd()),
   },
 };
 

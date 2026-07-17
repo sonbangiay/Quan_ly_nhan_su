@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect, use } from 'react';
+import { useState, useEffect, use, useRef } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { classApi } from '@/lib/api';
 import { ArrowLeft, Check, X, Clock, Calendar, Save, Plus, BarChart2, Edit2, Trash2, Settings, List, FileText, CheckCircle, Copy } from 'lucide-react';
@@ -19,6 +19,16 @@ export default function TestsPage({ params }: { params: Promise<{ id: string }> 
   
   const [selectedTestId, setSelectedTestId] = useState<string>('');
   const [scoresData, setScoresData] = useState<Record<string, {score: string, feedback: string}>>({});
+  const [dbScoresData, setDbScoresData] = useState<Record<string, {score: string, feedback: string}>>({});
+  
+  const [isEditingTestInfo, setIsEditingTestInfo] = useState(false);
+  const [editTitle, setEditTitle] = useState('');
+  const [editDate, setEditDate] = useState('');
+
+  const dbScoresDataRef = useRef(dbScoresData);
+  useEffect(() => {
+    dbScoresDataRef.current = dbScoresData;
+  }, [dbScoresData]);
   
   // Tabs: 'scores' | 'online_builder'
   const [activeTab, setActiveTab] = useState<'scores' | 'online_builder'>('scores');
@@ -67,6 +77,7 @@ export default function TestsPage({ params }: { params: Promise<{ id: string }> 
         const emptyScores: Record<string, any> = {};
         studentsList.forEach((s: any) => { emptyScores[s.id] = { score: '', feedback: '' }; });
         setScoresData(emptyScores);
+        setDbScoresData(JSON.parse(JSON.stringify(emptyScores)));
       }
     } catch (err) {
       console.error(err);
@@ -84,18 +95,40 @@ export default function TestsPage({ params }: { params: Promise<{ id: string }> 
             setTests(res.data);
             const currentTest = res.data.find((t: any) => t.id === selectedTestId);
             if (currentTest) {
+              const updatedDbScores: Record<string, {score: string, feedback: string}> = {};
+              
               setScoresData(prev => {
                 const newScores = { ...prev };
                 (currentTest.scores || []).forEach((s: any) => {
                   if (newScores[s.studentId]) {
-                    newScores[s.studentId].score = s.score;
-                    if (!newScores[s.studentId].feedback && s.feedback) {
-                      newScores[s.studentId].feedback = s.feedback;
+                    const dbVal = dbScoresDataRef.current[s.studentId];
+                    const currentLocalVal = newScores[s.studentId];
+                    
+                    const isScoreUnmodified = !dbVal || String(currentLocalVal.score) === String(dbVal.score);
+                    const isFeedbackUnmodified = !dbVal || String(currentLocalVal.feedback) === String(dbVal.feedback);
+                    
+                    if (isScoreUnmodified) {
+                      newScores[s.studentId].score = s.score !== undefined && s.score !== null ? s.score : '';
                     }
+                    if (isFeedbackUnmodified) {
+                      newScores[s.studentId].feedback = s.feedback || '';
+                    }
+                    
+                    updatedDbScores[s.studentId] = {
+                      score: s.score !== undefined && s.score !== null ? s.score : '',
+                      feedback: s.feedback || ''
+                    };
                   }
                 });
                 return newScores;
               });
+
+              if (Object.keys(updatedDbScores).length > 0) {
+                setDbScoresData(prev => ({
+                  ...prev,
+                  ...updatedDbScores
+                }));
+              }
             }
           }
         }).catch(() => {});
@@ -115,14 +148,15 @@ export default function TestsPage({ params }: { params: Promise<{ id: string }> 
     
     scoreList.forEach((s: any) => {
       if (scoreMap[s.studentId]) {
-        scoreMap[s.studentId] = { 
-          score: s.score !== undefined && s.score !== null ? s.score : '', 
-          feedback: s.feedback || '' 
+        scoreMap[s.studentId] = {
+          score: s.score !== undefined && s.score !== null ? s.score : '',
+          feedback: s.feedback || ''
         };
       }
     });
     
     setScoresData(scoreMap);
+    setDbScoresData(JSON.parse(JSON.stringify(scoreMap)));
   };
 
   const handleTestChange = (testId: string) => {
@@ -196,6 +230,35 @@ export default function TestsPage({ params }: { params: Promise<{ id: string }> 
     } catch (err) {
       console.error(err);
       alert('Đã xảy ra lỗi khi lưu vào Database!');
+    }
+    setSaving(false);
+  };
+
+  const startEditingTestInfo = () => {
+    if (currentTest) {
+      setEditTitle(currentTest.title);
+      const formattedDate = currentTest.date ? currentTest.date.split('T')[0] : '';
+      setEditDate(formattedDate);
+      setIsEditingTestInfo(true);
+    } 
+  };
+
+  const handleSaveTestInfo = async () => {
+    if (!selectedTestId || !editTitle.trim() || !editDate) {
+      alert("Vui lòng điền đầy đủ tên bài kiểm tra và ngày!");
+      return;
+    }
+    setSaving(true);
+    try {
+      await classApi.updateTest(selectedTestId, {
+        title: editTitle.trim(),
+        date: editDate
+      });
+      setIsEditingTestInfo(false);
+      await fetchClassData();
+    } catch (err) {
+      console.error(err);
+      alert("Đã xảy ra lỗi khi cập nhật thông tin bài kiểm tra!");
     }
     setSaving(false);
   };
@@ -343,15 +406,63 @@ export default function TestsPage({ params }: { params: Promise<{ id: string }> 
           ) : (
             <>
               {/* Header & Tabs */}
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20, borderBottom: '1px solid var(--border)', paddingBottom: 16 }}>
-                <div>
-                  <h2 style={{ fontSize: 20, fontWeight: 800, margin: 0, color: 'var(--text-primary)' }}>
-                    {currentTest.title}
-                  </h2>
-                  <div style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 4 }}>
-                    Ngày kiểm tra: {new Date(currentTest.date).toLocaleDateString('vi-VN')}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20, borderBottom: '1px solid var(--border)', paddingBottom: 16 }}>
+                {isEditingTestInfo ? (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                    <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                      <input 
+                        type="text" 
+                        className="form-input" 
+                        value={editTitle} 
+                        onChange={e => setEditTitle(e.target.value)} 
+                        style={{ fontSize: 16, fontWeight: 600, padding: '4px 8px', width: '300px' }} 
+                        placeholder="Tên bài kiểm tra"
+                      />
+                      <input 
+                        type="date" 
+                        className="form-input" 
+                        value={editDate} 
+                        onChange={e => setEditDate(e.target.value)} 
+                        style={{ padding: '4px 8px', width: '150px' }} 
+                      />
+                      <button 
+                        className="btn btn-primary btn-sm" 
+                        onClick={handleSaveTestInfo} 
+                        disabled={saving}
+                        style={{ padding: '6px 12px', display: 'flex', alignItems: 'center', gap: 4 }}
+                      >
+                        <Check size={14} /> Lưu
+                      </button>
+                      <button 
+                        className="btn btn-secondary btn-sm" 
+                        onClick={() => setIsEditingTestInfo(false)} 
+                        disabled={saving}
+                        style={{ padding: '6px 12px', display: 'flex', alignItems: 'center', gap: 4 }}
+                      >
+                        <X size={14} /> Hủy
+                      </button>
+                    </div>
                   </div>
-                </div>
+                ) : (
+                  <div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <h2 style={{ fontSize: 20, fontWeight: 800, margin: 0, color: 'var(--text-primary)' }}>
+                        {currentTest.title}
+                      </h2>
+                      <button 
+                        className="btn-icon" 
+                        onClick={startEditingTestInfo} 
+                        style={{ padding: 4, color: 'var(--text-secondary)', background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
+                        title="Sửa thông tin"
+                      >
+                        <Edit2 size={16} />
+                      </button>
+                    </div>
+                    <div style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 4 }}>
+                      Ngày kiểm tra: {new Date(currentTest.date).toLocaleDateString('vi-VN')}
+                    </div>
+                  </div>
+                )}
                 
                 <div style={{ display: 'flex', gap: 12 }}>
                   <button className="btn btn-danger btn-sm" onClick={() => deleteTest(currentTest.id)} disabled={saving}>
