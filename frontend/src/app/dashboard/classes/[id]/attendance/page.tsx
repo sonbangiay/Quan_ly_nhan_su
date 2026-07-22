@@ -152,14 +152,25 @@ export default function AttendancePage({ params }: { params: Promise<{ id: strin
     }
 
     const data: any[] = [];
+    
+    // Add professional title block
+    data.push([`BÁO CÁO LỘ TRÌNH VÀ KẾT QUẢ KIỂM TRA`]);
+    data.push([`Lớp học:`, classData?.name || classData?.className || 'N/A']);
+    data.push([`Giảng viên:`, classData?.instructorName || user?.fullName || 'N/A']);
+    data.push([`Ngày xuất báo cáo:`, new Date().toLocaleDateString('vi-VN')]);
     if (exportOptions.comment) {
-      data.push([`Nhận xét chung: ${exportOptions.comment}`]);
-      data.push([]);
+      data.push([`Nhận xét chung:`, exportOptions.comment]);
     }
+    data.push([]); // Empty row for spacing
 
     const headers = ['STT', 'Họ tên', 'Số điện thoại'];
-    testsToExport.forEach(t => headers.push(t.title || 'Bài kiểm tra'));
+    testsToExport.forEach(t => {
+      headers.push(t.title || 'Bài kiểm tra');
+      headers.push(`Nhận xét - ${t.title || 'Bài kiểm tra'}`);
+    });
     headers.push('Điểm trung bình');
+    
+    const startRowIdx = data.length; // Save index of header row
     data.push(headers);
 
     const studentsToExport = selectedStudents.length > 0 
@@ -173,6 +184,8 @@ export default function AttendancePage({ params }: { params: Promise<{ id: strin
       testsToExport.forEach(test => {
         const scoreObj = (test.scores || []).find((s: any) => s.studentId === student.id);
         const scoreVal = scoreObj ? parseFloat(scoreObj.score) : NaN;
+        const feedbackVal = scoreObj ? scoreObj.feedback || '' : '';
+        
         if (!isNaN(scoreVal)) {
           totalScore += scoreVal;
           validScores++;
@@ -180,16 +193,56 @@ export default function AttendancePage({ params }: { params: Promise<{ id: strin
         } else {
           row.push('');
         }
+        row.push(feedbackVal);
       });
-      const avg = validScores > 0 ? (totalScore / validScores).toFixed(2) : '';
+      const avg = validScores > 0 ? parseFloat((totalScore / validScores).toFixed(2)) : '';
       row.push(avg);
       data.push(row);
     });
 
     const worksheet = XLSX.utils.aoa_to_sheet(data);
+
+    // Calculate elegant column widths dynamically
+    const colWidths = headers.map((header, colIdx) => {
+      let maxLen = header.length;
+      for (let rIdx = startRowIdx; rIdx < data.length; rIdx++) {
+        const cellVal = data[rIdx][colIdx];
+        if (cellVal !== null && cellVal !== undefined) {
+          const len = String(cellVal).length;
+          if (len > maxLen) {
+            maxLen = len;
+          }
+        }
+      }
+      
+      let width = maxLen + 3;
+      if (colIdx === 0) width = 6; // STT
+      else if (colIdx === 1) width = Math.min(Math.max(width, 22), 30); // Họ tên
+      else if (colIdx === 2) width = 15; // Số điện thoại
+      else if (header.startsWith('Nhận xét -')) width = Math.min(Math.max(width, 35), 50); // Cap comment width
+      
+      return { wch: Math.max(width, 10) };
+    });
+    worksheet['!cols'] = colWidths;
+
+    // Apply decimal formatting to the numbers in the Average column
+    const range = XLSX.utils.decode_range(worksheet['!ref'] || 'A1:A1');
+    for (let R = range.s.r; R <= range.e.r; ++R) {
+      for (let C = range.s.c; C <= range.e.c; ++C) {
+        const cell_address = XLSX.utils.encode_cell({ r: R, c: C });
+        const cell = worksheet[cell_address];
+        if (!cell) continue;
+
+        const isAvgColumn = (C === range.e.c);
+        if (cell.t === 'n' && isAvgColumn) {
+          cell.z = '0.00';
+        }
+      }
+    }
+
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, 'Lo_trinh_kiem_tra');
-    XLSX.writeFile(workbook, `Lo_trinh_kiem_tra_${classData?.name || 'Lop'}.xlsx`);
+    XLSX.writeFile(workbook, `Lo_trinh_kiem_tra_${classData?.name || classData?.className || 'Lop'}.xlsx`);
     setShowExportModal(false);
   };
 
