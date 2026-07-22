@@ -6,6 +6,7 @@ import { ArrowLeft, Check, X, Clock, Calendar, Save, Plus, ChevronRight, AlertCi
 import { useRouter } from 'next/navigation';
 import ElearningBuilder from './ElearningBuilder';
 import * as XLSX from 'xlsx';
+import XLSXStyle from 'xlsx-js-style';
 
 export default function AttendancePage({ params }: { params: Promise<{ id: string }> }) {
   const { user } = useAuth();
@@ -200,7 +201,7 @@ export default function AttendancePage({ params }: { params: Promise<{ id: strin
       data.push(row);
     });
 
-    const worksheet = XLSX.utils.aoa_to_sheet(data);
+    const worksheet = XLSXStyle.utils.aoa_to_sheet(data);
 
     // Calculate elegant column widths dynamically
     const colWidths = headers.map((header, colIdx) => {
@@ -225,24 +226,89 @@ export default function AttendancePage({ params }: { params: Promise<{ id: strin
     });
     worksheet['!cols'] = colWidths;
 
-    // Apply decimal formatting to the numbers in the Average column
-    const range = XLSX.utils.decode_range(worksheet['!ref'] || 'A1:A1');
+    // Apply elegant colorful styling to cells
+    const range = XLSXStyle.utils.decode_range(worksheet['!ref'] || 'A1:A1');
     for (let R = range.s.r; R <= range.e.r; ++R) {
       for (let C = range.s.c; C <= range.e.c; ++C) {
-        const cell_address = XLSX.utils.encode_cell({ r: R, c: C });
+        const cell_address = XLSXStyle.utils.encode_cell({ r: R, c: C });
         const cell = worksheet[cell_address];
         if (!cell) continue;
 
-        const isAvgColumn = (C === range.e.c);
-        if (cell.t === 'n' && isAvgColumn) {
-          cell.z = '0.00';
+        // Title row (Row 0)
+        if (R === 0) {
+          cell.s = {
+            font: { name: 'Segoe UI', sz: 16, bold: true, color: { rgb: '1E3A8A' } },
+            alignment: { vertical: 'center', horizontal: 'left' }
+          };
+          continue;
+        }
+
+        // Metadata rows (Rows 1 to 4)
+        if (R > 0 && R < startRowIdx) {
+          const isLabel = (C === 0);
+          cell.s = {
+            font: { name: 'Segoe UI', sz: 10, bold: isLabel, color: { rgb: isLabel ? '475569' : '1E293B' } },
+            alignment: { vertical: 'center', horizontal: 'left' }
+          };
+          continue;
+        }
+
+        // Table Header Row
+        if (R === startRowIdx) {
+          const isLeft = (C === 1 || headers[C].startsWith('Nhận xét -'));
+          cell.s = {
+            fill: { patternType: 'solid', fgColor: { rgb: '2563EB' } },
+            font: { name: 'Segoe UI', sz: 10, bold: true, color: { rgb: 'FFFFFF' } },
+            alignment: { vertical: 'center', horizontal: isLeft ? 'left' : 'center', wrapText: true },
+            border: {
+              top: { style: 'thin', color: { rgb: '1E40AF' } },
+              bottom: { style: 'medium', color: { rgb: '1E3A8A' } },
+              left: { style: 'thin', color: { rgb: '1E40AF' } },
+              right: { style: 'thin', color: { rgb: '1E40AF' } }
+            }
+          };
+          continue;
+        }
+
+        // Table Data Rows
+        if (R > startRowIdx) {
+          const isOdd = (R % 2 !== 0);
+          const isAvgColumn = (C === range.e.c);
+          const isLeft = (C === 1 || headers[C].startsWith('Nhận xét -'));
+          
+          if (isAvgColumn) {
+            cell.s = {
+              fill: { patternType: 'solid', fgColor: { rgb: isOdd ? 'EFF6FF' : 'F0F7FF' } },
+              font: { name: 'Segoe UI', sz: 10, bold: true, color: { rgb: '2563EB' } },
+              alignment: { vertical: 'center', horizontal: 'center' },
+              border: {
+                top: { style: 'thin', color: { rgb: 'CBD5E1' } },
+                bottom: { style: 'thin', color: { rgb: 'CBD5E1' } },
+                left: { style: 'thin', color: { rgb: 'CBD5E1' } },
+                right: { style: 'thin', color: { rgb: 'CBD5E1' } }
+              }
+            };
+            cell.z = '0.00';
+          } else {
+            cell.s = {
+              fill: { patternType: 'solid', fgColor: { rgb: isOdd ? 'F8FAFC' : 'FFFFFF' } },
+              font: { name: 'Segoe UI', sz: 10, color: { rgb: '334155' } },
+              alignment: { vertical: 'center', horizontal: isLeft ? 'left' : 'center', wrapText: isLeft },
+              border: {
+                top: { style: 'thin', color: { rgb: 'E2E8F0' } },
+                bottom: { style: 'thin', color: { rgb: 'E2E8F0' } },
+                left: { style: 'thin', color: { rgb: 'E2E8F0' } },
+                right: { style: 'thin', color: { rgb: 'E2E8F0' } }
+              }
+            };
+          }
         }
       }
     }
 
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, 'Lo_trinh_kiem_tra');
-    XLSX.writeFile(workbook, `Lo_trinh_kiem_tra_${classData?.name || classData?.className || 'Lop'}.xlsx`);
+    const workbook = XLSXStyle.utils.book_new();
+    XLSXStyle.utils.book_append_sheet(workbook, worksheet, 'Lo_trinh_kiem_tra');
+    XLSXStyle.writeFile(workbook, `Lo_trinh_kiem_tra_${classData?.name || classData?.className || 'Lop'}.xlsx`);
     setShowExportModal(false);
   };
 
@@ -735,9 +801,18 @@ export default function AttendancePage({ params }: { params: Promise<{ id: strin
   const exportSyllabusToExcel = () => {
     if (sessions.length === 0) return;
     
-    const data = [
-      ["Ngày", "Thời gian dạy", "Nội dung chi tiết", "Đánh giá học sinh"]
-    ];
+    const data: any[] = [];
+    
+    // Add professional title block
+    data.push([`LỘ TRÌNH ĐÀO TẠO CHI TIẾT`]);
+    data.push([`Lớp học:`, classData?.className || classData?.name || 'N/A']);
+    data.push([`Giảng viên:`, classData?.instructorName || user?.fullName || 'N/A']);
+    data.push([`Thời gian xuất:`, new Date().toLocaleDateString('vi-VN')]);
+    data.push([]); // spacing row
+
+    const headers = ["Thứ", "Thời gian", "Nội dung chi tiết buổi học", "Đánh giá / Kiểm tra"];
+    const startRowIdx = data.length;
+    data.push(headers);
 
     sessions.forEach(sess => {
       data.push([
@@ -748,20 +823,83 @@ export default function AttendancePage({ params }: { params: Promise<{ id: strin
       ]);
     });
 
-    const worksheet = XLSX.utils.aoa_to_sheet(data);
+    const worksheet = XLSXStyle.utils.aoa_to_sheet(data);
     
     // Tùy chỉnh độ rộng cột
     worksheet['!cols'] = [
-      { wch: 10 }, // Ngày
-      { wch: 15 }, // Thời gian dạy
+      { wch: 10 }, // Thứ
+      { wch: 15 }, // Thời gian
       { wch: 50 }, // Nội dung chi tiết
       { wch: 40 }  // Đánh giá học sinh
     ];
 
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, "Syllabus");
+    // Format cells in worksheet with elegant styling
+    const range = XLSXStyle.utils.decode_range(worksheet['!ref'] || 'A1:A1');
+    for (let R = range.s.r; R <= range.e.r; ++R) {
+      for (let C = range.s.c; C <= range.e.c; ++C) {
+        const cell_address = XLSXStyle.utils.encode_cell({ r: R, c: C });
+        const cell = worksheet[cell_address];
+        if (!cell) continue;
+
+        // Title row (Row 0)
+        if (R === 0) {
+          cell.s = {
+            font: { name: 'Segoe UI', sz: 16, bold: true, color: { rgb: '1E3A8A' } },
+            alignment: { vertical: 'center', horizontal: 'left' }
+          };
+          continue;
+        }
+
+        // Metadata rows
+        if (R > 0 && R < startRowIdx) {
+          const isLabel = (C === 0);
+          cell.s = {
+            font: { name: 'Segoe UI', sz: 10, bold: isLabel, color: { rgb: isLabel ? '475569' : '1E293B' } },
+            alignment: { vertical: 'center', horizontal: 'left' }
+          };
+          continue;
+        }
+
+        // Table Header Row
+        if (R === startRowIdx) {
+          const isLeft = (C === 2 || C === 3);
+          cell.s = {
+            fill: { patternType: 'solid', fgColor: { rgb: '2563EB' } },
+            font: { name: 'Segoe UI', sz: 10, bold: true, color: { rgb: 'FFFFFF' } },
+            alignment: { vertical: 'center', horizontal: isLeft ? 'left' : 'center', wrapText: true },
+            border: {
+              top: { style: 'thin', color: { rgb: '1E40AF' } },
+              bottom: { style: 'medium', color: { rgb: '1E3A8A' } },
+              left: { style: 'thin', color: { rgb: '1E40AF' } },
+              right: { style: 'thin', color: { rgb: '1E40AF' } }
+            }
+          };
+          continue;
+        }
+
+        // Table Data Rows
+        if (R > startRowIdx) {
+          const isOdd = (R % 2 !== 0);
+          const isLeft = (C === 2 || C === 3);
+          cell.s = {
+            fill: { patternType: 'solid', fgColor: { rgb: isOdd ? 'F8FAFC' : 'FFFFFF' } },
+            font: { name: 'Segoe UI', sz: 10, color: { rgb: '334155' } },
+            alignment: { vertical: 'center', horizontal: isLeft ? 'left' : 'center', wrapText: true },
+            border: {
+              top: { style: 'thin', color: { rgb: 'E2E8F0' } },
+              bottom: { style: 'thin', color: { rgb: 'E2E8F0' } },
+              left: { style: 'thin', color: { rgb: 'E2E8F0' } },
+              right: { style: 'thin', color: { rgb: 'E2E8F0' } }
+            }
+          };
+        }
+      }
+    }
+
+    const workbook = XLSXStyle.utils.book_new();
+    XLSXStyle.utils.book_append_sheet(workbook, worksheet, "Syllabus");
     
-    XLSX.writeFile(workbook, `LoTrinh_${classData?.className || 'LopHoc'}.xlsx`);
+    XLSXStyle.writeFile(workbook, `LoTrinh_${classData?.className || classData?.name || 'LopHoc'}.xlsx`);
   };
 
   if (loading) {
