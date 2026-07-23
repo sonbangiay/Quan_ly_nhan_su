@@ -812,6 +812,175 @@ export default function AttendancePage({ params }: { params: Promise<{ id: strin
     document.body.removeChild(link);
   };
 
+  const exportToExcel = () => {
+    if (students.length === 0) return;
+
+    const data: any[] = [];
+    
+    // Title block
+    data.push([`BÁO CÁO THỐNG KÊ TỔNG QUÁT ĐIỂM DANH`]);
+    data.push([`Lớp học:`, classData?.className || classData?.name || 'N/A']);
+    data.push([`Giảng viên:`, classData?.instructorName || user?.fullName || 'N/A']);
+    data.push([`Thời gian xuất:`, new Date().toLocaleDateString('vi-VN')]);
+    data.push([]); // Empty spacing row
+
+    // Table Headers
+    const headers = ['STT', 'Học viên'];
+    sessions.forEach((sess, idx) => {
+      headers.push(`Buổi ${idx + 1}\n(${formatDisplayDate(sess.date)})`);
+    });
+    headers.push('Có mặt', 'Vắng có phép', 'Vắng không phép', 'Đi trễ', 'Tỷ lệ đi học', 'E-learning');
+    
+    const startRowIdx = data.length;
+    data.push(headers);
+
+    // Students to export
+    const studentsToExport = selectedStudents.length > 0 
+      ? overviewStats.filter(s => selectedStudents.includes(s.id))
+      : overviewStats;
+
+    studentsToExport.forEach((st, idx) => {
+      const row: any[] = [idx + 1, st.name];
+      
+      st.sessions.forEach((sessAtt: any) => {
+        let val = '-';
+        if (sessAtt.status === 'Present') val = 'Có mặt';
+        else if (sessAtt.status === 'AbsentExcused') val = `Phép: ${sessAtt.excusedReason || 'Có phép'}`;
+        else if (sessAtt.status === 'Absent') val = 'Vắng không phép';
+        else if (sessAtt.status === 'Late') val = 'Đi trễ';
+        row.push(val);
+      });
+
+      row.push(
+        st.present,
+        st.absentExcused,
+        st.absent,
+        st.late,
+        `${st.rate}%`,
+        `${st.elearningRate}%`
+      );
+      
+      data.push(row);
+    });
+
+    const worksheet = XLSXStyle.utils.aoa_to_sheet(data);
+
+    // Calculate column widths
+    const colWidths = headers.map((header, colIdx) => {
+      let maxLen = header.split('\n')[0].length;
+      for (let rIdx = startRowIdx; rIdx < data.length; rIdx++) {
+        const cellVal = data[rIdx][colIdx];
+        if (cellVal !== null && cellVal !== undefined) {
+          const lines = String(cellVal).split('\n');
+          const maxLineLen = Math.max(...lines.map(l => l.length));
+          if (maxLineLen > maxLen) {
+            maxLen = maxLineLen;
+          }
+        }
+      }
+      let width = maxLen + 3;
+      if (colIdx === 0) width = 6; // STT
+      else if (colIdx === 1) width = Math.min(Math.max(width, 22), 30); // Học viên
+      return { wch: Math.max(width, 10) };
+    });
+    worksheet['!cols'] = colWidths;
+
+    // Apply corporate styles
+    const range = XLSXStyle.utils.decode_range(worksheet['!ref'] || 'A1:A1');
+    for (let R = range.s.r; R <= range.e.r; ++R) {
+      for (let C = range.s.c; C <= range.e.c; ++C) {
+        const cell_address = XLSXStyle.utils.encode_cell({ r: R, c: C });
+        const cell = worksheet[cell_address];
+        if (!cell) continue;
+
+        // Title row (Row 0)
+        if (R === 0) {
+          cell.s = {
+            font: { name: 'Segoe UI', sz: 16, bold: true, color: { rgb: '1E3A8A' } },
+            alignment: { vertical: 'center', horizontal: 'left' }
+          };
+          continue;
+        }
+
+        // Metadata rows
+        if (R > 0 && R < startRowIdx) {
+          const isLabel = (C === 0);
+          cell.s = {
+            font: { name: 'Segoe UI', sz: 10, bold: isLabel, color: { rgb: isLabel ? '475569' : '1E293B' } },
+            alignment: { vertical: 'center', horizontal: 'left' }
+          };
+          continue;
+        }
+
+        // Table Header Row
+        if (R === startRowIdx) {
+          const isLeft = (C === 1);
+          cell.s = {
+            fill: { patternType: 'solid', fgColor: { rgb: '2563EB' } },
+            font: { name: 'Segoe UI', sz: 10, bold: true, color: { rgb: 'FFFFFF' } },
+            alignment: { vertical: 'center', horizontal: isLeft ? 'left' : 'center', wrapText: true },
+            border: {
+              top: { style: 'thin', color: { rgb: '1E40AF' } },
+              bottom: { style: 'medium', color: { rgb: '1E3A8A' } },
+              left: { style: 'thin', color: { rgb: '1E40AF' } },
+              right: { style: 'thin', color: { rgb: '1E40AF' } }
+            }
+          };
+          continue;
+        }
+
+        // Table Data Rows
+        if (R > startRowIdx) {
+          const isOdd = (R % 2 !== 0);
+          const isLeft = (C === 1);
+          const val = String(cell.v || '');
+          
+          let cellFillColor = isOdd ? 'F8FAFC' : 'FFFFFF';
+          let cellFontColor = '334155';
+          let cellFontBold = false;
+
+          // Color specific attendance cells for clear visualization
+          if (val === 'Có mặt') {
+            cellFillColor = 'EFF6FF'; // light blue
+            cellFontColor = '1E40AF'; // blue text
+          } else if (val.startsWith('Phép:')) {
+            cellFillColor = 'F5F3FF'; // light purple
+            cellFontColor = '6D28D9'; // purple text
+          } else if (val === 'Vắng không phép') {
+            cellFillColor = 'FEF2F2'; // light red
+            cellFontColor = 'B91C1C'; // red text
+          } else if (val === 'Đi trễ') {
+            cellFillColor = 'FFFBEB'; // light orange
+            cellFontColor = 'B45309'; // orange text
+          }
+
+          // Format stats columns at the end
+          const isStatsCol = (C >= 2 + sessions.length);
+          if (isStatsCol) {
+            cellFontBold = true;
+            cellFillColor = isOdd ? 'EFF6FF' : 'F0F7FF';
+          }
+
+          cell.s = {
+            fill: { patternType: 'solid', fgColor: { rgb: cellFillColor } },
+            font: { name: 'Segoe UI', sz: 10, bold: cellFontBold, color: { rgb: cellFontColor } },
+            alignment: { vertical: 'center', horizontal: isLeft ? 'left' : 'center', wrapText: true },
+            border: {
+              top: { style: 'thin', color: { rgb: 'E2E8F0' } },
+              bottom: { style: 'thin', color: { rgb: 'E2E8F0' } },
+              left: { style: 'thin', color: { rgb: 'E2E8F0' } },
+              right: { style: 'thin', color: { rgb: 'E2E8F0' } }
+            }
+          };
+        }
+      }
+    }
+
+    const workbook = XLSXStyle.utils.book_new();
+    XLSXStyle.utils.book_append_sheet(workbook, worksheet, 'Tong_quan_diem_danh');
+    XLSXStyle.writeFile(workbook, `Thong_ke_diem_danh_${classData?.className || classData?.name || 'Lop'}.xlsx`);
+  };
+
   const exportSyllabusToExcel = () => {
     if (sessions.length === 0) return;
     
@@ -1539,20 +1708,38 @@ export default function AttendancePage({ params }: { params: Promise<{ id: strin
             <h3 style={{ margin: 0, fontSize: 16, display: 'flex', alignItems: 'center', gap: 6 }}>
               <Users size={18} /> Thống kê Tổng quát Điểm danh
             </h3>
-            <button 
-              onClick={exportToCSV}
-              disabled={students.length === 0}
-              className="btn btn-secondary btn-sm" 
-              style={{ padding: '6px 12px' }}
-            >
-              <Download size={16} /> Xuất file CSV
-            </button>
+            <div style={{ display: 'flex', gap: 12 }}>
+              <button 
+                onClick={exportToCSV}
+                disabled={students.length === 0}
+                className="btn btn-secondary btn-sm" 
+                style={{ padding: '6px 12px' }}
+              >
+                <Download size={16} /> Xuất file CSV
+              </button>
+              <button 
+                onClick={exportToExcel}
+                disabled={students.length === 0}
+                className="btn btn-primary btn-sm" 
+                style={{ padding: '6px 16px', borderRadius: 8, fontSize: 13, background: 'var(--accent-blue)', color: 'white', border: 'none', display: 'flex', alignItems: 'center', gap: 6 }}
+              >
+                <Download size={16} /> Xuất Excel {selectedStudents.length > 0 ? `(${selectedStudents.length} HV)` : ''}
+              </button>
+            </div>
           </div>
           
           <div className="table-responsive desktop-only">
             <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: 14 }}>
             <thead>
               <tr style={{ background: 'rgba(0,102,255,0.05)', color: 'var(--accent-blue)' }}>
+                <th style={{ padding: '14px 16px', borderBottom: '2px solid rgba(0,102,255,0.2)', width: 40, textAlign: 'center' }}>
+                  <input 
+                    type="checkbox" 
+                    checked={students.length > 0 && selectedStudents.length === students.length}
+                    onChange={e => setSelectedStudents(e.target.checked ? students.map(s => s.id) : [])}
+                    style={{ cursor: 'pointer', width: 16, height: 16, accentColor: 'var(--accent-blue)' }}
+                  />
+                </th>
                 <th style={{ padding: '14px 16px', borderBottom: '2px solid rgba(0,102,255,0.2)', minWidth: 200, fontWeight: 700 }}>Học viên</th>
                 {sessions.map((sess, idx) => (
                   <th key={sess.id} style={{ padding: '14px 8px', borderBottom: '2px solid rgba(0,102,255,0.2)', textAlign: 'center', minWidth: 60, fontWeight: 700 }}>
@@ -1568,6 +1755,14 @@ export default function AttendancePage({ params }: { params: Promise<{ id: strin
             <tbody>
               {overviewStats.length > 0 ? overviewStats.map((st, idx) => (
                 <tr key={st.id} style={{ borderBottom: idx < overviewStats.length - 1 ? '1px solid var(--border)' : 'none', transition: 'all 0.2s', background: idx % 2 === 0 ? 'transparent' : 'rgba(0,0,0,0.015)' }} onMouseEnter={e => e.currentTarget.style.background = 'rgba(0,102,255,0.03)'} onMouseLeave={e => e.currentTarget.style.background = idx % 2 === 0 ? 'transparent' : 'rgba(0,0,0,0.015)'}>
+                  <td style={{ padding: '12px 16px', textAlign: 'center' }}>
+                    <input 
+                      type="checkbox" 
+                      checked={selectedStudents.includes(st.id)}
+                      onChange={e => setSelectedStudents(prev => e.target.checked ? [...prev, st.id] : prev.filter(id => id !== st.id))}
+                      style={{ cursor: 'pointer', width: 16, height: 16, accentColor: 'var(--accent-blue)' }}
+                    />
+                  </td>
                   <td style={{ padding: '12px 16px', fontWeight: 600 }}>{st.name}</td>
                   {st.sessions.map((sessAtt: any, sIdx: number) => {
                     let display = <span style={{ color: 'var(--text-muted)' }}>-</span>;
