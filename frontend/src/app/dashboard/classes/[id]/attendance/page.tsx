@@ -448,7 +448,8 @@ export default function AttendancePage({ params }: { params: Promise<{ id: strin
       const current = prev[studentId]?.status || 'NotMarked';
       let next = 'Present';
       if (current === 'NotMarked') next = 'Present';
-      else if (current === 'Present') next = 'Absent';
+      else if (current === 'Present') next = 'AbsentExcused';
+      else if (current === 'AbsentExcused') next = 'Absent';
       else if (current === 'Absent') next = 'Late';
       else next = 'NotMarked';
       
@@ -457,10 +458,21 @@ export default function AttendancePage({ params }: { params: Promise<{ id: strin
         [studentId]: {
           ...prev[studentId],
           status: next,
-          checkInTime: next === 'Present' || next === 'Late' ? new Date().toISOString() : null
+          checkInTime: next === 'Present' || next === 'Late' ? new Date().toISOString() : null,
+          excusedReason: next === 'AbsentExcused' ? (prev[studentId]?.excusedReason || '') : (prev[studentId]?.excusedReason || '')
         }
       };
     });
+  };
+
+  const handleReasonChange = (studentId: string, reason: string) => {
+    setAttendanceData(prev => ({
+      ...prev,
+      [studentId]: {
+        ...prev[studentId],
+        excusedReason: reason
+      }
+    }));
   };
 
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -600,7 +612,8 @@ export default function AttendancePage({ params }: { params: Promise<{ id: strin
         sessionId: selectedSessionId,
         studentId: s.id,
         status: attendanceData[s.id]?.status || 'NotMarked',
-        checkInTime: attendanceData[s.id]?.checkInTime || new Date().toISOString()
+        checkInTime: attendanceData[s.id]?.checkInTime || new Date().toISOString(),
+        excusedReason: attendanceData[s.id]?.status === 'AbsentExcused' ? (attendanceData[s.id]?.excusedReason || '') : ''
       }));
       
       await classApi.saveAttendance(selectedSessionId, payload);
@@ -768,7 +781,7 @@ export default function AttendancePage({ params }: { params: Promise<{ id: strin
     sessions.forEach((sess, idx) => {
       headers.push(`Buổi ${idx + 1} (${formatDisplayDate(sess.date)})`);
     });
-    headers.push('Tổng Có mặt', 'Tổng Vắng', 'Tổng Trễ', 'Tỷ lệ chuyên cần (%)');
+    headers.push('Tổng Có mặt', 'Tổng Vắng Có phép', 'Tổng Vắng Không phép', 'Tổng Đi trễ', 'Tỷ lệ chuyên cần (%)');
     csvContent += headers.map(h => `"${h}"`).join(',') + '\n';
     
     // Rows
@@ -778,12 +791,13 @@ export default function AttendancePage({ params }: { params: Promise<{ id: strin
       st.sessions.forEach((sessAtt: any) => {
         let val = '';
         if (sessAtt.status === 'Present') val = 'Có mặt';
-        else if (sessAtt.status === 'Absent') val = 'Vắng mặt';
+        else if (sessAtt.status === 'AbsentExcused') val = `Vắng có phép (Lý do: ${sessAtt.excusedReason || 'Không ghi rõ'})`;
+        else if (sessAtt.status === 'Absent') val = 'Vắng không phép';
         else if (sessAtt.status === 'Late') val = 'Đi trễ';
         row.push(`"${val}"`);
       });
       
-      row.push(st.present, st.absent, st.late, st.rate);
+      row.push(st.present, st.absentExcused, st.absent, st.late, st.rate);
       csvContent += row.join(',') + '\n';
     });
     
@@ -950,6 +964,7 @@ export default function AttendancePage({ params }: { params: Promise<{ id: strin
   const overviewStats = students.map(student => {
     let present = 0;
     let absent = 0;
+    let absentExcused = 0;
     let late = 0;
     
     const studentSessions = sessions.map(sess => {
@@ -960,12 +975,18 @@ export default function AttendancePage({ params }: { params: Promise<{ id: strin
       const att = attArray.find((a: any) => a.studentId === student.id);
       const status = att?.status || 'NotMarked';
       if (status === 'Present') present++;
+      else if (status === 'AbsentExcused') absentExcused++;
       else if (status === 'Absent') absent++;
       else if (status === 'Late') late++;
-      return { sessionId: sess.id, date: formatDisplayDate(sess.date), status };
+      return { 
+        sessionId: sess.id, 
+        date: formatDisplayDate(sess.date), 
+        status,
+        excusedReason: att?.excusedReason || ''
+      };
     });
     
-    const total = present + absent + late;
+    const total = present + absent + absentExcused + late;
     const rate = sessions.length > 0 ? Math.round((present / sessions.length) * 100) : 0;
     
     // Tính tiến độ E-learning
@@ -977,6 +998,7 @@ export default function AttendancePage({ params }: { params: Promise<{ id: strin
       ...student,
       present,
       absent,
+      absentExcused,
       late,
       total,
       rate,
@@ -1188,9 +1210,10 @@ export default function AttendancePage({ params }: { params: Promise<{ id: strin
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, borderBottom: '1px solid var(--border)', paddingBottom: 16, flexWrap: 'wrap', gap: 16 }}>
                   <div>
                     <h3 style={{ margin: '0 0 4px', fontSize: 16 }}>Danh sách điểm danh</h3>
-                    <div style={{ fontSize: 13, color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <div style={{ fontSize: 13, color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                       <span>Sĩ số: <strong style={{ color: 'var(--text-primary)' }}>{Object.values(attendanceData).filter((a: any) => a.status === 'Present').length}/{students.length}</strong></span>
-                      <span style={{ color: 'var(--danger)' }}>(Vắng {Object.values(attendanceData).filter((a: any) => a.status === 'Absent').length})</span>
+                      <span style={{ color: '#8B5CF6' }}>(Phép {Object.values(attendanceData).filter((a: any) => a.status === 'AbsentExcused').length})</span>
+                      <span style={{ color: 'var(--danger)' }}>(Không phép {Object.values(attendanceData).filter((a: any) => a.status === 'Absent').length})</span>
                       <span style={{ color: 'var(--accent-orange)' }}>(Trễ {Object.values(attendanceData).filter((a: any) => a.status === 'Late').length})</span>
                     </div>
                   </div>
@@ -1219,7 +1242,10 @@ export default function AttendancePage({ params }: { params: Promise<{ id: strin
                         <div style={{ width: 10, height: 10, borderRadius: '50%', background: 'var(--accent-green)' }}></div> Có mặt
                       </span>
                       <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, marginRight: 12 }}>
-                        <div style={{ width: 10, height: 10, borderRadius: '50%', background: 'var(--danger)' }}></div> Vắng
+                        <div style={{ width: 10, height: 10, borderRadius: '50%', background: '#8B5CF6' }}></div> Vắng có phép
+                      </span>
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, marginRight: 12 }}>
+                        <div style={{ width: 10, height: 10, borderRadius: '50%', background: 'var(--danger)' }}></div> Vắng không phép
                       </span>
                       <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
                         <div style={{ width: 10, height: 10, borderRadius: '50%', background: 'var(--accent-orange)' }}></div> Trễ
@@ -1249,10 +1275,14 @@ export default function AttendancePage({ params }: { params: Promise<{ id: strin
                         btnClass = '';
                         btnIcon = <HelpCircle size={16} />;
                         btnLabel = 'Chưa điểm danh';
+                      } else if (status === 'AbsentExcused') {
+                        btnClass = '';
+                        btnIcon = <X size={16} />;
+                        btnLabel = 'Vắng có phép';
                       } else if (status === 'Absent') {
                         btnClass = 'badge-red';
                         btnIcon = <X size={16} />;
-                        btnLabel = 'Vắng mặt';
+                        btnLabel = 'Vắng không phép';
                       } else if (status === 'Late') {
                         btnClass = 'badge-orange';
                         btnIcon = <Clock size={16} />;
@@ -1262,7 +1292,22 @@ export default function AttendancePage({ params }: { params: Promise<{ id: strin
                       return (
                         <tr key={student.id} style={{ transition: 'background 0.2s' }}>
                           <td style={{ textAlign: 'center', fontWeight: 600, color: 'var(--text-muted)' }}>{idx + 1}</td>
-                          <td style={{ fontWeight: 500, fontSize: 15 }}>{student.name}</td>
+                          <td style={{ fontWeight: 500, fontSize: 15 }}>
+                            <div>{student.name}</div>
+                            {status === 'AbsentExcused' && (
+                              <div style={{ marginTop: 6, display: 'flex', alignItems: 'center', gap: 8 }}>
+                                <span style={{ fontSize: 12, color: 'var(--text-secondary)', fontWeight: 600, whiteSpace: 'nowrap' }}>Lý do phép:</span>
+                                <input 
+                                  type="text" 
+                                  className="form-input" 
+                                  style={{ padding: '2px 8px', fontSize: 13, height: 26, flex: 1, minWidth: 150 }}
+                                  placeholder="Nhập lý do nghỉ học..."
+                                  value={attendanceData[student.id]?.excusedReason || ''}
+                                  onChange={e => handleReasonChange(student.id, e.target.value)}
+                                />
+                              </div>
+                            )}
+                          </td>
                           <td style={{ textAlign: 'center' }}>
                             <button
                               onClick={() => handleStatusToggle(student.id)}
@@ -1270,7 +1315,9 @@ export default function AttendancePage({ params }: { params: Promise<{ id: strin
                               style={{ 
                                 display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, 
                                 width: '100%', padding: '8px 12px', border: 'none', cursor: 'pointer',
-                                fontSize: 14, fontWeight: 600, userSelect: 'none', transition: 'transform 0.1s'
+                                fontSize: 14, fontWeight: 600, userSelect: 'none', transition: 'transform 0.1s',
+                                background: status === 'AbsentExcused' ? 'rgba(139, 92, 246, 0.12)' : undefined,
+                                color: status === 'AbsentExcused' ? '#7C3AED' : undefined
                               }}
                               onMouseDown={e => e.currentTarget.style.transform = 'scale(0.95)'}
                               onMouseUp={e => e.currentTarget.style.transform = 'scale(1)'}
@@ -1304,10 +1351,14 @@ export default function AttendancePage({ params }: { params: Promise<{ id: strin
                     btnClass = '';
                     btnIcon = <HelpCircle size={16} />;
                     btnLabel = 'Chưa điểm danh';
+                  } else if (status === 'AbsentExcused') {
+                    btnClass = '';
+                    btnIcon = <X size={16} />;
+                    btnLabel = 'Vắng có phép';
                   } else if (status === 'Absent') {
                     btnClass = 'badge-red';
                     btnIcon = <X size={16} />;
-                    btnLabel = 'Vắng mặt';
+                    btnLabel = 'Vắng không phép';
                   } else if (status === 'Late') {
                     btnClass = 'badge-orange';
                     btnIcon = <Clock size={16} />;
@@ -1317,8 +1368,21 @@ export default function AttendancePage({ params }: { params: Promise<{ id: strin
                   return (
                     <div key={student.id} className="mobile-card" style={{ marginBottom: 0 }}>
                       <div className="mobile-card-title" style={{ fontSize: 18, marginBottom: 16 }}>
-                        <span style={{ color: 'var(--text-muted)', fontSize: 14, fontWeight: 500 }}>#{idx + 1}</span>
+                        <span style={{ color: 'var(--text-muted)', fontSize: 14, fontWeight: 500 }}>#{idx + 1} </span>
                         {student.name}
+                        {status === 'AbsentExcused' && (
+                          <div style={{ marginTop: 10, display: 'flex', alignItems: 'center', gap: 8 }}>
+                            <span style={{ fontSize: 13, color: 'var(--text-secondary)', fontWeight: 600, whiteSpace: 'nowrap' }}>Lý do phép:</span>
+                            <input 
+                              type="text" 
+                              className="form-input" 
+                              style={{ padding: '6px 12px', fontSize: 13, height: 32, width: '100%' }}
+                              placeholder="Nhập lý do..."
+                              value={attendanceData[student.id]?.excusedReason || ''}
+                              onChange={e => handleReasonChange(student.id, e.target.value)}
+                            />
+                          </div>
+                        )}
                       </div>
                       <button
                         onClick={() => handleStatusToggle(student.id)}
@@ -1327,7 +1391,9 @@ export default function AttendancePage({ params }: { params: Promise<{ id: strin
                           display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, 
                           width: '100%', padding: '14px', border: 'none', cursor: 'pointer',
                           fontSize: 16, fontWeight: 700, userSelect: 'none', transition: 'transform 0.1s',
-                          borderRadius: 12
+                          borderRadius: 12,
+                          background: status === 'AbsentExcused' ? 'rgba(139, 92, 246, 0.12)' : undefined,
+                          color: status === 'AbsentExcused' ? '#7C3AED' : undefined
                         }}
                         onMouseDown={e => e.currentTarget.style.transform = 'scale(0.95)'}
                         onMouseUp={e => e.currentTarget.style.transform = 'scale(1)'}
@@ -1503,11 +1569,25 @@ export default function AttendancePage({ params }: { params: Promise<{ id: strin
               {overviewStats.length > 0 ? overviewStats.map((st, idx) => (
                 <tr key={st.id} style={{ borderBottom: idx < overviewStats.length - 1 ? '1px solid var(--border)' : 'none', transition: 'all 0.2s', background: idx % 2 === 0 ? 'transparent' : 'rgba(0,0,0,0.015)' }} onMouseEnter={e => e.currentTarget.style.background = 'rgba(0,102,255,0.03)'} onMouseLeave={e => e.currentTarget.style.background = idx % 2 === 0 ? 'transparent' : 'rgba(0,0,0,0.015)'}>
                   <td style={{ padding: '12px 16px', fontWeight: 600 }}>{st.name}</td>
-                  {st.sessions.map((sessAtt: any) => {
+                  {st.sessions.map((sessAtt: any, sIdx: number) => {
                     let display = <span style={{ color: 'var(--text-muted)' }}>-</span>;
-                    if (sessAtt.status === 'Present') display = <span style={{ color: 'var(--accent-green)' }}>V</span>;
-                    else if (sessAtt.status === 'Absent') display = <span style={{ color: 'var(--danger)' }}>X</span>;
-                    else if (sessAtt.status === 'Late') display = <span style={{ color: 'var(--accent-orange)' }}>T</span>;
+                    if (sessAtt.status === 'Present') {
+                      display = <span style={{ color: 'var(--accent-green)' }}>V</span>;
+                    } else if (sessAtt.status === 'AbsentExcused') {
+                      display = (
+                        <span 
+                          style={{ color: '#8B5CF6', cursor: 'pointer', textDecoration: 'underline' }} 
+                          onClick={() => alert(`Lý do vắng có phép của ${st.name} (Buổi ${sIdx + 1} - ngày ${sessAtt.date}):\n\n${sessAtt.excusedReason || 'Không có lý do cụ thể'}`)}
+                          title="Nhấp để xem lý do vắng có phép"
+                        >
+                          P
+                        </span>
+                      );
+                    } else if (sessAtt.status === 'Absent') {
+                      display = <span style={{ color: 'var(--danger)' }}>X</span>;
+                    } else if (sessAtt.status === 'Late') {
+                      display = <span style={{ color: 'var(--accent-orange)' }}>T</span>;
+                    }
                     
                     return (
                       <td key={sessAtt.sessionId} style={{ padding: '12px 8px', textAlign: 'center', fontWeight: 600 }}>
@@ -1516,9 +1596,10 @@ export default function AttendancePage({ params }: { params: Promise<{ id: strin
                     );
                   })}
                   <td style={{ padding: '12px 16px', textAlign: 'center', borderLeft: '1px solid var(--border)' }}>
-                    <div style={{ display: 'flex', gap: 8, justifyContent: 'center', fontSize: 12 }}>
+                    <div style={{ display: 'flex', gap: 6, justifyContent: 'center', fontSize: 12 }}>
                       <span style={{ color: 'var(--accent-green)', fontWeight: 600 }} title="Có mặt">{st.present}</span>/
-                      <span style={{ color: 'var(--danger)', fontWeight: 600 }} title="Vắng mặt">{st.absent}</span>/
+                      <span style={{ color: '#8B5CF6', fontWeight: 600 }} title="Vắng có phép">{st.absentExcused}</span>/
+                      <span style={{ color: 'var(--danger)', fontWeight: 600 }} title="Vắng không phép">{st.absent}</span>/
                       <span style={{ color: 'var(--accent-orange)', fontWeight: 600 }} title="Đi trễ">{st.late}</span>
                     </div>
                   </td>
@@ -1548,11 +1629,12 @@ export default function AttendancePage({ params }: { params: Promise<{ id: strin
                   {st.name}
                 </div>
                 <div className="mobile-card-row">
-                  <span className="mobile-card-label">Tổng kết (V/X/T):</span>
-                  <span className="mobile-card-value" style={{ display: 'flex', gap: 12 }}>
-                    <span style={{ color: 'var(--accent-green)', fontWeight: 600 }}>{st.present} Có mặt</span>
-                    <span style={{ color: 'var(--danger)', fontWeight: 600 }}>{st.absent} Vắng</span>
-                    <span style={{ color: 'var(--accent-orange)', fontWeight: 600 }}>{st.late} Trễ</span>
+                  <span className="mobile-card-label">Tổng kết (Có mặt/Phép/Vắng/Trễ):</span>
+                  <span className="mobile-card-value" style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                    <span style={{ color: 'var(--accent-green)', fontWeight: 600 }}>{st.present} C</span>/
+                    <span style={{ color: '#8B5CF6', fontWeight: 600 }}>{st.absentExcused} P</span>/
+                    <span style={{ color: 'var(--danger)', fontWeight: 600 }}>{st.absent} KP</span>/
+                    <span style={{ color: 'var(--accent-orange)', fontWeight: 600 }}>{st.late} T</span>
                   </span>
                 </div>
                 <div className="mobile-card-row" style={{ alignItems: 'center' }}>
@@ -1585,9 +1667,10 @@ export default function AttendancePage({ params }: { params: Promise<{ id: strin
             )}
           </div>
           
-          <div style={{ display: 'flex', gap: 16, marginTop: 16, fontSize: 12, color: 'var(--text-secondary)', justifyContent: 'flex-end', padding: '0 16px' }}>
+          <div style={{ display: 'flex', gap: 16, marginTop: 16, fontSize: 12, color: 'var(--text-secondary)', justifyContent: 'flex-end', padding: '0 16px', flexWrap: 'wrap' }}>
             <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}><span style={{ color: 'var(--accent-green)', fontWeight: 600 }}>V</span>: Có mặt</span>
-            <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}><span style={{ color: 'var(--danger)', fontWeight: 600 }}>X</span>: Vắng mặt</span>
+            <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}><span style={{ color: '#8B5CF6', fontWeight: 600 }}>P</span>: Vắng có phép (Click xem lý do)</span>
+            <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}><span style={{ color: 'var(--danger)', fontWeight: 600 }}>X</span>: Vắng không phép</span>
             <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}><span style={{ color: 'var(--accent-orange)', fontWeight: 600 }}>T</span>: Đi trễ</span>
           </div>
         </div>
