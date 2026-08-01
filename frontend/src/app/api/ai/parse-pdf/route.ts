@@ -1,5 +1,11 @@
 import { NextResponse } from 'next/server';
 import OpenAI from 'openai';
+
+// Polyfill DOMMatrix for pdf-parse server-side Next.js build compatibility
+if (typeof global !== 'undefined' && !(global as any).DOMMatrix) {
+  (global as any).DOMMatrix = class DOMMatrix {};
+}
+
 const pdf = require('pdf-parse');
 
 export async function POST(req: Request) {

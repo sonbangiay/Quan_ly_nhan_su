@@ -149,7 +149,7 @@ ${message}
       const toolCalls = choice.message?.tool_calls;
 
       if (toolCalls && toolCalls.length > 0) {
-        const call = toolCalls[0];
+        const call = toolCalls[0] as any;
         const functionName = call.function.name;
         const args = JSON.parse(call.function.arguments);
 
