@@ -1,10 +1,10 @@
-import { GoogleGenerativeAI } from '@google/generative-ai';
+import OpenAI from 'openai';
 import { Pinecone } from '@pinecone-database/pinecone';
 
-const getGemini = () => {
-  const apiKey = process.env.GEMINI_API_KEY || process.env.NEXT_PUBLIC_GEMINI_API_KEY;
-  if (!apiKey) throw new Error('Thiếu GEMINI_API_KEY');
-  return new GoogleGenerativeAI(apiKey);
+const getOpenAI = () => {
+  const apiKey = process.env.OPENAI_API_KEY;
+  if (!apiKey) throw new Error('Thiếu OPENAI_API_KEY');
+  return new OpenAI({ apiKey });
 };
 
 const getPinecone = () => {
@@ -17,10 +17,13 @@ const INDEX_NAME = process.env.PINECONE_INDEX_NAME || 'hrm-knowledge';
 
 export const aiAgent = {
   embedText: async (text: string): Promise<number[]> => {
-    const genAI = getGemini();
-    const model = genAI.getGenerativeModel({ model: 'gemini-embedding-001' });
-    const result = await model.embedContent(text);
-    return result.embedding.values;
+    const openai = getOpenAI();
+    const result = await openai.embeddings.create({
+      model: 'text-embedding-3-small',
+      input: text,
+      dimensions: 768 // Trùng khớp với dimension 768 của index Pinecone cũ (tạo bởi Gemini)
+    });
+    return result.data[0].embedding;
   },
 
   trainDocument: async (docId: string, text: string) => {
@@ -50,7 +53,6 @@ export const aiAgent = {
 
   deleteDocument: async (docId: string) => {
     try {
-      // In a real app, delete by ID prefix if supported.
       console.log('Document deleted from knowledge base:', docId);
     } catch (error) {
       console.error('Lỗi khi xoá tài liệu:', error);
@@ -79,49 +81,41 @@ export const aiAgent = {
 
   generateResponse: async (message: string, aiPrompt?: string, senderId?: string, history?: string) => {
     try {
-      if (!process.env.GEMINI_API_KEY) {
-        throw new Error('Thiếu GEMINI_API_KEY');
-      }
-      const genAI = getGemini();
-      
-      // Khai báo các công cụ (Tools) cho AI
+      const openai = getOpenAI();
+      const context = await aiAgent.queryKnowledge(message);
+
       const tools = [
         {
-          functionDeclarations: [
-            {
-              name: 'bookAppointment',
-              description: 'Đặt lịch hẹn tư vấn, tham quan trung tâm hoặc học thử cho khách hàng. Gọi hàm này ngay khi khách hàng chốt ngày giờ rảnh.',
-              parameters: {
-                type: 'OBJECT',
-                properties: {
-                  customerName: { type: 'STRING', description: 'Tên khách hàng' },
-                  appointmentTime: { type: 'STRING', description: 'Thời gian hẹn (VD: Sáng thứ 7 tuần này, 14h ngày mai)' },
-                  note: { type: 'STRING', description: 'Ghi chú thêm về nhu cầu (VD: Khóa Ielts, Đang phân vân giá)' },
-                },
-                required: ['customerName', 'appointmentTime'],
+          type: 'function',
+          function: {
+            name: 'bookAppointment',
+            description: 'Đặt lịch hẹn tư vấn, tham quan trung tâm hoặc học thử cho khách hàng. Gọi hàm này ngay khi khách hàng chốt ngày giờ rảnh.',
+            parameters: {
+              type: 'object',
+              properties: {
+                customerName: { type: 'string', description: 'Tên khách hàng' },
+                appointmentTime: { type: 'string', description: 'Thời gian hẹn (VD: Sáng thứ 7 tuần này, 14h ngày mai)' },
+                note: { type: 'string', description: 'Ghi chú thêm về nhu cầu (VD: Khóa Ielts, Đang phân vân giá)' },
               },
+              required: ['customerName', 'appointmentTime'],
             },
-            {
-              name: 'handoffToHuman',
-              description: 'Chuyển giao cuộc trò chuyện cho nhân viên tư vấn thật khi khách hàng phàn nàn, tức giận, mặc cả quá gay gắt hoặc yêu cầu gặp người thật.',
-              parameters: {
-                type: 'OBJECT',
-                properties: {
-                  reason: { type: 'STRING', description: 'Lý do chuyển giao' },
-                },
-                required: ['reason'],
-              },
-            }
-          ],
+          }
         },
+        {
+          type: 'function',
+          function: {
+            name: 'handoffToHuman',
+            description: 'Chuyển giao cuộc trò chuyện cho nhân viên tư vấn thật khi khách hàng phàn nàn, tức giận, mặc cả quá gay gắt hoặc yêu cầu gặp người thật.',
+            parameters: {
+              type: 'object',
+              properties: {
+                reason: { type: 'string', description: 'Lý do chuyển giao' },
+              },
+              required: ['reason'],
+            },
+          }
+        }
       ];
-
-      const model = genAI.getGenerativeModel({ 
-        model: 'gemini-2.0-flash',
-        tools: tools as any // Bypass strict type check for tools
-      });
-
-      const context = await aiAgent.queryKnowledge(message);
 
       const fullPrompt = `
 HƯỚNG DẪN DÀNH CHO AI (SYSTEM PROMPT):
@@ -142,49 +136,49 @@ ${context ? context : 'Chưa có tài liệu cụ thể. Hãy tự động tư v
 
 TIN NHẮN HIỆN TẠI TỪ KHÁCH HÀNG:
 ${message}
-      `;
+`;
 
-      // Khởi tạo phiên Chat để có thể xử lý multi-turn nếu có function call
-      const chat = model.startChat();
-      const result = await chat.sendMessage(fullPrompt);
-      const response = result.response;
+      const response = await openai.chat.completions.create({
+        model: 'gpt-4o-mini',
+        messages: [{ role: 'user', content: fullPrompt }],
+        tools: tools as any,
+        temperature: 0.7
+      });
 
-      const functionCalls = response.functionCalls();
+      const choice = response.choices[0];
+      const toolCalls = choice.message?.tool_calls;
 
-      // Nếu AI quyết định gọi hàm
-      if (functionCalls && functionCalls.length > 0) {
-        const call = functionCalls[0];
-        
-        if (call.name === 'bookAppointment') {
-          const { customerName, appointmentTime, note } = call.args as any;
-          
-          // Thực thi logic lưu vào Firebase (Ở đây trả về kết quả giả lập, Webhook sẽ bắt signal này)
-          // Để thực sự lưu, ta sẽ xử lý kết quả trả về
+      if (toolCalls && toolCalls.length > 0) {
+        const call = toolCalls[0];
+        const functionName = call.function.name;
+        const args = JSON.parse(call.function.arguments);
+
+        if (functionName === 'bookAppointment') {
+          const { customerName, appointmentTime } = args;
           return {
             type: 'function_call',
             function: 'bookAppointment',
-            args: call.args,
+            args,
             text: `Dạ em đã ghi nhận lịch hẹn của ${customerName} vào ${appointmentTime}. Sẽ có nhân viên liên hệ xác nhận lại với mình sớm nhất ạ. Cảm ơn anh/chị!`
           };
         }
 
-        if (call.name === 'handoffToHuman') {
+        if (functionName === 'handoffToHuman') {
           return {
             type: 'function_call',
             function: 'handoffToHuman',
-            args: call.args,
+            args,
             text: `Dạ để hỗ trợ anh/chị tốt nhất và chi tiết nhất, em xin phép chuyển thông tin này cho Quản lý bên em tư vấn thêm nhé ạ. Anh/chị đợi một lát nha!`
           };
         }
       }
 
-      // Trả lời bình thường nếu không gọi hàm
       return {
         type: 'text',
-        text: response.text()
+        text: choice.message?.content || ''
       };
     } catch (error: any) {
-      console.error('Lỗi sinh câu trả lời AI:', error);
+      console.error('Lỗi sinh câu trả lời AI (OpenAI):', error);
       return { type: 'text', text: 'Xin lỗi, hệ thống hỗ trợ tự động của chúng tôi đang bảo trì. Tư vấn viên sẽ phản hồi bạn trong giây lát nhé!' };
     }
   }

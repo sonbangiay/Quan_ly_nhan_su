@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { aiAgent } from '@/lib/aiAgent';
+import OpenAI from 'openai';
 import { db } from '@/lib/firebase';
 import { collection, addDoc } from 'firebase/firestore';
 
@@ -11,6 +11,11 @@ export async function POST(req: Request) {
       return NextResponse.json({ success: false, error: 'Thiếu thông tin khách hàng' }, { status: 400 });
     }
 
+    const apiKey = process.env.OPENAI_API_KEY || '';
+    if (!apiKey) {
+      return NextResponse.json({ success: false, error: 'Thiếu cấu hình OPENAI_API_KEY trên máy chủ' }, { status: 500 });
+    }
+
     const prompt = `
 Bạn là AI tư vấn viên của trung tâm Nhân Phú. 
 Nhiệm vụ: Viết một tin nhắn ngắn gọn (dưới 50 từ), thân thiện để chủ động chào hỏi và khơi gợi nhu cầu của khách hàng.
@@ -19,13 +24,15 @@ Nhu cầu/Ghi chú: ${lead.notes || 'Đang quan tâm đến các khóa học c�
 Tin nhắn phải kết thúc bằng một câu hỏi mở để mời khách đến trung tâm tham quan hoặc học thử, nhằm mục đích chốt lịch hẹn.
 `;
 
-    // Gọi Gemini để sinh kịch bản
-    const { GoogleGenerativeAI } = await import('@google/generative-ai');
-    const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
-    const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
-    
-    const result = await model.generateContent(prompt);
-    const generatedMessage = result.response.text();
+    // Khởi tạo OpenAI và gọi gpt-4o-mini
+    const openai = new OpenAI({ apiKey });
+    const response = await openai.chat.completions.create({
+      model: 'gpt-4o-mini',
+      messages: [{ role: 'user', content: prompt }],
+      temperature: 0.7
+    });
+
+    const generatedMessage = response.choices[0]?.message?.content?.trim() || '';
 
     // Lưu vào Activity Log của CRM
     await addDoc(collection(db, 'leads', lead.id, 'activities'), {
@@ -36,7 +43,7 @@ Tin nhắn phải kết thúc bằng một câu hỏi mở để mời khách đ
 
     return NextResponse.json({ success: true, message: generatedMessage });
   } catch (error: any) {
-    console.error('Lỗi API proactive:', error);
+    console.error('Lỗi API proactive (OpenAI):', error);
     return NextResponse.json({ success: false, error: error.message }, { status: 500 });
   }
 }

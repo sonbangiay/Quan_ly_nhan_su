@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
-import { GoogleGenerativeAI } from '@google/generative-ai';
+import OpenAI from 'openai';
+const pdf = require('pdf-parse');
 
 export async function POST(req: Request) {
   try {
@@ -9,14 +10,32 @@ export async function POST(req: Request) {
       return NextResponse.json({ success: false, error: 'Thiếu dữ liệu file PDF' }, { status: 400 });
     }
 
-    const apiKey = process.env.GEMINI_API_KEY || '';
+    const apiKey = process.env.OPENAI_API_KEY || '';
     if (!apiKey) {
-      return NextResponse.json({ success: false, error: 'Thiếu cấu hình GEMINI_API_KEY trên máy chủ' }, { status: 500 });
+      return NextResponse.json({ success: false, error: 'Thiếu cấu hình OPENAI_API_KEY trên máy chủ' }, { status: 500 });
     }
+
+    // 1. Phân tích PDF lấy text bằng pdf-parse
+    let extractedText = '';
+    try {
+      const buffer = Buffer.from(base64Pdf, 'base64');
+      const pdfData = await pdf(buffer);
+      extractedText = pdfData.text || '';
+    } catch (pdfErr: any) {
+      console.error('Lỗi khi parse PDF bằng pdf-parse:', pdfErr);
+      return NextResponse.json({ success: false, error: 'Không thể đọc nội dung file PDF này: ' + pdfErr.message }, { status: 500 });
+    }
+
+    if (!extractedText.trim()) {
+      return NextResponse.json({ success: false, error: 'File PDF rỗng hoặc không có dữ liệu văn bản có thể trích xuất.' }, { status: 400 });
+    }
+
+    // 2. Khởi tạo OpenAI
+    const openai = new OpenAI({ apiKey });
 
     const prompt = `
 Bạn là một trợ lý AI chuyên nghiệp phục vụ cho trung tâm giáo dục HRM Nhân Phú.
-Nhiệm vụ của bạn là đọc và phân tích đề thi từ file PDF được cung cấp. Hãy trích xuất toàn bộ câu hỏi trong đề thi đó và trả về danh sách câu hỏi có cấu trúc JSON mảng theo định dạng mẫu sau:
+Nhiệm vụ của bạn là phân tích nội dung văn bản đề thi dưới đây (được trích xuất từ đề thi gốc). Hãy trích xuất toàn bộ câu hỏi trong đề thi đó và trả về danh sách câu hỏi có cấu trúc JSON mảng theo định dạng mẫu sau:
 [
   {
     "id": "chuỗi_id_ngẫu_nhiên_9_ký_tự",
@@ -48,23 +67,23 @@ Yêu cầu chi tiết:
 4. Phân bổ điểm ("points") mặc định là 10 cho mỗi câu hỏi.
 5. Tạo một chuỗi ID ngẫu nhiên có độ dài 9 ký tự (chữ và số) cho trường "id" của từng câu hỏi để đảm bảo tính duy nhất.
 6. Quan trọng nhất: CHỈ trả về dữ liệu JSON mảng thuần túy, không được bọc trong thẻ markdown \`\`\`json hay bất kỳ văn bản giải thích nào khác ngoài chuỗi mảng JSON sạch để hệ thống dễ dàng JSON.parse().
+
+Nội dung đề thi trích xuất:
+---
+${extractedText}
+---
 `;
 
-    const genAI = new GoogleGenerativeAI(apiKey);
-    const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+    // Gọi gpt-4o-mini của OpenAI
+    const response = await openai.chat.completions.create({
+      model: 'gpt-4o-mini',
+      messages: [{ role: 'user', content: prompt }],
+      temperature: 0.2
+    });
 
-    // Gọi Gemini với dữ liệu PDF dưới dạng inlineData
-    const pdfPart = {
-      inlineData: {
-        data: base64Pdf,
-        mimeType: 'application/pdf'
-      }
-    };
+    const responseText = response.choices[0]?.message?.content?.trim() || '';
 
-    const result = await model.generateContent([pdfPart, prompt]);
-    const responseText = result.response.text().trim();
-
-    // Dọn dẹp chuỗi JSON nếu Gemini tự động bọc trong ```json
+    // Dọn dẹp chuỗi JSON nếu OpenAI tự động bọc trong ```json
     let cleanJson = responseText;
     if (cleanJson.startsWith('```')) {
       cleanJson = cleanJson.replace(/^```json\s*/, '').replace(/```$/, '').trim();
@@ -74,7 +93,7 @@ Yêu cầu chi tiết:
       const parsedQuestions = JSON.parse(cleanJson);
       return NextResponse.json({ success: true, questions: parsedQuestions });
     } catch (parseErr) {
-      console.error('Lỗi parse JSON từ Gemini:', responseText, parseErr);
+      console.error('Lỗi parse JSON từ OpenAI:', responseText, parseErr);
       return NextResponse.json({ 
         success: false, 
         error: 'Dữ liệu trả về từ AI không đúng định dạng JSON. Vui lòng thử lại.',
@@ -83,7 +102,7 @@ Yêu cầu chi tiết:
     }
 
   } catch (error: any) {
-    console.error('Lỗi API parse-pdf:', error);
+    console.error('Lỗi API parse-pdf (OpenAI):', error);
     return NextResponse.json({ success: false, error: error.message }, { status: 500 });
   }
 }
