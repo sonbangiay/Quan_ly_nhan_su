@@ -1,8 +1,9 @@
 import OpenAI from 'openai';
 import { Pinecone } from '@pinecone-database/pinecone';
+import { getOpenaiApiKey } from './getOpenaiApiKey';
 
-const getOpenAI = () => {
-  const apiKey = process.env.OPENAI_API_KEY;
+const getOpenAI = async () => {
+  const apiKey = await getOpenaiApiKey();
   if (!apiKey) throw new Error('Thiếu OPENAI_API_KEY');
   return new OpenAI({ apiKey });
 };
@@ -17,7 +18,7 @@ const INDEX_NAME = process.env.PINECONE_INDEX_NAME || 'hrm-knowledge';
 
 export const aiAgent = {
   embedText: async (text: string): Promise<number[]> => {
-    const openai = getOpenAI();
+    const openai = await getOpenAI();
     const result = await openai.embeddings.create({
       model: 'text-embedding-3-small',
       input: text,
@@ -81,7 +82,7 @@ export const aiAgent = {
 
   generateResponse: async (message: string, aiPrompt?: string, senderId?: string, history?: string) => {
     try {
-      const openai = getOpenAI();
+      const openai = await getOpenAI();
       const context = await aiAgent.queryKnowledge(message);
 
       const tools = [

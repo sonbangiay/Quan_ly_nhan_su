@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import OpenAI from 'openai';
+import { getOpenaiApiKey } from '@/lib/getOpenaiApiKey';
 
 // Polyfill DOMMatrix for pdf-parse server-side Next.js build compatibility
 if (typeof global !== 'undefined' && !(global as any).DOMMatrix) {
@@ -16,7 +17,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ success: false, error: 'Thiếu dữ liệu file PDF' }, { status: 400 });
     }
 
-    const apiKey = process.env.OPENAI_API_KEY || '';
+    const apiKey = await getOpenaiApiKey();
     if (!apiKey) {
       return NextResponse.json({ success: false, error: 'Thiếu cấu hình OPENAI_API_KEY trên máy chủ' }, { status: 500 });
     }

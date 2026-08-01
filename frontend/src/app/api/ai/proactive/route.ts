@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import OpenAI from 'openai';
 import { db } from '@/lib/firebase';
 import { collection, addDoc } from 'firebase/firestore';
+import { getOpenaiApiKey } from '@/lib/getOpenaiApiKey';
 
 export async function POST(req: Request) {
   try {
@@ -11,7 +12,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ success: false, error: 'Thiếu thông tin khách hàng' }, { status: 400 });
     }
 
-    const apiKey = process.env.OPENAI_API_KEY || '';
+    const apiKey = await getOpenaiApiKey();
     if (!apiKey) {
       return NextResponse.json({ success: false, error: 'Thiếu cấu hình OPENAI_API_KEY trên máy chủ' }, { status: 500 });
     }
