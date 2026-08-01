@@ -2,7 +2,7 @@
 import { useState, useEffect, use, useRef } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { classApi } from '@/lib/api';
-import { ArrowLeft, Check, X, Clock, Calendar, Save, Plus, BarChart2, Edit2, Trash2, Settings, List, FileText, CheckCircle, Copy } from 'lucide-react';
+import { ArrowLeft, Check, X, Clock, Calendar, Save, Plus, BarChart2, Edit2, Trash2, Settings, List, FileText, CheckCircle, Copy, Upload } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
 export default function TestsPage({ params }: { params: Promise<{ id: string }> }) {
@@ -266,6 +266,62 @@ export default function TestsPage({ params }: { params: Promise<{ id: string }> 
   // --- ONLINE BUILDER LOGIC ---
   const currentTest = tests.find(t => t.id === selectedTestId);
   const [builderData, setBuilderData] = useState<any>(null);
+  const pdfInputRef = useRef<HTMLInputElement>(null);
+  const [parsingPdf, setParsingPdf] = useState(false);
+
+  const handlePdfImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.type !== 'application/pdf') {
+      alert('Vui lòng chỉ chọn file định dạng PDF.');
+      return;
+    }
+
+    setParsingPdf(true);
+    try {
+      const reader = new FileReader();
+      reader.onload = async () => {
+        const resultBase64 = reader.result as string;
+        const base64Data = resultBase64.split(',')[1];
+
+        const res = await fetch('/api/ai/parse-pdf', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ base64Pdf: base64Data })
+        });
+
+        const resData = await res.json();
+        if (resData.success && Array.isArray(resData.questions)) {
+          setBuilderData((prev: any) => ({
+            ...prev,
+            isOnline: true,
+            questions: [
+              ...(prev?.questions || []),
+              ...resData.questions
+            ]
+          }));
+          alert(`Đã nhập thành công ${resData.questions.length} câu hỏi trích xuất từ file PDF bằng AI!`);
+        } else {
+          alert('Lỗi: ' + (resData.error || 'Không thể trích xuất câu hỏi từ đề thi này.'));
+        }
+        setParsingPdf(false);
+      };
+      reader.onerror = () => {
+        alert('Lỗi đọc file PDF.');
+        setParsingPdf(false);
+      };
+      reader.readAsDataURL(file);
+    } catch (err: any) {
+      console.error(err);
+      alert('Đã xảy ra lỗi: ' + err.message);
+      setParsingPdf(false);
+    }
+
+    if (pdfInputRef.current) pdfInputRef.current.value = '';
+  };
 
   useEffect(() => {
     if (currentTest && activeTab === 'online_builder') {
@@ -604,10 +660,20 @@ export default function TestsPage({ params }: { params: Promise<{ id: string }> 
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
                           <h3 style={{ fontSize: 16, fontWeight: 700, margin: 0 }}>Nội dung Đề thi ({builderData.questions.length} câu)</h3>
                           <div style={{ display: 'flex', gap: 8 }}>
+                            <input type="file" ref={pdfInputRef} accept=".pdf" onChange={handlePdfImport} style={{ display: 'none' }} />
                             <button className="btn btn-secondary btn-sm" onClick={() => addQuestion('MULTIPLE_CHOICE')}>+ Trắc nghiệm</button>
                             <button className="btn btn-secondary btn-sm" onClick={() => addQuestion('SHORT_ANSWER')}>+ Điền từ</button>
+                            <button className="btn btn-secondary btn-sm" onClick={() => pdfInputRef.current?.click()} style={{ background: '#ecfdf5', color: '#047857', border: '1px solid #a7f3d0' }} disabled={parsingPdf}>
+                              <Upload size={14} style={{ marginRight: 4 }} /> Nhập PDF (AI)
+                            </button>
                           </div>
                         </div>
+
+                        {parsingPdf && (
+                          <div style={{ padding: 16, background: '#fef3c7', border: '1px solid #f59e0b', borderRadius: 8, color: '#b45309', display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
+                            <Clock size={16} className="spinner" /> Đang sử dụng AI để đọc và trích xuất câu hỏi từ file PDF. Quá trình này có thể mất 15-30 giây, vui lòng đợi...
+                          </div>
+                        )}
 
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
                           {builderData.questions.map((q: any, idx: number) => (

@@ -1,12 +1,12 @@
 'use client';
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { classApi, employeeApi, crmApi, initApi } from '@/lib/api';
+import { classApi, employeeApi, crmApi, initApi, trashApi } from '@/lib/api';
 import {
   Plus, Search, GraduationCap, Users, Calendar, Clock,
   AlertTriangle, Check, BookOpen, UserCheck, Activity,
   Info, CreditCard, UserPlus, X, Trash2, Edit2, ShieldAlert,
-  Phone, Mail, ArrowUpRight, Upload, BarChart2
+  Phone, Mail, ArrowUpRight, Upload, BarChart2, RotateCcw
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 
@@ -97,6 +97,7 @@ export default function ClassesPage() {
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [leads, setLeads] = useState<Lead[]>([]);
   const [tuitionAlerts, setTuitionAlerts] = useState<EnrollmentDto[]>([]);
+  const [trashItems, setTrashItems] = useState<any[]>([]);
   
   // Loading & UI State
   const [loading, setLoading] = useState(true);
@@ -120,6 +121,8 @@ export default function ClassesPage() {
   const [editingTuitionStatus, setEditingTuitionStatus] = useState<number>(3);
   const [isDeletingClassId, setIsDeletingClassId] = useState<string | null>(null);
   const [isDeletingStudentId, setIsDeletingStudentId] = useState<string | null>(null);
+  const [restoringId, setRestoringId] = useState<string | null>(null);
+  const [purgingId, setPurgingId] = useState<string | null>(null);
   
   // Bulk & Global Edit State
   const [selectedStudents, setSelectedStudents] = useState<string[]>([]);
@@ -218,6 +221,9 @@ export default function ClassesPage() {
         const leadRes = await crmApi.getLeads();
         setLeads(leadRes.data);
       }
+      
+      const trashRes = await trashApi.getTrash();
+      setTrashItems(trashRes.data || []);
     } catch (err) {
       console.error('Error fetching class module data', err);
     }
@@ -380,6 +386,52 @@ export default function ClassesPage() {
       alert(err.response?.data?.error || 'Lỗi khi xóa ghi danh');
     }
     setIsDeletingStudentId(null);
+  };
+
+  const handleRestoreTrash = async (trashId: string, itemName: string) => {
+    if (!confirm(`Bạn có chắc chắn muốn khôi phục "${itemName}" không? Dữ liệu liên quan sẽ được khôi phục đầy đủ.`)) return;
+    setRestoringId(trashId);
+    try {
+      await trashApi.restore(trashId);
+      alert('Khôi phục dữ liệu thành công!');
+      fetchAll();
+    } catch (err: any) {
+      console.error(err);
+      alert(err.message || 'Lỗi khi khôi phục dữ liệu');
+    }
+    setRestoringId(null);
+  };
+
+  const handlePurgeTrash = async (trashId: string, itemName: string) => {
+    if (!confirm(`CẢNH BÁO: Bạn có chắc chắn muốn xóa VĨNH VIỄN "${itemName}" không? Hành động này không thể hoàn tác!`)) return;
+    setPurgingId(trashId);
+    try {
+      await trashApi.deletePermanently(trashId);
+      alert('Đã xóa vĩnh viễn!');
+      fetchAll();
+    } catch (err: any) {
+      console.error(err);
+      alert(err.message || 'Lỗi khi xóa vĩnh viễn');
+    }
+    setPurgingId(null);
+  };
+
+  const getRemainingDays = (deletedAtStr: string) => {
+    if (!deletedAtStr) return '30 ngày';
+    const deletedDate = new Date(deletedAtStr);
+    const now = new Date();
+    const diffTime = now.getTime() - deletedDate.getTime();
+    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+    const remaining = 30 - diffDays;
+    return remaining > 0 ? `Còn ${remaining} ngày` : 'Sắp tự động xoá';
+  };
+
+  const getTrashTypeLabel = (type: string) => {
+    if (type === 'class') return <span className="badge badge-blue">Lớp học</span>;
+    if (type === 'student') return <span className="badge badge-green">Học viên</span>;
+    if (type === 'split') return <span className="badge badge-purple">Tách lớp</span>;
+    if (type === 'enrollment') return <span className="badge badge-orange">Ghi danh</span>;
+    return <span className="badge badge-secondary">{type}</span>;
   };
 
   const handleSaveGlobalStudentEdit = async (e: React.FormEvent) => {
@@ -889,7 +941,7 @@ export default function ClassesPage() {
           style={{ background: activeTab !== 'history' ? 'transparent' : undefined, border: 'none' }}
           onClick={() => { setActiveTab('history'); setSearchTerm(''); }}
         >
-          Lịch sử ({classes.filter(c => getClassStatus(c.startDate, c.endDate) === 'Kết thúc').length})
+          Lịch sử ({trashItems.length})
         </button>
       </div>
 
@@ -928,7 +980,7 @@ export default function ClassesPage() {
       ) : (
         <>
           {/* TAB 1: Classes Grid */}
-          {(activeTab === 'classes' || activeTab === 'history') && (
+          {activeTab === 'classes' && (
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: 20 }}>
               {filteredClasses.map(c => {
                 const enrolledCount = c.enrollments?.length || 0;
@@ -1266,6 +1318,90 @@ export default function ClassesPage() {
                         <td colSpan={5} style={{ textAlign: 'center', padding: 40, color: 'var(--text-muted)' }}>
                           <Check size={36} color="var(--accent-green)" style={{ margin: '0 auto 12px', opacity: 0.5 }} />
                           Không có cảnh báo nợ học phí nào! Tất cả học viên đã đóng học phí đầy đủ.
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {/* TAB 4: Soft-Deleted Trash Bin (Lịch sử xoá) */}
+          {activeTab === 'history' && (
+            <div className="glass-card" style={{ padding: 20 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 20, padding: 12, background: 'rgba(59, 130, 246, 0.1)', border: '1px solid rgba(59, 130, 246, 0.2)', borderRadius: 8, color: 'var(--accent-blue)' }}>
+                <Info size={20} />
+                <span style={{ fontSize: 14, fontWeight: 500 }}>
+                  Thư mục Lịch sử lưu trữ các lớp học, học viên đã bị xóa hoặc lịch sử tách/chuyển lớp. Bạn có thể khôi phục lại dữ liệu ban đầu hoặc chọn xóa vĩnh viễn. Các mục này sẽ tự động xóa sạch hoàn toàn sau <strong>30 ngày</strong>.
+                </span>
+              </div>
+
+              <div style={{ overflowX: 'auto' }}>
+                <table className="data-table">
+                  <thead>
+                    <tr>
+                      <th>Nội dung / Tên thao tác</th>
+                      <th style={{ width: 140 }}>Loại dữ liệu</th>
+                      <th style={{ width: 190 }}>Thời điểm thực hiện</th>
+                      <th style={{ width: 140 }}>Hạn tự động xóa</th>
+                      <th style={{ textAlign: 'right', width: 240 }}>Thao tác</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {trashItems.map(item => {
+                      return (
+                        <tr key={item.id}>
+                          <td style={{ fontWeight: 600, fontSize: 13 }}>
+                            {item.name || 'Không có tiêu đề'}
+                          </td>
+                          <td>
+                            {getTrashTypeLabel(item.type)}
+                          </td>
+                          <td style={{ color: 'var(--text-secondary)', fontSize: 12 }}>
+                            {item.deletedAt ? new Date(item.deletedAt).toLocaleString('vi-VN') : '—'}
+                          </td>
+                          <td style={{ fontWeight: 600, color: 'var(--accent-orange)', fontSize: 12 }}>
+                            {getRemainingDays(item.deletedAt)}
+                          </td>
+                          <td style={{ textAlign: 'right' }}>
+                            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+                              <button 
+                                className="btn btn-secondary btn-sm"
+                                style={{ color: 'var(--accent-green)', borderColor: 'rgba(16, 185, 129, 0.3)', background: 'rgba(16, 185, 129, 0.05)', display: 'inline-flex', alignItems: 'center', gap: 4 }}
+                                disabled={restoringId === item.id || purgingId === item.id}
+                                onClick={() => handleRestoreTrash(item.id, item.name)}
+                              >
+                                {restoringId === item.id ? (
+                                  <span className="spinner" style={{ width: 12, height: 12 }} />
+                                ) : (
+                                  <RotateCcw size={13} />
+                                )}
+                                Khôi phục
+                              </button>
+                              <button 
+                                className="btn btn-secondary btn-sm"
+                                style={{ color: 'var(--accent-red)', borderColor: 'rgba(239, 68, 68, 0.3)', background: 'rgba(239, 68, 68, 0.05)', display: 'inline-flex', alignItems: 'center', gap: 4 }}
+                                disabled={restoringId === item.id || purgingId === item.id}
+                                onClick={() => handlePurgeTrash(item.id, item.name)}
+                              >
+                                {purgingId === item.id ? (
+                                  <span className="spinner" style={{ width: 12, height: 12 }} />
+                                ) : (
+                                  <Trash2 size={13} />
+                                )}
+                                Xóa vĩnh viễn
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                    {trashItems.length === 0 && (
+                      <tr>
+                        <td colSpan={5} style={{ textAlign: 'center', padding: 40, color: 'var(--text-muted)' }}>
+                          <Check size={36} color="var(--accent-green)" style={{ margin: '0 auto 12px', opacity: 0.5 }} />
+                          Thùng rác trống! Không có lịch sử xóa dữ liệu nào trong 30 ngày qua.
                         </td>
                       </tr>
                     )}

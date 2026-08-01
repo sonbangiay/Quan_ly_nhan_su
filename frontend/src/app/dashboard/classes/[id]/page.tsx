@@ -24,6 +24,10 @@ export default function ClassOverviewPage() {
   const [editingEnrollment, setEditingEnrollment] = useState<any>(null);
   const [editEnrollmentForm, setEditEnrollmentForm] = useState({ tuitionStatus: 3, learningGoal: '', notes: '' });
   const [selectedEnrollmentIds, setSelectedEnrollmentIds] = useState<string[]>([]);
+  const [classList, setClassList] = useState<any[]>([]);
+  const [showSplitModal, setShowSplitModal] = useState(false);
+  const [targetClassId, setTargetClassId] = useState('');
+  const [mergeDuplicates, setMergeDuplicates] = useState(true);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -48,9 +52,16 @@ export default function ClassOverviewPage() {
         setAllStudents(res.data?.data || res.data || []);
       } catch (e) {}
     };
+    const fetchClassList = async () => {
+      try {
+        const res = await classApi.getAll();
+        setClassList((res.data || []).filter((c: any) => c.id !== id));
+      } catch (e) {}
+    };
     fetchClass();
     fetchEmps();
     fetchStudents();
+    fetchClassList();
   }, [id]);
 
   const handleEnrollStudent = async (e: React.FormEvent) => {
@@ -109,6 +120,50 @@ export default function ClassOverviewPage() {
       window.location.reload();
     } catch (err: any) {
       alert('Lỗi khi xóa danh sách học viên');
+    }
+    setSaving(false);
+  };
+
+  const handleSplitClass = async () => {
+    if (!targetClassId) {
+      alert('Vui lòng chọn lớp học đích để chuyển qua!');
+      return;
+    }
+    
+    const selectedStudentIds = enrollments
+      .filter((en: any) => selectedEnrollmentIds.includes(en.id))
+      .map((en: any) => en.studentId);
+
+    if (selectedStudentIds.length === 0) {
+      alert('Không có học viên nào được chọn!');
+      return;
+    }
+
+    const selectedStudentNames = students
+      .filter((s: any) => selectedStudentIds.includes(s.id))
+      .map((s: any) => s.fullName)
+      .join(', ');
+
+    if (!confirm(`Bạn có chắc chắn muốn tách/chuyển ${selectedStudentIds.length} học viên [${selectedStudentNames}] sang lớp học mới? 
+
+Hệ thống sẽ tự động chuyển toàn bộ:
+- Thông tin học viên
+- Lịch sử điểm danh (Tương ứng theo buổi học)
+- Bảng điểm và nhận xét các bài kiểm tra (Tương ứng theo thứ tự bài kiểm tra)
+- Tiến độ học trực tuyến E-learning`)) {
+      return;
+    }
+
+    setSaving(true);
+    try {
+      await classApi.splitClass(id, targetClassId, selectedStudentIds, mergeDuplicates);
+      alert('Tách/chuyển lớp học viên thành công!');
+      setShowSplitModal(false);
+      setSelectedEnrollmentIds([]);
+      window.location.reload();
+    } catch (err: any) {
+      console.error(err);
+      alert(err.message || 'Có lỗi xảy ra khi tách lớp');
     }
     setSaving(false);
   };
@@ -386,9 +441,14 @@ export default function ClassOverviewPage() {
           </div>
           <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
             {selectedEnrollmentIds.length > 0 && (
-              <button className="btn btn-danger" onClick={handleBulkRemoveStudents} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 20px', borderRadius: 8, fontWeight: 600 }}>
-                <Trash2 size={18} /> Xóa đã chọn ({selectedEnrollmentIds.length})
-              </button>
+              <>
+                <button className="btn btn-danger" onClick={handleBulkRemoveStudents} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 20px', borderRadius: 8, fontWeight: 600 }}>
+                  <Trash2 size={18} /> Xóa đã chọn ({selectedEnrollmentIds.length})
+                </button>
+                <button className="btn" onClick={() => { setTargetClassId(''); setShowSplitModal(true); }} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 20px', borderRadius: 8, fontWeight: 600, background: '#8b5cf6', color: 'white', border: 'none' }}>
+                  <Users size={18} /> Tách lớp ({selectedEnrollmentIds.length})
+                </button>
+              </>
             )}
             <input type="file" ref={fileInputRef} hidden accept=".xlsx, .xls" onChange={handleExcelImport} />
             <button className="btn btn-secondary" onClick={() => fileInputRef.current?.click()} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 20px', borderRadius: 8, fontWeight: 600 }}>
@@ -763,6 +823,91 @@ export default function ClassOverviewPage() {
           </div>
         </div>
       )}
+      {/* Split Class Modal */}
+      {showSplitModal && (() => {
+        const selectedTargetClass = classList.find(c => c.id === targetClassId);
+        const targetClassStudents = selectedTargetClass?.students || [];
+        const selectedStudentIds = enrollments
+          .filter((en: any) => selectedEnrollmentIds.includes(en.id))
+          .map((en: any) => en.studentId);
+        const duplicateStudents = students.filter((s: any) => 
+          selectedStudentIds.includes(s.id) && targetClassStudents.some((ts: any) => ts.id === s.id)
+        );
+        const hasDuplicates = duplicateStudents.length > 0;
+
+        return (
+          <div className="modal-overlay" onClick={() => !saving && setShowSplitModal(false)}>
+            <div className="modal-box" onClick={e => e.stopPropagation()} style={{ width: 500, maxWidth: '90%' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+                <h2 style={{ fontSize: 18, fontWeight: 800, margin: 0 }}>Tách học viên sang Lớp học khác</h2>
+                <button className="btn-icon" onClick={() => !saving && setShowSplitModal(false)}><X size={20} /></button>
+              </div>
+              
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                <div style={{ padding: 12, background: 'rgba(139, 92, 246, 0.1)', color: '#7C3AED', borderRadius: 8, fontSize: 13, display: 'flex', flexDirection: 'column', gap: 4 }}>
+                  <span style={{ fontWeight: 700 }}>Danh sách {
+                    enrollments.filter((en: any) => selectedEnrollmentIds.includes(en.id)).length
+                  } học viên được chọn chuyển đi:</span>
+                  <span style={{ fontSize: 12, opacity: 0.9 }}>
+                    {students.filter((s: any) => 
+                      enrollments.filter((en: any) => selectedEnrollmentIds.includes(en.id)).map((en: any) => en.studentId).includes(s.id)
+                    ).map((s: any) => s.fullName).join(', ')}
+                  </span>
+                </div>
+                
+                <div>
+                  <label className="form-label">Chọn lớp học đích *</label>
+                  <select className="form-input" value={targetClassId} onChange={e => {
+                    setTargetClassId(e.target.value);
+                    setMergeDuplicates(true); // reset checkbox state on class change
+                  }}>
+                    <option value="">-- Chọn lớp học --</option>
+                    {classList.map(c => (
+                      <option key={c.id} value={c.id}>{c.className} ({c.subjectType || 'Chưa phân loại'})</option>
+                    ))}
+                  </select>
+                </div>
+
+                {hasDuplicates && (
+                  <div style={{ padding: 16, background: '#fffbeb', border: '1px solid #fef3c7', borderRadius: 8, display: 'flex', flexDirection: 'column', gap: 10 }}>
+                    <div style={{ color: '#b45309', fontSize: 13, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6 }}>
+                      ⚠️ Phát hiện học viên trùng lặp
+                    </div>
+                    <div style={{ color: '#78350f', fontSize: 12, lineHeight: 1.4 }}>
+                      Học viên <strong>{duplicateStudents.map((s: any) => s.fullName).join(', ')}</strong> đã có tên trong lớp đích <strong>{selectedTargetClass?.className}</strong>.
+                    </div>
+                    <label style={{ display: 'flex', alignItems: 'flex-start', gap: 8, cursor: 'pointer', fontSize: 13, color: '#78350f' }}>
+                      <input 
+                        type="checkbox" 
+                        checked={mergeDuplicates} 
+                        onChange={e => setMergeDuplicates(e.target.checked)} 
+                        style={{ marginTop: 2, cursor: 'pointer' }}
+                      />
+                      <span>Đồng ý gộp lịch sử học tập (điểm danh, điểm kiểm tra, e-learning) ở cả hai lớp làm một.</span>
+                    </label>
+                  </div>
+                )}
+
+                <div style={{ fontSize: 12, color: 'var(--text-muted)', lineHeight: 1.5, background: 'var(--bg-secondary)', padding: 12, borderRadius: 8 }}>
+                  <span style={{ fontWeight: 600, color: 'var(--text-secondary)' }}>Lưu ý khi tách lớp:</span>
+                  <ul style={{ margin: '4px 0 0', paddingLeft: 18 }}>
+                    <li>Các học viên này sẽ được chuyển hoàn toàn sang lớp đích.</li>
+                    <li>Lịch sử điểm danh và điểm kiểm tra sẽ được chuyển tương ứng theo số thứ tự buổi học/bài kiểm tra hiện có ở lớp mới.</li>
+                    <li>Tiến độ E-learning của học viên cũng sẽ tự động chuyển đổi theo lớp học mới.</li>
+                  </ul>
+                </div>
+
+                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 16 }}>
+                  <button type="button" className="btn btn-secondary" onClick={() => setShowSplitModal(false)}>Hủy</button>
+                  <button type="button" className="btn" onClick={handleSplitClass} disabled={saving || !targetClassId} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 20px', borderRadius: 8, fontWeight: 600, background: '#8b5cf6', color: 'white', border: 'none', opacity: (saving || !targetClassId) ? 0.6 : 1 }}>
+                    {saving ? <Loader2 size={16} className="spinner" /> : <><Users size={16} /> Xác nhận chuyển</>}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }

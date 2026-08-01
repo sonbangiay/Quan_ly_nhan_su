@@ -24,9 +24,17 @@ export default function LoginPage() {
     try {
       await login(email, password);
       router.push('/dashboard');
-    } catch (err: unknown) {
-      const msg = (err as { response?: { data?: { error?: string } } })?.response?.data?.error;
-      setError(msg || 'Đăng nhập thất bại. Vui lòng kiểm tra lại thông tin.');
+    } catch (err: any) {
+      console.error("Login error details:", err);
+      let msg = 'Đăng nhập thất bại. Vui lòng kiểm tra lại thông tin.';
+      if (err?.code === 'auth/invalid-credential' || err?.message?.includes('invalid-credential')) {
+        msg = 'Tài khoản hoặc mật khẩu không chính xác.';
+      } else if (err?.code === 'auth/network-request-failed') {
+        msg = 'Lỗi kết nối mạng. Vui lòng kiểm tra lại đường truyền internet.';
+      } else if (err?.message) {
+        msg = `Lỗi kết nối Firebase: ${err.message}`;
+      }
+      setError(msg);
     } finally {
       setIsLoading(false);
     }

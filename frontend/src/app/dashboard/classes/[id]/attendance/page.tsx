@@ -982,8 +982,6 @@ export default function AttendancePage({ params }: { params: Promise<{ id: strin
   };
 
   const exportSyllabusToExcel = () => {
-    if (sessions.length === 0) return;
-    
     const data: any[] = [];
     
     // Add professional title block
@@ -993,15 +991,27 @@ export default function AttendancePage({ params }: { params: Promise<{ id: strin
     data.push([`Thời gian xuất:`, new Date().toLocaleDateString('vi-VN')]);
     data.push([]); // spacing row
 
-    const headers = ["Thứ", "Thời gian", "Nội dung chi tiết buổi học", "Đánh giá / Kiểm tra"];
+    const headers = ["Tuần", "Ngày", "Thời gian", "Nội dung", "Đánh giá"];
     const startRowIdx = data.length;
     data.push(headers);
 
-    sessions.forEach(sess => {
+    const sessionsToExport = sessions.length > 0 ? sessions : [
+      {
+        week: 'Tuần 1',
+        dayName: 'Buổi 1',
+        date: '2026-07-27',
+        topic: 'Bài 1: Giới thiệu khóa học',
+        notes: 'Giới thiệu bản thân và lộ trình học học tập.\nHọc bảng chữ cái Hiragana.',
+        evaluation: 'Kiểm tra đọc bảng chữ cái Hiragana'
+      }
+    ];
+
+    sessionsToExport.forEach(sess => {
       data.push([
+        sess.week || '',
         sess.dayName || '',
         sess.date ? formatDisplayDate(sess.date) : '',
-        `${sess.topic || ''}\n${sess.notes || ''}`.trim(),
+        sess.notes || sess.topic || '',
         sess.evaluation || ''
       ]);
     });
@@ -1010,10 +1020,11 @@ export default function AttendancePage({ params }: { params: Promise<{ id: strin
     
     // Tùy chỉnh độ rộng cột
     worksheet['!cols'] = [
-      { wch: 10 }, // Thứ
+      { wch: 12 }, // Tuần
+      { wch: 12 }, // Ngày
       { wch: 15 }, // Thời gian
-      { wch: 50 }, // Nội dung chi tiết
-      { wch: 40 }  // Đánh giá học sinh
+      { wch: 50 }, // Nội dung
+      { wch: 40 }  // Đánh giá
     ];
 
     // Format cells in worksheet with elegant styling
@@ -1045,7 +1056,7 @@ export default function AttendancePage({ params }: { params: Promise<{ id: strin
 
         // Table Header Row
         if (R === startRowIdx) {
-          const isLeft = (C === 2 || C === 3);
+          const isLeft = (C === 3 || C === 4);
           cell.s = {
             fill: { patternType: 'solid', fgColor: { rgb: '2563EB' } },
             font: { name: 'Segoe UI', sz: 10, bold: true, color: { rgb: 'FFFFFF' } },
@@ -1063,7 +1074,7 @@ export default function AttendancePage({ params }: { params: Promise<{ id: strin
         // Table Data Rows
         if (R > startRowIdx) {
           const isOdd = (R % 2 !== 0);
-          const isLeft = (C === 2 || C === 3);
+          const isLeft = (C === 3 || C === 4);
           cell.s = {
             fill: { patternType: 'solid', fgColor: { rgb: isOdd ? 'F8FAFC' : 'FFFFFF' } },
             font: { name: 'Segoe UI', sz: 10, color: { rgb: '334155' } },
@@ -1254,6 +1265,9 @@ export default function AttendancePage({ params }: { params: Promise<{ id: strin
                 <input type="file" accept=".xlsx,.xls,.csv" ref={fileInputRef} onChange={handleImportSyllabus} style={{ display: 'none' }} />
                 <button onClick={() => fileInputRef.current?.click()} disabled={saving} className="btn btn-secondary btn-sm" style={{ padding: '4px 8px' }} title="Nhập lộ trình từ Excel">
                   <Upload size={16} />
+                </button>
+                <button onClick={exportSyllabusToExcel} className="btn btn-secondary btn-sm" style={{ padding: '4px 8px' }} title="Tải lộ trình / Mẫu Excel">
+                  <Download size={16} />
                 </button>
                 {sessions.length > 0 && (
                   <button onClick={deleteAllSessions} disabled={saving} className="btn btn-secondary btn-sm" style={{ padding: '4px 8px', color: 'var(--danger)' }} title="Xóa toàn bộ">
@@ -1890,7 +1904,6 @@ export default function AttendancePage({ params }: { params: Promise<{ id: strin
               </div>
               <button 
                 onClick={exportSyllabusToExcel}
-                disabled={sessions.length === 0}
                 className="btn btn-secondary btn-sm" 
                 style={{ padding: '6px 16px', height: 36, borderRadius: 20 }}
               >

@@ -257,6 +257,16 @@ export const classApi = {
     return toRes({ success: true });
   },
   deleteClass: async (id: string) => {
+    const classDoc = await getDoc(doc(db, 'classes', id));
+    if (classDoc.exists()) {
+      await setDoc(doc(db, 'trash', `trash_class_${id}`), {
+        id: `trash_class_${id}`,
+        type: 'class',
+        name: `Lớp học: ${classDoc.data().className}`,
+        deletedAt: new Date().toISOString(),
+        data: { id, ...classDoc.data() }
+      });
+    }
     await deleteDoc(doc(db, 'classes', id));
     return toRes({ success: true });
   },
@@ -327,7 +337,21 @@ export const classApi = {
       const enrollments = cls.enrollments || [];
       const idx = enrollments.findIndex((e: any) => e.id === enrollmentId);
       if (idx !== -1) {
-        const studentId = enrollments[idx].studentId;
+        const enrollment = enrollments[idx];
+        const studentId = enrollment.studentId;
+        
+        await setDoc(doc(db, 'trash', `trash_enroll_${enrollmentId}`), {
+          id: `trash_enroll_${enrollmentId}`,
+          type: 'enrollment',
+          name: `Hủy ghi danh học viên: Khôi phục ${enrollment.studentName || 'Học viên'} vào lớp ${cls.className}`,
+          deletedAt: new Date().toISOString(),
+          data: {
+            classId: d.id,
+            enrollment: enrollment,
+            studentObj: cls.students?.find((s: any) => s.id === studentId) || { id: studentId, fullName: enrollment.studentName }
+          }
+        });
+
         enrollments.splice(idx, 1);
         
         // Also remove from students array if no other enrollments for this student in this class
@@ -360,14 +384,45 @@ export const classApi = {
     return toRes({ success: true });
   },
   deleteStudent: async (studentId: string) => {
+    const studentDoc = await getDoc(doc(db, 'students', studentId));
+    if (studentDoc.exists()) {
+      const classesSnap = await getDocs(collection(db, 'classes'));
+      const studentEnrollments: any[] = [];
+      classesSnap.forEach(d => {
+        const cls = d.data();
+        const enrolls = cls.enrollments || [];
+        const match = enrolls.filter((e: any) => e.studentId === studentId);
+        if (match.length > 0) {
+          studentEnrollments.push({ classId: d.id, enrollments: match });
+        }
+      });
+
+      await setDoc(doc(db, 'trash', `trash_student_${studentId}`), {
+        id: `trash_student_${studentId}`,
+        type: 'student',
+        name: `Học viên: ${studentDoc.data().fullName || studentDoc.data().name}`,
+        deletedAt: new Date().toISOString(),
+        data: {
+          student: { id: studentId, ...studentDoc.data() },
+          enrollments: studentEnrollments
+        }
+      });
+    }
     await deleteDoc(doc(db, 'students', studentId));
     return toRes({ success: true });
   },
   bulkDeleteStudents: async (ids: string[]) => {
-    for (const id of ids) await deleteDoc(doc(db, 'students', id));
+    for (const id of ids) {
+      await classApi.deleteStudent(id);
+    }
     return toRes({ success: true });
   },
-  bulkDeleteEnrollments: async (ids: string[]) => toRes({ success: true }),
+  bulkDeleteEnrollments: async (ids: string[]) => {
+    for (const id of ids) {
+      await classApi.deleteEnrollment(id);
+    }
+    return toRes({ success: true });
+  },
   
   // Sessions & Attendance
   getSessions: async (classId: string) => {
@@ -452,6 +507,250 @@ export const classApi = {
     
     await updateDoc(doc(db, 'tests', testId), { scores });
     return toRes({ success: true, score });
+  },
+  splitClass: async (sourceClassId: string, targetClassId: string, studentIds: string[], mergeDuplicates: boolean = false) => {
+    // 1. Move enrollments and students from source class to target class
+    const sourceRef = doc(db, 'classes', sourceClassId);
+    const targetRef = doc(db, 'classes', targetClassId);
+
+    const sourceDoc = await getDoc(sourceRef);
+    const targetDoc = await getDoc(targetRef);
+
+    if (!sourceDoc.exists() || !targetDoc.exists()) {
+      throw new Error('Không tìm thấy lớp học nguồn hoặc lớp học đích');
+    }
+
+    const sourceData = sourceDoc.data();
+    const targetData = targetDoc.data();
+
+    let sourceEnrollments = sourceData.enrollments || [];
+    let sourceStudents = sourceData.students || [];
+
+    let targetEnrollments = targetData.enrollments || [];
+    let targetStudents = targetData.students || [];
+
+    // Filter out student details and enrollments from source class
+    const transferringEnrollments = sourceEnrollments.filter((e: any) => studentIds.includes(e.studentId));
+
+    // Save backup to trash for potential undo/restore operations
+    const splitId = uuidv4();
+    const studentNames = sourceData.students
+      .filter((s: any) => studentIds.includes(s.id))
+      .map((s: any) => s.fullName || s.name)
+      .join(', ');
+      
+    await setDoc(doc(db, 'trash', `trash_split_${splitId}`), {
+      id: `trash_split_${splitId}`,
+      type: 'split',
+      name: `Tách lớp: Chuyển ${studentIds.length} học viên [${studentNames}] từ ${sourceData.className} sang ${targetData.className}`,
+      deletedAt: new Date().toISOString(),
+      data: {
+        sourceClassId,
+        targetClassId,
+        studentIds,
+        originalSourceEnrollments: transferringEnrollments,
+        mergeDuplicates
+      }
+    });
+    
+    sourceEnrollments = sourceEnrollments.filter((e: any) => !studentIds.includes(e.studentId));
+    sourceStudents = sourceStudents.filter((s: any) => !studentIds.includes(s.id));
+
+    // Update target class enrollments and students
+    transferringEnrollments.forEach((oldEnrollment: any) => {
+      const isAlreadyEnrolled = targetEnrollments.some((e: any) => e.studentId === oldEnrollment.studentId);
+      
+      if (!isAlreadyEnrolled) {
+        // Create new enrollment for target class
+        const newEnrollment = {
+          ...oldEnrollment,
+          id: uuidv4(),
+          classId: targetClassId,
+          createdAt: new Date().toISOString()
+        };
+        targetEnrollments.push(newEnrollment);
+
+        // Find student in source students list to add to target
+        const studentObj = sourceData.students.find((s: any) => s.id === oldEnrollment.studentId);
+        if (studentObj && !targetStudents.some((s: any) => s.id === studentObj.id)) {
+          targetStudents.push(studentObj);
+        }
+      }
+    });
+
+    // Save classes
+    await updateDoc(sourceRef, { enrollments: sourceEnrollments, students: sourceStudents });
+    await updateDoc(targetRef, { enrollments: targetEnrollments, students: targetStudents });
+
+    // 2. Migrate Attendance (Sessions)
+    // Get all sessions for source and target
+    const sourceSessionsSnap = await getDocs(query(collection(db, 'sessions'), where('classId', '==', sourceClassId)));
+    const targetSessionsSnap = await getDocs(query(collection(db, 'sessions'), where('classId', '==', targetClassId)));
+
+    const sourceSessions = sourceSessionsSnap.docs.map(d => ({ id: d.id, ...d.data() })).sort((a: any, b: any) => {
+      if (a.order !== undefined && b.order !== undefined) return a.order - b.order;
+      if (!a.date) return 1;
+      if (!b.date) return -1;
+      return new Date(a.date).getTime() - new Date(b.date).getTime();
+    });
+
+    const targetSessions = targetSessionsSnap.docs.map(d => ({ id: d.id, ...d.data() })).sort((a: any, b: any) => {
+      if (a.order !== undefined && b.order !== undefined) return a.order - b.order;
+      if (!a.date) return 1;
+      if (!b.date) return -1;
+      return new Date(a.date).getTime() - new Date(b.date).getTime();
+    });
+
+    // Match sessions by index i
+    const minSessionsLen = Math.min(sourceSessions.length, targetSessions.length);
+    for (let i = 0; i < minSessionsLen; i++) {
+      const sSess: any = sourceSessions[i];
+      const tSess: any = targetSessions[i];
+
+      const sAtt = sSess.attendance || [];
+      const tAtt = tSess.attendance || [];
+
+      // For each student, find their attendance in source session i and migrate to target session i
+      let updatedTargetAtt = [...tAtt];
+      studentIds.forEach(studentId => {
+        const studentRecordSource = sAtt.find((a: any) => a.studentId === studentId);
+        if (studentRecordSource) {
+          const studentRecordTargetIndex = updatedTargetAtt.findIndex((a: any) => a.studentId === studentId);
+          
+          if (studentRecordTargetIndex >= 0) {
+            // Student has attendance in both source and target sessions
+            if (mergeDuplicates) {
+              const recordTarget = updatedTargetAtt[studentRecordTargetIndex];
+              // Merge rules: Present > AbsentExcused > Absent > empty
+              let finalStatus = recordTarget.status;
+              let finalExcusedReason = recordTarget.excusedReason || '';
+              
+              if (studentRecordSource.status === 'Present' || recordTarget.status === 'Present') {
+                finalStatus = 'Present';
+              } else if (studentRecordSource.status === 'AbsentExcused' || recordTarget.status === 'AbsentExcused') {
+                finalStatus = 'AbsentExcused';
+                finalExcusedReason = recordTarget.excusedReason || studentRecordSource.excusedReason || '';
+              } else if (studentRecordSource.status === 'Absent' || recordTarget.status === 'Absent') {
+                finalStatus = 'Absent';
+              }
+
+              updatedTargetAtt[studentRecordTargetIndex] = {
+                ...recordTarget,
+                status: finalStatus,
+                excusedReason: finalExcusedReason,
+                checkInTime: recordTarget.checkInTime || studentRecordSource.checkInTime || null
+              };
+            }
+          } else {
+            // Not in target session yet, simply add it
+            updatedTargetAtt.push({
+              ...studentRecordSource,
+              sessionId: tSess.id
+            });
+          }
+        }
+      });
+
+      // Update target session document
+      await updateDoc(doc(db, 'sessions', tSess.id), { attendance: updatedTargetAtt });
+
+      // Clean up source session (remove the student's attendance records)
+      const updatedSourceAtt = sAtt.filter((a: any) => !studentIds.includes(a.studentId));
+      await updateDoc(doc(db, 'sessions', sSess.id), { attendance: updatedSourceAtt });
+    }
+
+    // 3. Migrate Tests
+    const sourceTestsSnap = await getDocs(query(collection(db, 'tests'), where('classId', '==', sourceClassId)));
+    const targetTestsSnap = await getDocs(query(collection(db, 'tests'), where('classId', '==', targetClassId)));
+
+    const sourceTests = sourceTestsSnap.docs.map(d => ({ id: d.id, ...d.data() })).sort((a: any, b: any) => {
+      return new Date(a.createdAt || 0).getTime() - new Date(b.createdAt || 0).getTime();
+    });
+
+    const targetTests = targetTestsSnap.docs.map(d => ({ id: d.id, ...d.data() })).sort((a: any, b: any) => {
+      return new Date(a.createdAt || 0).getTime() - new Date(b.createdAt || 0).getTime();
+    });
+
+    // Match tests by index i
+    const minTestsLen = Math.min(sourceTests.length, targetTests.length);
+    for (let i = 0; i < minTestsLen; i++) {
+      const sTest: any = sourceTests[i];
+      const tTest: any = targetTests[i];
+
+      const sScores = sTest.scores || [];
+      const tScores = tTest.scores || [];
+
+      let updatedTargetScores = [...tScores];
+      studentIds.forEach(studentId => {
+        const scoreRecordSource = sScores.find((sc: any) => sc.studentId === studentId);
+        if (scoreRecordSource) {
+          const scoreRecordTargetIndex = updatedTargetScores.findIndex((sc: any) => sc.studentId === studentId);
+          
+          if (scoreRecordTargetIndex >= 0) {
+            if (mergeDuplicates) {
+              const recordTarget = updatedTargetScores[scoreRecordTargetIndex];
+              // Merge rules: take higher score, combine feedbacks
+              const finalScore = Math.max(Number(recordTarget.score || 0), Number(scoreRecordSource.score || 0));
+              let finalFeedback = recordTarget.feedback || '';
+              if (scoreRecordSource.feedback) {
+                finalFeedback = finalFeedback 
+                  ? `${finalFeedback} | Lớp cũ: ${scoreRecordSource.feedback}` 
+                  : scoreRecordSource.feedback;
+              }
+              updatedTargetScores[scoreRecordTargetIndex] = {
+                ...recordTarget,
+                score: finalScore,
+                feedback: finalFeedback,
+                submittedAt: recordTarget.submittedAt || scoreRecordSource.submittedAt || new Date().toISOString()
+              };
+            }
+          } else {
+            updatedTargetScores.push(scoreRecordSource);
+          }
+        }
+      });
+
+      // Update target test document
+      await updateDoc(doc(db, 'tests', tTest.id), { scores: updatedTargetScores });
+
+      // Clean up source test document
+      const updatedSourceScores = sScores.filter((sc: any) => !studentIds.includes(sc.studentId));
+      await updateDoc(doc(db, 'tests', sTest.id), { scores: updatedSourceScores });
+    }
+
+    // 4. Migrate E-learning Progress
+    for (const studentId of studentIds) {
+      const sourceProgressId = `${sourceClassId}_${studentId}`;
+      const targetProgressId = `${targetClassId}_${studentId}`;
+
+      const sourceProgressSnap = await getDoc(doc(db, 'elearning_progress', sourceProgressId));
+      const targetProgressSnap = await getDoc(doc(db, 'elearning_progress', targetProgressId));
+
+      if (sourceProgressSnap.exists()) {
+        const sourceProgressData = sourceProgressSnap.data();
+        let finalProgress = sourceProgressData.progress || [];
+
+        if (targetProgressSnap.exists() && mergeDuplicates) {
+          const targetProgressData = targetProgressSnap.data();
+          const targetProgress = targetProgressData.progress || [];
+          // Merge unique progress values
+          finalProgress = [...new Set([...finalProgress, ...targetProgress])];
+        }
+
+        await setDoc(doc(db, 'elearning_progress', targetProgressId), {
+          ...sourceProgressData,
+          id: targetProgressId,
+          classId: targetClassId,
+          progress: finalProgress,
+          updatedAt: new Date().toISOString()
+        });
+
+        // Delete source progress document
+        await deleteDoc(doc(db, 'elearning_progress', sourceProgressId));
+      }
+    }
+
+    return toRes({ success: true });
   }
 };
 
@@ -999,6 +1298,225 @@ export const knowledgeApi = {
   },
   deleteDocument: async (id: string) => {
     await deleteDoc(doc(db, 'knowledge', id));
+    return toRes({ success: true });
+  }
+};
+
+export const trashApi = {
+  getTrash: async () => {
+    const now = new Date();
+    const snap = await getDocs(collection(db, 'trash'));
+    const items = [];
+    for (const d of snap.docs) {
+      const data = d.data();
+      if (data.deletedAt) {
+        const deletedDate = new Date(data.deletedAt);
+        const diffTime = Math.abs(now.getTime() - deletedDate.getTime());
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+        if (diffDays > 30) {
+          await deleteDoc(d.ref);
+          continue;
+        }
+      }
+      items.push({ id: d.id, ...data });
+    }
+    return toRes(items.sort((a: any, b: any) => new Date(b.deletedAt || 0).getTime() - new Date(a.deletedAt || 0).getTime()));
+  },
+
+  deletePermanently: async (trashId: string) => {
+    await deleteDoc(doc(db, 'trash', trashId));
+    return toRes({ success: true });
+  },
+
+  restore: async (trashId: string) => {
+    const trashDoc = await getDoc(doc(db, 'trash', trashId));
+    if (!trashDoc.exists()) throw new Error('Không tìm thấy dữ liệu khôi phục');
+    
+    const { type, data } = trashDoc.data();
+    
+    if (type === 'class') {
+      await setDoc(doc(db, 'classes', data.id), data);
+    } 
+    else if (type === 'enrollment') {
+      const { classId, enrollment, studentObj } = data;
+      const classRef = doc(db, 'classes', classId);
+      const classDoc = await getDoc(classRef);
+      if (classDoc.exists()) {
+        const classData = classDoc.data();
+        let currentEnrollments = classData.enrollments || [];
+        let currentStudents = classData.students || [];
+        
+        if (!currentEnrollments.some((x: any) => x.id === enrollment.id)) {
+          currentEnrollments.push(enrollment);
+        }
+        if (!currentStudents.some((x: any) => x.id === studentObj.id)) {
+          currentStudents.push(studentObj);
+        }
+        await updateDoc(classRef, { enrollments: currentEnrollments, students: currentStudents });
+      }
+    }
+    else if (type === 'student') {
+      await setDoc(doc(db, 'students', data.student.id), data.student);
+      
+      const enrollments = data.enrollments || [];
+      for (const item of enrollments) {
+        const classRef = doc(db, 'classes', item.classId);
+        const classDoc = await getDoc(classRef);
+        if (classDoc.exists()) {
+          const classData = classDoc.data();
+          let currentEnrollments = classData.enrollments || [];
+          let currentStudents = classData.students || [];
+          
+          item.enrollments.forEach((e: any) => {
+            if (!currentEnrollments.some((x: any) => x.id === e.id)) {
+              currentEnrollments.push(e);
+            }
+          });
+          
+          if (!currentStudents.some((s: any) => s.id === data.student.id)) {
+            currentStudents.push({
+              id: data.student.id,
+              fullName: data.student.fullName || data.student.name,
+              phone: data.student.phone,
+              email: data.student.email
+            });
+          }
+          await updateDoc(classRef, { enrollments: currentEnrollments, students: currentStudents });
+        }
+      }
+    }
+    else if (type === 'split') {
+      const { sourceClassId, targetClassId, studentIds, originalSourceEnrollments } = data;
+      
+      const sourceRef = doc(db, 'classes', sourceClassId);
+      const targetRef = doc(db, 'classes', targetClassId);
+
+      const sourceDoc = await getDoc(sourceRef);
+      const targetDoc = await getDoc(targetRef);
+
+      if (sourceDoc.exists() && targetDoc.exists()) {
+        const sourceData = sourceDoc.data();
+        const targetData = targetDoc.data();
+
+        let sourceEnrollments = sourceData.enrollments || [];
+        let sourceStudents = sourceData.students || [];
+
+        let targetEnrollments = targetData.enrollments || [];
+        let targetStudents = targetData.students || [];
+
+        targetEnrollments = targetEnrollments.filter((e: any) => !studentIds.includes(e.studentId));
+        targetStudents = targetStudents.filter((s: any) => !studentIds.includes(s.id));
+
+        originalSourceEnrollments.forEach((oldEnrollment: any) => {
+          if (!sourceEnrollments.some((e: any) => e.studentId === oldEnrollment.studentId)) {
+            sourceEnrollments.push(oldEnrollment);
+          }
+          
+          const studentObj = targetData.students.find((s: any) => s.id === oldEnrollment.studentId) || { id: oldEnrollment.studentId, fullName: oldEnrollment.studentName };
+          if (!sourceStudents.some((s: any) => s.id === studentObj.id)) {
+            sourceStudents.push(studentObj);
+          }
+        });
+
+        await updateDoc(sourceRef, { enrollments: sourceEnrollments, students: sourceStudents });
+        await updateDoc(targetRef, { enrollments: targetEnrollments, students: targetStudents });
+
+        const sourceSessionsSnap = await getDocs(query(collection(db, 'sessions'), where('classId', '==', sourceClassId)));
+        const targetSessionsSnap = await getDocs(query(collection(db, 'sessions'), where('classId', '==', targetClassId)));
+
+        const sourceSessions = sourceSessionsSnap.docs.map(d => ({ id: d.id, ...d.data() })).sort((a: any, b: any) => {
+          if (a.order !== undefined && b.order !== undefined) return a.order - b.order;
+          if (!a.date) return 1;
+          if (!b.date) return -1;
+          return new Date(a.date).getTime() - new Date(b.date).getTime();
+        });
+
+        const targetSessions = targetSessionsSnap.docs.map(d => ({ id: d.id, ...d.data() })).sort((a: any, b: any) => {
+          if (a.order !== undefined && b.order !== undefined) return a.order - b.order;
+          if (!a.date) return 1;
+          if (!b.date) return -1;
+          return new Date(a.date).getTime() - new Date(b.date).getTime();
+        });
+
+        const minSessionsLen = Math.min(sourceSessions.length, targetSessions.length);
+        for (let i = 0; i < minSessionsLen; i++) {
+          const sSess: any = sourceSessions[i];
+          const tSess: any = targetSessions[i];
+
+          const sAtt = sSess.attendance || [];
+          const tAtt = tSess.attendance || [];
+
+          let updatedSourceAtt = [...sAtt];
+          studentIds.forEach((studentId: any) => {
+            const studentRecordTarget = tAtt.find((a: any) => a.studentId === studentId);
+            if (studentRecordTarget) {
+              updatedSourceAtt = updatedSourceAtt.filter((a: any) => a.studentId !== studentId);
+              updatedSourceAtt.push({
+                ...studentRecordTarget,
+                sessionId: sSess.id
+              });
+            }
+          });
+
+          await updateDoc(doc(db, 'sessions', sSess.id), { attendance: updatedSourceAtt });
+
+          const updatedTargetAtt = tAtt.filter((a: any) => !studentIds.includes(a.studentId));
+          await updateDoc(doc(db, 'sessions', tSess.id), { attendance: updatedTargetAtt });
+        }
+
+        const sourceTestsSnap = await getDocs(query(collection(db, 'tests'), where('classId', '==', sourceClassId)));
+        const targetTestsSnap = await getDocs(query(collection(db, 'tests'), where('classId', '==', targetClassId)));
+
+        const sourceTests = sourceTestsSnap.docs.map(d => ({ id: d.id, ...d.data() })).sort((a: any, b: any) => {
+          return new Date(a.createdAt || 0).getTime() - new Date(b.createdAt || 0).getTime();
+        });
+
+        const targetTests = targetTestsSnap.docs.map(d => ({ id: d.id, ...d.data() })).sort((a: any, b: any) => {
+          return new Date(a.createdAt || 0).getTime() - new Date(b.createdAt || 0).getTime();
+        });
+
+        const minTestsLen = Math.min(sourceTests.length, targetTests.length);
+        for (let i = 0; i < minTestsLen; i++) {
+          const sTest: any = sourceTests[i];
+          const tTest: any = targetTests[i];
+
+          const sScores = sTest.scores || [];
+          const tScores = tTest.scores || [];
+
+          let updatedSourceScores = [...sScores];
+          studentIds.forEach((studentId: any) => {
+            const scoreRecordTarget = tScores.find((sc: any) => sc.studentId === studentId);
+            if (scoreRecordTarget) {
+              updatedSourceScores = updatedSourceScores.filter((sc: any) => sc.studentId !== studentId);
+              updatedSourceScores.push(scoreRecordTarget);
+            }
+          });
+
+          await updateDoc(doc(db, 'tests', sTest.id), { scores: updatedSourceScores });
+
+          const updatedTargetScores = tScores.filter((sc: any) => !studentIds.includes(sc.studentId));
+          await updateDoc(doc(db, 'tests', tTest.id), { scores: updatedTargetScores });
+        }
+
+        for (const studentId of studentIds) {
+          const sourceProgressId = `${sourceClassId}_${studentId}`;
+          const targetProgressId = `${targetClassId}_${studentId}`;
+
+          const targetProgressSnap = await getDoc(doc(db, 'elearning_progress', targetProgressId));
+          if (targetProgressSnap.exists()) {
+            const progressData = targetProgressSnap.data();
+            await setDoc(doc(db, 'elearning_progress', sourceProgressId), {
+              ...progressData,
+              id: sourceProgressId,
+              classId: sourceClassId
+            });
+            await deleteDoc(doc(db, 'elearning_progress', targetProgressId));
+          }
+        }
+      }
+    }
+
+    await deleteDoc(doc(db, 'trash', trashId));
     return toRes({ success: true });
   }
 };
