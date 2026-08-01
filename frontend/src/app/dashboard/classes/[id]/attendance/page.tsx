@@ -721,6 +721,7 @@ export default function AttendancePage({ params }: { params: Promise<{ id: strin
     } catch (err) {
       console.error(err);
       alert('Lỗi khi xóa lộ trình buổi học!');
+    }
     setSaving(false);
   };
 
