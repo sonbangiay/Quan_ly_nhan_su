@@ -1,8 +1,8 @@
 'use client';
 import { useState, useEffect, use, useRef } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { classApi } from '@/lib/api';
-import { ArrowLeft, Check, X, Clock, Calendar, Save, Plus, ChevronRight, AlertCircle, RefreshCw, HelpCircle, Trash2, BarChart2, Users, Download, Edit2, PlayCircle, FileText, MonitorPlay, Link as LinkIcon, Search, Upload, Table } from 'lucide-react';
+import { classApi, trashApi } from '@/lib/api';
+import { ArrowLeft, Check, X, Clock, Calendar, Save, Plus, ChevronRight, AlertCircle, RefreshCw, HelpCircle, Trash2, BarChart2, Users, Download, Edit2, PlayCircle, FileText, MonitorPlay, Link as LinkIcon, Search, Upload, Table, History } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import ElearningBuilder from './ElearningBuilder';
 import * as XLSX from 'xlsx';
@@ -28,6 +28,8 @@ export default function AttendancePage({ params }: { params: Promise<{ id: strin
   const [sessionDate, setSessionDate] = useState<string>('');
   const [errorMsg, setErrorMsg] = useState<string>('');
   const [activeTab, setActiveTab] = useState<'daily' | 'overview' | 'syllabus' | 'testing-roadmap'>('daily');
+  const [showDeletedModal, setShowDeletedModal] = useState(false);
+  const [deletedSessions, setDeletedSessions] = useState<any[]>([]);
   const [editingSession, setEditingSession] = useState<any>(null);
   const [showAddSession, setShowAddSession] = useState(false);
   const [newSessionForm, setNewSessionForm] = useState({ date: '', topic: '' });
@@ -719,6 +721,49 @@ export default function AttendancePage({ params }: { params: Promise<{ id: strin
     } catch (err) {
       console.error(err);
       alert('Lỗi khi xóa lộ trình buổi học!');
+    setSaving(false);
+  };
+
+  const loadDeletedSessions = async () => {
+    if (!classId) return;
+    setSaving(true);
+    try {
+      // @ts-ignore
+      const res = await classApi.getDeletedSessions(classId as string);
+      setDeletedSessions(res.data || []);
+      setShowDeletedModal(true);
+    } catch (err) {
+      console.error(err);
+      alert('Lỗi khi tải lịch sử buổi học đã xóa!');
+    }
+    setSaving(false);
+  };
+
+  const restoreDeletedSession = async (trashId: string) => {
+    setSaving(true);
+    try {
+      await trashApi.restore(trashId);
+      alert('Khôi phục buổi học thành công!');
+      
+      // Update local state by adding the restored session to the list
+      const trashItem = deletedSessions.find(s => s.id === trashId);
+      if (trashItem && trashItem.data) {
+        setSessions(prev => {
+          const updated = [...prev, trashItem.data];
+          return updated.sort((a: any, b: any) => {
+            if (a.order !== undefined && b.order !== undefined) return a.order - b.order;
+            if (!a.date) return 1;
+            if (!b.date) return -1;
+            return new Date(a.date).getTime() - new Date(b.date).getTime();
+          });
+        });
+      }
+
+      setDeletedSessions(prev => prev.filter(s => s.id !== trashId));
+      setShowDeletedModal(false);
+    } catch (err) {
+      console.error(err);
+      alert('Lỗi khi khôi phục buổi học!');
     }
     setSaving(false);
   };
@@ -1274,6 +1319,9 @@ export default function AttendancePage({ params }: { params: Promise<{ id: strin
                     <Trash2 size={16} />
                   </button>
                 )}
+                <button onClick={loadDeletedSessions} disabled={saving} className="btn btn-secondary btn-sm" style={{ padding: '4px 8px', color: 'var(--accent-purple)' }} title="Lịch sử xóa buổi học">
+                  <History size={16} />
+                </button>
                 <button onClick={openAddSessionModal} disabled={saving} className="btn btn-primary btn-sm" style={{ padding: '4px 8px' }} title="Thêm buổi học">
                   <Plus size={16} />
                 </button>
@@ -2146,6 +2194,50 @@ export default function AttendancePage({ params }: { params: Promise<{ id: strin
               <button onClick={handleExportTestingRoadmap} className="btn btn-primary" style={{ padding: '8px 24px' }}>
                 <Download size={16} style={{ marginRight: 6 }} /> OK, Tải xuống
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Modal: Khôi phục Buổi học đã xóa */}
+      {showDeletedModal && (
+        <div className="modal-backdrop" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, backdropFilter: 'blur(4px)' }}>
+          <div className="glass-card" style={{ width: '100%', maxWidth: 650, padding: 32, position: 'relative', background: 'var(--bg-primary)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
+              <h3 style={{ margin: 0, fontSize: 18, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 8 }}>
+                <History size={20} style={{ color: 'var(--accent-purple)' }} /> Lịch sử buổi học đã xóa (Hạn 14 ngày)
+              </h3>
+              <button onClick={() => setShowDeletedModal(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)' }}>
+                <X size={20} />
+              </button>
+            </div>
+
+            {deletedSessions.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '40px 20px', color: 'var(--text-muted)' }}>
+                Chưa có buổi học nào bị xóa gần đây cho lớp này.
+              </div>
+            ) : (
+              <div style={{ maxHeight: 350, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 12, paddingRight: 4 }}>
+                {deletedSessions.map((item) => {
+                  const daysLeft = 14 - Math.ceil(Math.abs(new Date().getTime() - new Date(item.deletedAt).getTime()) / (1000 * 60 * 60 * 24));
+                  return (
+                    <div key={item.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 18px', background: 'var(--bg-secondary)', borderRadius: 10, border: '1px solid var(--border)' }}>
+                      <div>
+                        <div style={{ fontWeight: 600, fontSize: 14 }}>{item.name}</div>
+                        <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 4 }}>
+                          Xóa ngày: {new Date(item.deletedAt).toLocaleString('vi-VN')} ({daysLeft > 0 ? `Còn ${daysLeft} ngày` : 'Sắp hết hạn'})
+                        </div>
+                      </div>
+                      <button onClick={() => restoreDeletedSession(item.id)} disabled={saving} className="btn btn-primary btn-sm" style={{ padding: '6px 12px', background: '#10b981', borderColor: '#10b981', color: 'white', display: 'flex', alignItems: 'center', gap: 4 }}>
+                        <RefreshCw size={14} /> Khôi phục
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 24, paddingTop: 16, borderTop: '1px solid var(--border)' }}>
+              <button type="button" onClick={() => setShowDeletedModal(false)} className="btn btn-secondary" style={{ padding: '8px 24px' }}>Đóng</button>
             </div>
           </div>
         </div>

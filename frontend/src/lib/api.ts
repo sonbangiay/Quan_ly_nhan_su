@@ -447,7 +447,20 @@ export const classApi = {
     return toRes({ success: true });
   },
   deleteSession: async (sessionId: string) => {
-    await deleteDoc(doc(db, 'sessions', sessionId));
+    const sessionRef = doc(db, 'sessions', sessionId);
+    const snap = await getDoc(sessionRef);
+    if (snap.exists()) {
+      const data = snap.data();
+      await setDoc(doc(db, 'trash', `trash_session_${sessionId}`), {
+        id: `trash_session_${sessionId}`,
+        type: 'session',
+        name: `Buổi học ngày ${data.date || 'chưa xếp lịch'} - ${data.topic || 'Không có chủ đề'}`,
+        deletedAt: new Date().toISOString(),
+        classId: data.classId,
+        data: data
+      });
+      await deleteDoc(sessionRef);
+    }
     return toRes({ success: true });
   },
   updateSession: async (sessionId: string, data: any) => {
@@ -456,8 +469,23 @@ export const classApi = {
   },
   deleteAllSessions: async (classId: string) => {
     const snap = await getDocs(query(collection(db, 'sessions'), where('classId', '==', classId)));
-    for (const d of snap.docs) await deleteDoc(d.ref);
+    for (const d of snap.docs) {
+      const data = d.data();
+      await setDoc(doc(db, 'trash', `trash_session_${d.id}`), {
+        id: `trash_session_${d.id}`,
+        type: 'session',
+        name: `Buổi học ngày ${data.date || 'chưa xếp lịch'} - ${data.topic || 'Không có chủ đề'}`,
+        deletedAt: new Date().toISOString(),
+        classId: classId,
+        data: data
+      });
+      await deleteDoc(d.ref);
+    }
     return toRes({ success: true });
+  },
+  getDeletedSessions: async (classId: string) => {
+    const snap = await getDocs(query(collection(db, 'trash'), where('classId', '==', classId), where('type', '==', 'session')));
+    return toRes(snap.docs.map(d => ({ id: d.id, ...d.data() })));
   },
   saveAttendance: async (sessionId: string, data: any) => {
     await updateDoc(doc(db, 'sessions', sessionId), { attendance: data });
@@ -1313,7 +1341,8 @@ export const trashApi = {
         const deletedDate = new Date(data.deletedAt);
         const diffTime = Math.abs(now.getTime() - deletedDate.getTime());
         const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-        if (diffDays > 30) {
+        const limitDays = data.type === 'session' ? 14 : 30;
+        if (diffDays > limitDays) {
           await deleteDoc(d.ref);
           continue;
         }
@@ -1337,6 +1366,9 @@ export const trashApi = {
     if (type === 'class') {
       await setDoc(doc(db, 'classes', data.id), data);
     } 
+    else if (type === 'session') {
+      await setDoc(doc(db, 'sessions', data.id), data);
+    }
     else if (type === 'enrollment') {
       const { classId, enrollment, studentObj } = data;
       const classRef = doc(db, 'classes', classId);
