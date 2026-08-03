@@ -53,7 +53,7 @@ Yêu cầu chi tiết:
 `;
 
     // Gọi Gemini 1.5 Flash REST API
-    const response = await fetch(\`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=\${apiKey}\`, {
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -92,10 +92,10 @@ Yêu cầu chi tiết:
 
     const responseText = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
     
-    // Dọn dẹp chuỗi JSON nếu Gemini tự động bọc trong \`\`\`json
+    // Dọn dẹp chuỗi JSON nếu Gemini tự động bọc trong ```json
     let cleanJson = responseText.trim();
-    if (cleanJson.startsWith('\`\`\`')) {
-      cleanJson = cleanJson.replace(/^\`\`\`json\s*/i, '').replace(/\`\`\`$/i, '').trim();
+    if (cleanJson.startsWith('```')) {
+      cleanJson = cleanJson.replace(/^```json\s*/i, '').replace(/```$/i, '').trim();
     }
 
     try {
