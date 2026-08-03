@@ -311,12 +311,20 @@ export default function TestsPage({ params }: { params: Promise<{ id: string }> 
         const resultBase64 = reader.result as string;
         const base64Data = resultBase64.split(',')[1];
 
+        const { db } = await import('@/lib/firebase');
+        const { doc, getDoc } = await import('firebase/firestore');
+        const docSnap = await getDoc(doc(db, 'settings', 'ai_config'));
+        let clientGeminiKey = '';
+        if (docSnap.exists()) {
+          clientGeminiKey = docSnap.data().gemini_api_key || '';
+        }
+
         const res = await fetch('/api/ai/parse-pdf', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify({ base64Pdf: base64Data })
+          body: JSON.stringify({ base64Pdf: base64Data, clientGeminiKey })
         });
 
         const resData = await res.json();

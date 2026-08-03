@@ -3,13 +3,13 @@ import { getGeminiApiKey } from '@/lib/getGeminiApiKey';
 
 export async function POST(req: Request) {
   try {
-    const { base64Pdf } = await req.json();
+    const { base64Pdf, clientGeminiKey } = await req.json();
 
     if (!base64Pdf) {
       return NextResponse.json({ success: false, error: 'Thiếu dữ liệu file PDF' }, { status: 400 });
     }
 
-    const apiKey = await getGeminiApiKey();
+    const apiKey = clientGeminiKey || await getGeminiApiKey();
     if (!apiKey) {
       return NextResponse.json({ 
         success: false, 
