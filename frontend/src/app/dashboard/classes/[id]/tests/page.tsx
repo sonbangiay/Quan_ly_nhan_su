@@ -33,6 +33,32 @@ export default function TestsPage({ params }: { params: Promise<{ id: string }> 
   // Tabs: 'scores' | 'online_builder'
   const [activeTab, setActiveTab] = useState<'scores' | 'online_builder'>('scores');
 
+  const [showGeminiModal, setShowGeminiModal] = useState(false);
+  const [geminiKeyInput, setGeminiKeyInput] = useState('');
+  const [savingGeminiKey, setSavingGeminiKey] = useState(false);
+
+  const handleSaveGeminiKey = async () => {
+    if (!geminiKeyInput.trim()) return;
+    setSavingGeminiKey(true);
+    try {
+      const { db } = await import('@/lib/firebase');
+      const { doc, setDoc, getDoc, updateDoc } = await import('firebase/firestore');
+      const docRef = doc(db, 'settings', 'ai_config');
+      const docSnap = await getDoc(docRef);
+      if (docSnap.exists()) {
+        await updateDoc(docRef, { gemini_api_key: geminiKeyInput.trim() });
+      } else {
+        await setDoc(docRef, { gemini_api_key: geminiKeyInput.trim() });
+      }
+      setShowGeminiModal(false);
+      alert('Đã lưu khoá API thành công! Bạn có thể nhấn Nhập PDF (AI) lại lần nữa.');
+    } catch (e) {
+      alert('Lỗi khi lưu khoá API.');
+    }
+    setSavingGeminiKey(false);
+  };
+
+
   useEffect(() => {
     fetchClassData();
   }, [classId]);
@@ -305,7 +331,11 @@ export default function TestsPage({ params }: { params: Promise<{ id: string }> 
           }));
           alert(`Đã nhập thành công ${resData.questions.length} câu hỏi trích xuất từ file PDF bằng AI!`);
         } else {
-          alert('Lỗi: ' + (resData.error || 'Không thể trích xuất câu hỏi từ đề thi này.'));
+          if (resData.error === 'MISSING_GEMINI_KEY' || resData.error === 'INVALID_GEMINI_KEY') {
+            setShowGeminiModal(true);
+          } else {
+            alert('Lỗi: ' + (resData.error || 'Không thể trích xuất câu hỏi từ đề thi này.'));
+          }
         }
         setParsingPdf(false);
       };
@@ -752,6 +782,41 @@ export default function TestsPage({ params }: { params: Promise<{ id: string }> 
           )}
         </div>
       </div>
+      {showGeminiModal && (
+        <div style={{
+          position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999
+        }}>
+          <div className="glass-card animate-fadeInUp" style={{ padding: 24, width: 450, borderRadius: 16, display: 'flex', flexDirection: 'column', gap: 16 }}>
+            <h3 style={{ margin: 0, fontSize: 18, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: 8 }}>
+              <Settings size={20} color="var(--accent-purple)" /> Cấu hình Google Gemini AI (Miễn phí)
+            </h3>
+            <p style={{ margin: 0, fontSize: 14, color: 'var(--text-secondary)', lineHeight: 1.5 }}>
+              Để AI có thể tự động đọc và phân tích đề thi PDF phức tạp (như Tiếng Nhật có Furigana), bạn cần nhập mã khoá API của Google Gemini.
+              <br/><br/>
+              <b>Cách lấy (Miễn phí 100%):</b><br/>
+              1. Truy cập <a href="https://aistudio.google.com/app/apikey" target="_blank" style={{ color: 'var(--accent-blue)', textDecoration: 'underline' }}>Google AI Studio</a><br/>
+              2. Đăng nhập bằng Google và nhấn <b>Create API key</b>.<br/>
+              3. Copy đoạn mã đó và dán vào ô bên dưới.
+            </p>
+            <input 
+              type="text" 
+              className="form-input" 
+              placeholder="Nhập Gemini API Key (VD: AIzaSyB...)" 
+              value={geminiKeyInput}
+              onChange={e => setGeminiKeyInput(e.target.value)}
+              style={{ width: '100%', padding: '10px 16px', borderRadius: 8, border: '1px solid var(--border)' }}
+            />
+            <div style={{ display: 'flex', gap: 12, justifyContent: 'flex-end', marginTop: 8 }}>
+              <button className="btn btn-secondary" onClick={() => setShowGeminiModal(false)} disabled={savingGeminiKey}>Huỷ</button>
+              <button className="btn btn-primary" onClick={handleSaveGeminiKey} disabled={savingGeminiKey || !geminiKeyInput.trim()}>
+                {savingGeminiKey ? 'Đang lưu...' : 'Lưu và Tiếp tục'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }
