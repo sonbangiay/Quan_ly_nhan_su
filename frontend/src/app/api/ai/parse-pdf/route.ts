@@ -1,11 +1,5 @@
 import { NextResponse } from 'next/server';
-
-// Polyfill DOMMatrix for pdf-parse server-side Next.js build compatibility
-if (typeof global !== 'undefined' && !(global as any).DOMMatrix) {
-  (global as any).DOMMatrix = class DOMMatrix {};
-}
-
-const pdf = require('pdf-parse');
+const PDFParser = require("pdf2json");
 
 export async function POST(req: Request) {
   try {
@@ -15,57 +9,71 @@ export async function POST(req: Request) {
       return NextResponse.json({ success: false, error: 'Thiếu dữ liệu file PDF' }, { status: 400 });
     }
 
-    // 1. Phân tích PDF lấy text bằng pdf-parse
+    // 1. Phân tích PDF lấy text bằng pdf2json (ổn định hơn pdf-parse trong Next.js)
     let extractedText = '';
     try {
       const buffer = Buffer.from(base64Pdf, 'base64');
-      const pdfData = await pdf(buffer);
-      extractedText = pdfData.text || '';
+      extractedText = await new Promise((resolve, reject) => {
+        const pdfParser = new PDFParser(null, 1);
+        pdfParser.on("pdfParser_dataError", (errData: any) => reject(errData.parserError));
+        pdfParser.on("pdfParser_dataReady", () => {
+          resolve(pdfParser.getRawTextContent());
+        });
+        pdfParser.parseBuffer(buffer);
+      });
     } catch (pdfErr: any) {
-      console.error('Lỗi khi parse PDF bằng pdf-parse:', pdfErr);
-      return NextResponse.json({ success: false, error: 'Không thể đọc nội dung file PDF này: ' + pdfErr.message }, { status: 500 });
+      console.error('Lỗi khi parse PDF bằng pdf2json:', pdfErr);
+      return NextResponse.json({ success: false, error: 'Không thể đọc nội dung file PDF này. ' + (pdfErr.message || '') }, { status: 500 });
     }
 
-    if (!extractedText.trim()) {
+    if (!extractedText || !extractedText.trim()) {
       return NextResponse.json({ success: false, error: 'File PDF rỗng hoặc không có dữ liệu văn bản có thể trích xuất.' }, { status: 400 });
     }
 
-    // 2. Thuật toán trích xuất câu hỏi cục bộ (Local Regex Parser - Free)
-    // Thay thế OpenAI bằng logic phân tích văn bản để tiết kiệm chi phí và không cần API Key
+    // 2. Thuật toán trích xuất câu hỏi cục bộ (Local Heuristic Parser - Free)
+    // Hỗ trợ cả định dạng Tiếng Việt (Câu 1:) và Tiếng Nhật (1., 2., 1), 2), 问题)
     
     // Xóa bớt khoảng trắng thừa và chuẩn hóa xuống dòng
     let text = extractedText.replace(/\r\n/g, '\n');
     
-    // Biểu thức chính quy tìm các từ khóa bắt đầu câu hỏi (VD: Câu 1:, Bài 1., Question 1:)
-    const questionRegex = /(?:Câu|Bài|Question)\s*\d+\s*[\.\:]/gi;
+    // Tách văn bản bằng Regex bắt các đầu mục câu hỏi: 
+    // - Câu 1:, Bài 1., Question 1:, 問題 1:
+    // - Hoặc đầu dòng là số: "1.", "1)", "2."
+    const questionRegex = /(?:(?:Câu|Bài|Question|問題)\s*[Ⅰ-Ⅻ\d]+\s*[\.\:\)]?|(?:\n|^)\s*\d+[\.\)])/gi;
     
     const matches = [...text.matchAll(questionRegex)];
-    const parsedQuestions = [];
+    const parsedQuestions: any[] = [];
     
     if (matches.length === 0) {
       return NextResponse.json({ 
         success: false, 
-        error: 'Không tìm thấy mẫu câu hỏi nào trong đề thi. Vui lòng đảm bảo đề thi có định dạng "Câu 1:", "Câu 2:" v.v.',
+        error: 'Không tìm thấy mẫu câu hỏi nào trong đề thi. Vui lòng đảm bảo đề thi có định dạng đánh số như "Câu 1:", "1.", "1)" v.v.',
         raw: extractedText
       }, { status: 400 });
     }
     
+    const generateId = () => Math.random().toString(36).substring(2, 11);
+    
     for (let i = 0; i < matches.length; i++) {
       const startIdx = matches[i].index;
-      // Câu hỏi bắt đầu từ sau chữ "Câu 1:"
       const qStartIdx = startIdx + matches[i][0].length;
       const endIdx = i + 1 < matches.length ? matches[i+1].index : text.length;
       
-      const block = text.slice(qStartIdx, endIdx).trim();
+      let block = text.slice(qStartIdx, endIdx).trim();
+      if (!block) continue; // Bỏ qua nếu block rỗng
       
-      // Biểu thức chính quy tìm các đáp án (VD: A., B., C., D. hoặc A), B), C), D))
-      // Đảm bảo nó bắt đầu bằng khoảng trắng hoặc đầu dòng để không nhầm chữ cái trong từ
-      const optionRegex = /(?:^|\s|\n)(A|B|C|D)[\.\)]\s/gi;
+      // Khôi phục lại tiền tố của câu hỏi để hiển thị đẹp (như "Câu 1:")
+      const prefixMatch = matches[i][0].trim();
+      // Nếu là tiếng Nhật dạng "1." thì chỉ cần nội dung, còn nếu "Câu 1" thì giữ lại
+      if (prefixMatch.match(/Câu|Bài|Question|問題/i)) {
+         block = prefixMatch + ' ' + block;
+      }
+      
+      // Tìm các đáp án trắc nghiệm A, B, C, D
+      const optionRegex = /(?:^|\s|\n)(A|B|C|D|a|b|c|d)[\.\)]\s/gi;
       const optMatches = [...block.matchAll(optionRegex)];
       
-      const generateId = () => Math.random().toString(36).substring(2, 11);
-      
-      if (optMatches.length >= 2) { // Có ít nhất 2 đáp án (A, B) thì coi như trắc nghiệm
+      if (optMatches.length >= 2) { 
         // Lấy nội dung câu hỏi (phần trước đáp án đầu tiên)
         const qText = block.slice(0, optMatches[0].index).trim();
         
@@ -76,7 +84,6 @@ export async function POST(req: Request) {
           const oText = block.slice(oStart, oEnd).trim();
           
           let letter = optMatches[j][1].toUpperCase();
-          // Kiểm tra xem ID (A, B, C, D) đã có chưa, nếu có rồi (do regex nhầm) thì bỏ qua
           if (!options.find(o => o.id === letter)) {
              options.push({ id: letter, text: oText });
           }
@@ -87,11 +94,11 @@ export async function POST(req: Request) {
           type: 'MULTIPLE_CHOICE',
           text: qText || "Câu hỏi trống",
           options: options,
-          correctAnswer: options.length > 0 ? options[0].id : 'A', // Mặc định A, GV tự sửa sau
+          correctAnswer: options.length > 0 ? options[0].id : 'A',
           points: 10
         });
       } else {
-        // Tự luận (Không tìm thấy A, B, C, D)
+        // Tự luận hoặc Điền khuyết
         parsedQuestions.push({
           id: generateId(),
           type: 'SHORT_ANSWER',
