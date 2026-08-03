@@ -1,6 +1,4 @@
 import { NextResponse } from 'next/server';
-import OpenAI from 'openai';
-import { getOpenaiApiKey } from '@/lib/getOpenaiApiKey';
 
 // Polyfill DOMMatrix for pdf-parse server-side Next.js build compatibility
 if (typeof global !== 'undefined' && !(global as any).DOMMatrix) {
@@ -15,11 +13,6 @@ export async function POST(req: Request) {
 
     if (!base64Pdf) {
       return NextResponse.json({ success: false, error: 'Thiếu dữ liệu file PDF' }, { status: 400 });
-    }
-
-    const apiKey = await getOpenaiApiKey();
-    if (!apiKey) {
-      return NextResponse.json({ success: false, error: 'Thiếu cấu hình OPENAI_API_KEY trên máy chủ' }, { status: 500 });
     }
 
     // 1. Phân tích PDF lấy text bằng pdf-parse
@@ -37,79 +30,83 @@ export async function POST(req: Request) {
       return NextResponse.json({ success: false, error: 'File PDF rỗng hoặc không có dữ liệu văn bản có thể trích xuất.' }, { status: 400 });
     }
 
-    // 2. Khởi tạo OpenAI
-    const openai = new OpenAI({ apiKey });
-
-    const prompt = `
-Bạn là một trợ lý AI chuyên nghiệp phục vụ cho trung tâm giáo dục HRM Nhân Phú.
-Nhiệm vụ của bạn là phân tích nội dung văn bản đề thi dưới đây (được trích xuất từ đề thi gốc). Hãy trích xuất toàn bộ câu hỏi trong đề thi đó và trả về danh sách câu hỏi có cấu trúc JSON mảng theo định dạng mẫu sau:
-[
-  {
-    "id": "chuỗi_id_ngẫu_nhiên_9_ký_tự",
-    "type": "MULTIPLE_CHOICE",
-    "text": "Nội dung câu hỏi trắc nghiệm (ví dụ: Từ nào sau đây có nghĩa là xin chào trong tiếng Nhật?)",
-    "options": [
-      { "id": "A", "text": "Konnichiwa" },
-      { "id": "B", "text": "Sayonara" },
-      { "id": "C", "text": "Arigatou" },
-      { "id": "D", "text": "Sumimasen" }
-    ],
-    "correctAnswer": "A",
-    "points": 10
-  },
-  {
-    "id": "chuỗi_id_ngẫu_nhiên_9_ký_tự",
-    "type": "SHORT_ANSWER",
-    "text": "Nội dung câu hỏi điền từ hoặc tự luận ngắn (ví dụ: Điền từ thích hợp vào chỗ trống: Watashi wa ... desu.)",
-    "options": [],
-    "correctAnswer": "nihonjin",
-    "points": 10
-  }
-]
-
-Yêu cầu chi tiết:
-1. Đối với mỗi câu hỏi, hãy kiểm tra loại của câu đó để gán "type" là "MULTIPLE_CHOICE" (nếu là trắc nghiệm có các lựa chọn A, B, C, D) hoặc "SHORT_ANSWER" (nếu là tự luận, điền từ vào ô trống).
-2. Với "MULTIPLE_CHOICE": Phải trích xuất đầy đủ tất cả các phương án A, B, C, D vào mảng "options" theo đúng định dạng mẫu. Phải giải đề hoặc dựa trên nội dung được đánh dấu trong đề để điền đáp án đúng dạng chữ cái "A", "B", "C" hoặc "D" vào trường "correctAnswer".
-3. Với "SHORT_ANSWER": Trường "options" bắt buộc phải là mảng rỗng ([]). Trường "correctAnswer" phải chứa đáp án đúng tương ứng (viết thường nếu có).
-4. Phân bổ điểm ("points") mặc định là 10 cho mỗi câu hỏi.
-5. Tạo một chuỗi ID ngẫu nhiên có độ dài 9 ký tự (chữ và số) cho trường "id" của từng câu hỏi để đảm bảo tính duy nhất.
-6. Quan trọng nhất: CHỈ trả về dữ liệu JSON mảng thuần túy, không được bọc trong thẻ markdown \`\`\`json hay bất kỳ văn bản giải thích nào khác ngoài chuỗi mảng JSON sạch để hệ thống dễ dàng JSON.parse().
-
-Nội dung đề thi trích xuất:
----
-${extractedText}
----
-`;
-
-    // Gọi gpt-4o-mini của OpenAI
-    const response = await openai.chat.completions.create({
-      model: 'gpt-4o-mini',
-      messages: [{ role: 'user', content: prompt }],
-      temperature: 0.2
-    });
-
-    const responseText = response.choices[0]?.message?.content?.trim() || '';
-
-    // Dọn dẹp chuỗi JSON nếu OpenAI tự động bọc trong ```json
-    let cleanJson = responseText;
-    if (cleanJson.startsWith('```')) {
-      cleanJson = cleanJson.replace(/^```json\s*/, '').replace(/```$/, '').trim();
-    }
-
-    try {
-      const parsedQuestions = JSON.parse(cleanJson);
-      return NextResponse.json({ success: true, questions: parsedQuestions });
-    } catch (parseErr) {
-      console.error('Lỗi parse JSON từ OpenAI:', responseText, parseErr);
+    // 2. Thuật toán trích xuất câu hỏi cục bộ (Local Regex Parser - Free)
+    // Thay thế OpenAI bằng logic phân tích văn bản để tiết kiệm chi phí và không cần API Key
+    
+    // Xóa bớt khoảng trắng thừa và chuẩn hóa xuống dòng
+    let text = extractedText.replace(/\r\n/g, '\n');
+    
+    // Biểu thức chính quy tìm các từ khóa bắt đầu câu hỏi (VD: Câu 1:, Bài 1., Question 1:)
+    const questionRegex = /(?:Câu|Bài|Question)\s*\d+\s*[\.\:]/gi;
+    
+    const matches = [...text.matchAll(questionRegex)];
+    const parsedQuestions = [];
+    
+    if (matches.length === 0) {
       return NextResponse.json({ 
         success: false, 
-        error: 'Dữ liệu trả về từ AI không đúng định dạng JSON. Vui lòng thử lại.',
-        raw: responseText 
-      }, { status: 500 });
+        error: 'Không tìm thấy mẫu câu hỏi nào trong đề thi. Vui lòng đảm bảo đề thi có định dạng "Câu 1:", "Câu 2:" v.v.',
+        raw: extractedText
+      }, { status: 400 });
+    }
+    
+    for (let i = 0; i < matches.length; i++) {
+      const startIdx = matches[i].index;
+      // Câu hỏi bắt đầu từ sau chữ "Câu 1:"
+      const qStartIdx = startIdx + matches[i][0].length;
+      const endIdx = i + 1 < matches.length ? matches[i+1].index : text.length;
+      
+      const block = text.slice(qStartIdx, endIdx).trim();
+      
+      // Biểu thức chính quy tìm các đáp án (VD: A., B., C., D. hoặc A), B), C), D))
+      // Đảm bảo nó bắt đầu bằng khoảng trắng hoặc đầu dòng để không nhầm chữ cái trong từ
+      const optionRegex = /(?:^|\s|\n)(A|B|C|D)[\.\)]\s/gi;
+      const optMatches = [...block.matchAll(optionRegex)];
+      
+      const generateId = () => Math.random().toString(36).substring(2, 11);
+      
+      if (optMatches.length >= 2) { // Có ít nhất 2 đáp án (A, B) thì coi như trắc nghiệm
+        // Lấy nội dung câu hỏi (phần trước đáp án đầu tiên)
+        const qText = block.slice(0, optMatches[0].index).trim();
+        
+        const options: any[] = [];
+        for (let j = 0; j < optMatches.length; j++) {
+          const oStart = optMatches[j].index + optMatches[j][0].length;
+          const oEnd = j + 1 < optMatches.length ? optMatches[j+1].index : block.length;
+          const oText = block.slice(oStart, oEnd).trim();
+          
+          let letter = optMatches[j][1].toUpperCase();
+          // Kiểm tra xem ID (A, B, C, D) đã có chưa, nếu có rồi (do regex nhầm) thì bỏ qua
+          if (!options.find(o => o.id === letter)) {
+             options.push({ id: letter, text: oText });
+          }
+        }
+        
+        parsedQuestions.push({
+          id: generateId(),
+          type: 'MULTIPLE_CHOICE',
+          text: qText || "Câu hỏi trống",
+          options: options,
+          correctAnswer: options.length > 0 ? options[0].id : 'A', // Mặc định A, GV tự sửa sau
+          points: 10
+        });
+      } else {
+        // Tự luận (Không tìm thấy A, B, C, D)
+        parsedQuestions.push({
+          id: generateId(),
+          type: 'SHORT_ANSWER',
+          text: block || "Câu hỏi tự luận trống",
+          options: [],
+          correctAnswer: '',
+          points: 10
+        });
+      }
     }
 
+    return NextResponse.json({ success: true, questions: parsedQuestions, method: 'local_heuristic' });
+
   } catch (error: any) {
-    console.error('Lỗi API parse-pdf (OpenAI):', error);
+    console.error('Lỗi API parse-pdf (Local):', error);
     return NextResponse.json({ success: false, error: error.message }, { status: 500 });
   }
 }
