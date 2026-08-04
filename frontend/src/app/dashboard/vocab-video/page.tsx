@@ -83,12 +83,14 @@ export default function VocabVideoGenerator() {
         // Nếu máy có nhiều hơn 1 giọng tiếng Nhật (VD: Nam và Nữ, hoặc 2 giọng nữ khác nhau)
         // Dùng giọng đầu tiên cho Cô giáo, giọng thứ 2 cho Học sinh
         utterance.voice = isStudent ? jaVoices[1] : jaVoices[0];
-        utterance.pitch = 1.0; 
-        utterance.rate = 0.95; // Đọc rõ ràng như nhau
+        
+        // Học sinh: giảm pitch xuống 1 tí (0.95) và giảm tốc độ 1 tí (0.85) để nghe ngoan hơn
+        utterance.pitch = isStudent ? 0.95 : 1.0; 
+        utterance.rate = isStudent ? 0.85 : 0.95; 
       } else {
-        // Nếu máy chỉ cài đúng 1 giọng tiếng Nhật, đành phải chỉnh pitch nhẹ để phân biệt
-        utterance.pitch = isStudent ? 1.15 : 1.0;
-        utterance.rate = 0.95;
+        // Nếu máy chỉ cài đúng 1 giọng tiếng Nhật
+        utterance.pitch = isStudent ? 0.95 : 1.0;
+        utterance.rate = isStudent ? 0.85 : 0.95;
       }
       
       utterance.onend = () => {
