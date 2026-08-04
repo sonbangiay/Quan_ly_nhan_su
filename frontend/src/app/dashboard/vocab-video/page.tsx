@@ -328,7 +328,7 @@ export default function VocabVideoGenerator() {
           >
             {/* Header / Logo space */}
             <div className="pt-10 pb-6 w-full flex items-center justify-center shrink-0 z-10 relative">
-              <h2 className="text-[28px] font-black text-[#1F3D7C] flex items-center drop-shadow-md bg-white/70 px-4 py-1.5 rounded-full">
+              <h2 className="text-[28px] font-black text-[#FFD700] flex items-center" style={{ textShadow: '2px 2px 4px rgba(0,0,0,0.6)' }}>
                 Du học Nhân Phú
               </h2>
             </div>
