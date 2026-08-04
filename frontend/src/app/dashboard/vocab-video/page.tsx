@@ -76,13 +76,13 @@ export default function VocabVideoGenerator() {
       utterance.lang = 'ja-JP';
       
       if (isStudent) {
-        // Giọng học sinh: Cao hơn một chút, đọc chậm hơn một chút
-        utterance.pitch = 1.6;
-        utterance.rate = 0.85;
+        // Giọng học sinh: Chỉnh cao lên 1 chút (1.15) thay vì quá cao (1.6) để tránh bị méo tiếng như robot, đồng thời đọc chậm lại
+        utterance.pitch = 1.15;
+        utterance.rate = 0.8;
       } else {
         // Giọng cô giáo: Chuẩn
         utterance.pitch = 1.0;
-        utterance.rate = 0.9;
+        utterance.rate = 0.95;
       }
       
       utterance.onend = () => {
