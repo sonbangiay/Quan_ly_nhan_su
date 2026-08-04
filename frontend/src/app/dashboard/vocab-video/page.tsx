@@ -403,9 +403,11 @@ export default function VocabVideoGenerator() {
           >
             {/* Header / Logo space */}
             <div className="pt-6 pb-2 w-full flex items-center justify-center shrink-0 z-10 relative">
-              <h2 className="text-[28px] font-black text-[#FFD700] flex items-center" style={{ textShadow: '2px 2px 4px rgba(0,0,0,0.6)' }}>
-                Du học Nhân Phú
-              </h2>
+              <img 
+                src="https://nhanphuphuyen.edu.vn/wp-content/uploads/2026/08/Gemini_Generated_Image_c5cnlnc5cnlnc5cn-removebg-preview.png" 
+                alt="Du học Nhân Phú Logo" 
+                className="h-16 md:h-20 object-contain drop-shadow-md"
+              />
             </div>
 
             {/* Dynamic Grid Container */}
