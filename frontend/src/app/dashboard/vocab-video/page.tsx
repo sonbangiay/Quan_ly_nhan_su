@@ -28,6 +28,8 @@ const INITIAL_CARDS: CardData[] = [
 export default function VocabVideoGenerator() {
   const [cards, setCards] = useState<CardData[]>(INITIAL_CARDS);
   const [numCards, setNumCards] = useState<number>(9); // 2, 4, 6, 9
+  const [bgColor, setBgColor] = useState<string>('#90C9F9');
+  const [bgImage, setBgImage] = useState<string | null>(null);
   
   const [activeHighlight, setActiveHighlight] = useState<string | null>(null);
   const [isRecording, setIsRecording] = useState(false);
@@ -235,6 +237,33 @@ export default function VocabVideoGenerator() {
             </div>
           </div>
 
+          <div className="flex items-center justify-between mb-4 mt-4">
+            <h2 className="font-semibold text-lg flex items-center gap-2">
+              <Settings2 size={18} /> Giao diện nền
+            </h2>
+          </div>
+          <div className="grid grid-cols-2 gap-4 mb-6 pb-6 border-b border-[var(--border)]">
+            <div>
+              <label className="block text-xs font-semibold mb-1 text-[var(--text-muted)]">Màu nền</label>
+              <input type="color" value={bgColor} onChange={e => setBgColor(e.target.value)} className="w-full h-10 rounded cursor-pointer border border-[var(--border)]" />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold mb-1 text-[var(--text-muted)]">Ảnh nền</label>
+              <label className="w-full h-10 border border-[var(--border)] rounded flex items-center justify-center cursor-pointer hover:bg-[var(--bg-hover)] overflow-hidden bg-white">
+                <input type="file" className="hidden" accept="image/*" onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) {
+                    const reader = new FileReader();
+                    reader.onloadend = () => setBgImage(reader.result as string);
+                    reader.readAsDataURL(file);
+                  }
+                }} />
+                {bgImage ? <span className="text-xs font-bold text-green-600">Đã tải ảnh nền</span> : <span className="text-xs text-[var(--text-muted)]">Tải lên ảnh</span>}
+              </label>
+              {bgImage && <button onClick={() => setBgImage(null)} className="text-xs text-red-500 mt-1 hover:underline text-center w-full">Xoá ảnh nền</button>}
+            </div>
+          </div>
+
           <div className="space-y-6">
             {/* Cards Input */}
             <div className="grid grid-cols-2 gap-4">
@@ -284,19 +313,23 @@ export default function VocabVideoGenerator() {
           {/* The Actual Video Frame Container (9:16 aspect ratio) */}
           <div 
             ref={previewRef}
-            className="relative bg-[#90C9F9] overflow-hidden flex flex-col items-center shadow-2xl transition-all duration-300"
+            className="relative overflow-hidden flex flex-col items-center shadow-2xl transition-all duration-300"
             style={{ 
               width: '100%', 
               aspectRatio: '9/16',
               borderRadius: isRecording ? 0 : 24, // Remove border radius when recording for clean edges
               boxShadow: isRecording ? '0 0 0 4px #ef4444' : '0 10px 30px rgba(0,0,0,0.1)',
-              transform: isRecording ? 'scale(1.05)' : 'scale(1)'
+              transform: isRecording ? 'scale(1.05)' : 'scale(1)',
+              backgroundColor: bgColor,
+              backgroundImage: bgImage ? `url(${bgImage})` : 'none',
+              backgroundSize: 'cover',
+              backgroundPosition: 'center'
             }}
           >
             {/* Header / Logo space */}
-            <div className="pt-10 pb-6 w-full flex items-center justify-center shrink-0">
-              <h2 className="text-3xl font-black text-[#1F3D7C] flex items-start">
-                DORA <span className="bg-[#E94B6E] text-white text-[10px] px-1 py-0.5 rounded ml-0.5 leading-none mt-1 font-bold">ki</span>
+            <div className="pt-10 pb-6 w-full flex items-center justify-center shrink-0 z-10 relative">
+              <h2 className="text-[28px] font-black text-[#1F3D7C] flex items-center drop-shadow-md bg-white/70 px-4 py-1.5 rounded-full">
+                Du học Nhân Phú
               </h2>
             </div>
 
