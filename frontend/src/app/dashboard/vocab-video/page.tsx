@@ -402,7 +402,7 @@ export default function VocabVideoGenerator() {
             }}
           >
             {/* Header / Logo space */}
-            <div className="pt-10 pb-6 w-full flex items-center justify-center shrink-0 z-10 relative">
+            <div className="pt-6 pb-2 w-full flex items-center justify-center shrink-0 z-10 relative">
               <h2 className="text-[28px] font-black text-[#FFD700] flex items-center" style={{ textShadow: '2px 2px 4px rgba(0,0,0,0.6)' }}>
                 Du học Nhân Phú
               </h2>
@@ -410,23 +410,23 @@ export default function VocabVideoGenerator() {
 
             {/* Dynamic Grid Container */}
             <div 
-              className="flex-1 w-full p-4 grid gap-4 transition-all duration-500"
+              className="flex-1 w-full px-4 pb-2 grid gap-3 transition-all duration-500"
               style={{
                 ...getGridTemplate(),
-                paddingBottom: 32 // Some extra padding at the bottom for aesthetics
+                paddingBottom: 16 // Giảm padding dưới để không bị lẹm
               }}
             >
               {/* Cards */}
               {cards.map((card, idx) => (
                 <div 
                   key={card.id}
-                  className={`bg-white rounded-3xl shadow-md flex flex-col items-center justify-center p-3 text-center transition-all duration-300 ${activeHighlight === card.id ? 'ring-[6px] ring-yellow-400 scale-[1.02]' : ''}`}
+                  className={`bg-white rounded-3xl shadow-md flex flex-col items-center justify-center p-2 text-center transition-all duration-300 ${activeHighlight === card.id ? 'ring-[6px] ring-yellow-400 scale-[1.02]' : ''}`}
                 >
-                  <div className="flex-1 min-h-[4rem] w-full flex items-center justify-center mb-2">
+                  <div className="flex-1 min-h-[3rem] w-full flex items-center justify-center mb-1">
                     {card.image ? (
-                      <img src={card.image} alt="" className="max-w-full max-h-[80px] md:max-h-[140px] object-contain drop-shadow-sm" />
+                      <img src={card.image} alt="" className="max-w-full max-h-[70px] md:max-h-[120px] object-contain drop-shadow-sm" />
                     ) : (
-                      <div className="w-16 h-16 rounded-full bg-gray-50 flex items-center justify-center text-xs text-gray-300 border border-dashed border-gray-200">Ảnh</div>
+                      <div className="w-14 h-14 rounded-full bg-gray-50 flex items-center justify-center text-xs text-gray-300 border border-dashed border-gray-200">Ảnh</div>
                     )}
                   </div>
                   
