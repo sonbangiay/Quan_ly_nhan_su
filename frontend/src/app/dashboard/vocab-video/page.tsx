@@ -70,73 +70,57 @@ export default function VocabVideoGenerator() {
     }
   };
 
-  // Hàm đọc âm thanh siêu cấp cứu (chống đơ, chống mất tiếng)
+  // Hệ thống đọc chuẩn: Sử dụng gốc của trình duyệt (Mượt mà 100%, không cần mạng)
   const speakText = (text: string, isStudent: boolean = false): Promise<void> => {
     return new Promise((resolve) => {
-      // Dùng thẻ Audio ẩn gắn thẳng vào trang web để đảm bảo Tab Audio 100% bắt được
-      let audio = document.getElementById('tts-audio-player') as HTMLAudioElement;
-      if (!audio) {
-        audio = document.createElement('audio');
-        audio.id = 'tts-audio-player';
-        audio.style.display = 'none';
-        document.body.appendChild(audio);
+      if (!window.speechSynthesis) {
+        resolve();
+        return;
       }
-
-      // Đảm bảo audio dừng trước khi set src mới
-      audio.pause();
-      const url = `https://translate.google.com/translate_tts?ie=UTF-8&client=tw-ob&tl=ja&q=${encodeURIComponent(text)}`;
-      audio.src = url;
       
-      // Cơ chế an toàn tuyệt đối: Nếu Audio bị treo, sau 4 giây tự động next!
-      let isResolved = false;
-      const finalize = () => {
-        if (isResolved) return;
-        isResolved = true;
-        setTimeout(resolve, 300); // Khoảng lặng
-      };
-      const safetyTimeout = setTimeout(finalize, 4000);
+      const timeoutId = setTimeout(() => {
+        resolve();
+      }, 4000);
 
-      audio.onended = () => {
-        clearTimeout(safetyTimeout);
-        finalize();
-      };
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.lang = 'ja-JP';
       
-      audio.onerror = () => {
-        console.warn("Lỗi tải âm thanh Google");
-        clearTimeout(safetyTimeout);
-        finalize();
-      };
-
       if (isStudent) {
-        // Giọng học sinh: Đẩy tốc độ lên 1.15 và ÉP THAY ĐỔI PITCH (độ cao âm thanh)
-        audio.playbackRate = 1.15;
-        // @ts-ignore
-        audio.preservesPitch = false; 
-        // @ts-ignore
-        audio.mozPreservesPitch = false;
-        // @ts-ignore
-        audio.webkitPreservesPitch = false;
+        // Giọng học sinh: Chỉnh cao lên (1.15) và đọc chậm lại (0.85) để nghe giống học trò ngoan
+        utterance.pitch = 1.15; 
+        utterance.rate = 0.85; 
       } else {
-        audio.playbackRate = 1.0;
-        // @ts-ignore
-        audio.preservesPitch = true;
+        // Cô giáo
+        utterance.pitch = 1.0;
+        utterance.rate = 0.95;
       }
-
-      audio.play().catch(e => {
-        console.warn("Trình duyệt chặn autoplay", e);
-        clearTimeout(safetyTimeout);
-        finalize();
-      });
+      
+      utterance.onend = () => {
+        clearTimeout(timeoutId);
+        setTimeout(resolve, 400); // Nghỉ một nhịp nhỏ giữa cô và trò
+      };
+      
+      utterance.onerror = () => {
+        clearTimeout(timeoutId);
+        resolve();
+      };
+      
+      // @ts-ignore
+      window.utterances = window.utterances || [];
+      // @ts-ignore
+      window.utterances.push(utterance);
+      window.speechSynthesis.speak(utterance);
     });
   };
 
   const playSequence = async () => {
+    window.speechSynthesis.cancel();
     for (let i = 0; i < cards.length; i++) {
       setActiveHighlight(cards[i].id);
       const cardText = cards[i].hiragana || cards[i].kanji || cards[i].romaji;
       if (cardText) {
         await speakText(cardText, false); // Cô giáo đọc chuẩn
-        await speakText(cardText, true);  // Học sinh lặp lại giọng cao
+        await speakText(cardText, true);  // Học sinh lặp lại
       }
     }
     setActiveHighlight(null);
@@ -160,12 +144,26 @@ export default function VocabVideoGenerator() {
       if (!isRecordingRef.current) return;
       if (hiddenVideo.videoWidth > 0 && previewRef.current) {
           const rect = previewRef.current.getBoundingClientRect();
-          const scaleX = hiddenVideo.videoWidth / window.innerWidth;
-          const scaleY = hiddenVideo.videoHeight / window.innerHeight;
-          const sX = rect.x * scaleX;
-          const sY = rect.y * scaleY;
+          
+          // Tính toán toạ độ tuyệt đối trên màn hình vật lý (Cho Entire Screen)
+          const scaleX = hiddenVideo.videoWidth / window.screen.width;
+          const scaleY = hiddenVideo.videoHeight / window.screen.height;
+
+          // Tính độ dày của viền trình duyệt và thanh Tabs + URL
+          const sideBorder = Math.max(0, (window.outerWidth - window.innerWidth) / 2);
+          const topChromeHeight = Math.max(0, window.outerHeight - window.innerHeight - sideBorder);
+
+          const screenX = window.screenX + sideBorder + rect.x;
+          const screenY = window.screenY + topChromeHeight + rect.y;
+
+          const sX = screenX * scaleX;
+          const sY = screenY * scaleY;
           const sW = rect.width * scaleX;
           const sH = rect.height * scaleY;
+
+          // Tô đen viền xung quanh để tránh rác màn hình
+          ctx!.fillStyle = '#000';
+          ctx!.fillRect(0, 0, outW, outH);
           ctx?.drawImage(hiddenVideo, sX, sY, sW, sH, 0, 0, outW, outH);
       }
       requestAnimationFrame(drawLoop);
@@ -174,68 +172,35 @@ export default function VocabVideoGenerator() {
     return canvas.captureStream(30);
   };
 
-  const unlockAudio = () => {
-    let audio = document.getElementById('tts-audio-player') as HTMLAudioElement;
-    if (!audio) {
-      audio = document.createElement('audio');
-      audio.id = 'tts-audio-player';
-      audio.style.display = 'none';
-      document.body.appendChild(audio);
-    }
-    // Chơi một file âm thanh rỗng tĩnh (silent base64) ngay khi người dùng click
-    // Để mở khóa chính sách "chặn Autoplay" của Chrome
-    audio.src = 'data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA';
-    audio.play().then(() => {
-      audio.pause();
-    }).catch(e => console.warn("Lỗi mở khóa audio", e));
-  };
-
   const startActualRecording = async () => {
     setShowRecordModal(false);
     
     try {
       setVideoUrl(null);
 
-      // 1. BẮT BUỘC NGƯỜI DÙNG CHIA SẺ ÂM THANH TAB!
+      // 1. Yêu cầu TOÀN MÀN HÌNH và ÂM THANH HỆ THỐNG để đảm bảo không rớt âm thanh speechSynthesis
       const stream = await navigator.mediaDevices.getDisplayMedia({
-        video: { displaySurface: 'browser' }, 
-        audio: true, // Không có cái này là chết
         // @ts-ignore
-        preferCurrentTab: true
+        video: { displaySurface: 'monitor' }, 
+        audio: true
       });
 
       if (stream.getAudioTracks().length === 0) {
-        alert("LỖI: BẠN CHƯA BẬT NÚT CHIA SẺ ÂM THANH TAB! Video sẽ bị mất tiếng.\nHãy nhấn 'Bắt đầu quay' lại và gạt công tắc Chia sẻ âm thanh nhé.");
+        alert("LỖI: BẠN CHƯA BẬT NÚT CHIA SẺ ÂM THANH HỆ THỐNG! Video sẽ bị mất tiếng.\nHãy nhấn 'Bắt đầu' lại và gạt công tắc Chia sẻ âm thanh nhé.");
         stream.getTracks().forEach(t => t.stop());
         return;
       }
 
-      const videoTrack = stream.getVideoTracks()[0];
-      const audioTrack = stream.getAudioTracks()[0];
-      let finalVideoStream = new MediaStream([videoTrack]);
-
       setIsRecording(true);
       isRecordingRef.current = true;
 
-      // 3. Tự động cắt chuẩn 9:16 bằng Region Capture API siêu nét (hoặc Canvas fallback)
-      if ('CropTarget' in window && previewRef.current) {
-        try {
-          // @ts-ignore
-          const cropTarget = await window.CropTarget.fromElement(previewRef.current);
-          // @ts-ignore
-          await videoTrack.cropTo(cropTarget);
-        } catch (e) {
-          console.warn("Region crop failed, fallback to Canvas", e);
-          finalVideoStream = setupCanvasCrop(stream);
-        }
-      } else {
-        finalVideoStream = setupCanvasCrop(stream);
-      }
+      // 3. Tự động cắt bằng thuật toán Screen-Absolute Canvas (Chính xác tuyệt đối)
+      const finalVideoStream = setupCanvasCrop(stream);
 
-      // 4. Trộn Video ĐÃ CẮT + Âm thanh từ TAB
+      // 4. Trộn Video ĐÃ CẮT + Âm thanh HỆ THỐNG
       const combinedStream = new MediaStream([
         ...finalVideoStream.getVideoTracks(),
-        audioTrack
+        ...stream.getAudioTracks()
       ]);
 
       const options = { mimeType: 'video/webm;codecs=vp8,opus' };
@@ -417,15 +382,16 @@ export default function VocabVideoGenerator() {
         </div>
 
         {/* Right: Video Preview */}
-        {/* Layout bình thường, khi quay không bị giật lag */}
-        <div className="w-[450px] shrink-0 bg-[var(--bg-primary)] p-4 rounded-xl border border-[var(--border)] flex flex-col items-center justify-center relative">
+        {/* Layout khi quay: Nền đen, đẩy video lên cao để chừa khoảng trống cho thanh chia sẻ Chrome rớt xuống dưới, không bị dính vào khung cắt */}
+        <div className={isRecording ? "fixed inset-0 z-[100] bg-black flex flex-col items-center justify-start pt-10 pb-[120px]" : "w-[450px] shrink-0 bg-[var(--bg-primary)] p-4 rounded-xl border border-[var(--border)] flex flex-col items-center justify-center relative"}>
 
           {/* The Actual Video Frame Container (9:16 aspect ratio) */}
           <div 
             ref={previewRef}
             className="relative overflow-hidden flex flex-col items-center shadow-2xl transition-all duration-300"
             style={{ 
-              width: '100%', 
+              width: isRecording ? 'auto' : '100%',
+              height: isRecording ? '100%' : 'auto', 
               aspectRatio: '9/16',
               borderRadius: isRecording ? 0 : 24, 
               boxShadow: isRecording ? 'none' : '0 10px 30px rgba(0,0,0,0.1)',
@@ -492,27 +458,24 @@ export default function VocabVideoGenerator() {
             </h3>
             
             <div className="space-y-4 mb-6">
-              <p className="text-gray-700 font-medium text-[15px]">Để video đẹp 100% không viền đen và CÓ ĐẦY ĐỦ ÂM THANH, bạn vui lòng thao tác ĐÚNG 2 bước:</p>
+              <p className="text-gray-700 font-medium text-[15px]">Để lấy được <strong>giọng học sinh</strong> và có âm thanh to rõ, bạn vui lòng làm đúng 2 bước:</p>
               
               <div className="bg-blue-50 p-5 rounded-2xl border border-blue-100 shadow-inner">
                 <ol className="list-decimal list-inside space-y-3 text-[15px] text-blue-900 font-semibold">
-                  <li>Phía trên chọn đúng mục <strong>"Tab Chrome"</strong>.</li>
-                  <li>Bật công tắc <strong>"Chia sẻ âm thanh Tab"</strong> ở góc dưới bên trái!</li>
+                  <li>Phía trên chọn đúng mục <strong>"Toàn màn hình"</strong> (Entire Screen).</li>
+                  <li>Bật công tắc <strong>"Chia sẻ âm thanh hệ thống"</strong> ở góc dưới bên trái!</li>
                 </ol>
               </div>
               
-              <p className="text-[13.5px] text-red-600 font-semibold bg-red-50 p-3 rounded-xl border border-red-200 flex items-start gap-2">
-                <span>⚠️</span> Nếu quên bật "Chia sẻ âm thanh Tab", video sẽ bị điếc. Hãy chú ý nhé!
+              <p className="text-[13.5px] text-green-700 font-semibold bg-green-50 p-3 rounded-xl border border-green-200 flex items-start gap-2">
+                <span>✨</span> Hệ thống sẽ tự động ghép âm thanh và tự động dò toạ độ để cắt chuẩn viền video cho bạn.
               </p>
             </div>
 
             <div className="flex justify-end gap-3 pt-2">
               <button onClick={() => setShowRecordModal(false)} className="px-5 py-2.5 text-gray-600 font-bold rounded-xl hover:bg-gray-100 transition-colors">Hủy</button>
               <button 
-                onClick={() => {
-                  unlockAudio();
-                  startActualRecording();
-                }} 
+                onClick={startActualRecording} 
                 className="px-6 py-2.5 bg-[var(--accent-purple)] text-white font-bold rounded-xl hover:opacity-90 shadow-lg shadow-purple-500/30 transition-transform active:scale-95 flex items-center gap-2"
               >
                 Bắt đầu luôn
