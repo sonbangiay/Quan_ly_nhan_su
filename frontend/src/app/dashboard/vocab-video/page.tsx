@@ -123,7 +123,7 @@ export default function VocabVideoGenerator() {
     return {};
   };
 
-  const speakText = (text: string): Promise<void> => {
+  const speakText = (text: string, isStudent: boolean = false): Promise<void> => {
     return new Promise((resolve) => {
       if (!window.speechSynthesis) {
         resolve();
@@ -131,11 +131,20 @@ export default function VocabVideoGenerator() {
       }
       const utterance = new SpeechSynthesisUtterance(text);
       utterance.lang = 'ja-JP';
-      utterance.rate = 0.9;
+      
+      if (isStudent) {
+        // Giọng học sinh: Cao hơn một chút, đọc chậm hơn một chút
+        utterance.pitch = 1.6;
+        utterance.rate = 0.85;
+      } else {
+        // Giọng cô giáo: Chuẩn
+        utterance.pitch = 1.0;
+        utterance.rate = 0.9;
+      }
       
       utterance.onend = () => {
-        // slight pause
-        setTimeout(resolve, 300);
+        // Nghỉ một nhịp nhỏ giữa cô giáo và học sinh
+        setTimeout(resolve, 400);
       };
       
       utterance.onerror = (e) => {
@@ -148,17 +157,22 @@ export default function VocabVideoGenerator() {
   };
 
   const playSequence = async () => {
+    // Đảm bảo huỷ các giọng đọc đang bị kẹt
+    window.speechSynthesis.cancel();
+    
     // 1. Topic
     setActiveHighlight('topic');
     // We try to read Kanji, if empty read Romaji/Word
     const topicText = topic.kanji || topic.word;
-    await speakText(topicText);
+    await speakText(topicText, false); // Cô giáo đọc
+    await speakText(topicText, true);  // Học sinh lặp lại
 
     // 2. Cards
     for (let i = 0; i < cards.length; i++) {
       setActiveHighlight(cards[i].id);
       const cardText = cards[i].hiragana || cards[i].kanji || cards[i].romaji;
-      await speakText(cardText);
+      await speakText(cardText, false); // Cô giáo đọc
+      await speakText(cardText, true);  // Học sinh lặp lại
     }
 
     setActiveHighlight(null);
