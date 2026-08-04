@@ -75,13 +75,19 @@ export default function VocabVideoGenerator() {
       const utterance = new SpeechSynthesisUtterance(text);
       utterance.lang = 'ja-JP';
       
-      if (isStudent) {
-        // Giọng học sinh: Chỉnh cao lên 1 chút (1.15) thay vì quá cao (1.6) để tránh bị méo tiếng như robot, đồng thời đọc chậm lại
-        utterance.pitch = 1.15;
-        utterance.rate = 0.8;
+      const voices = window.speechSynthesis.getVoices();
+      // Tìm các giọng đọc tiếng Nhật có sẵn trên máy
+      const jaVoices = voices.filter(v => v.lang.includes('ja'));
+
+      if (jaVoices.length > 1) {
+        // Nếu máy có nhiều hơn 1 giọng tiếng Nhật (VD: Nam và Nữ, hoặc 2 giọng nữ khác nhau)
+        // Dùng giọng đầu tiên cho Cô giáo, giọng thứ 2 cho Học sinh
+        utterance.voice = isStudent ? jaVoices[1] : jaVoices[0];
+        utterance.pitch = 1.0; 
+        utterance.rate = 0.95; // Đọc rõ ràng như nhau
       } else {
-        // Giọng cô giáo: Chuẩn
-        utterance.pitch = 1.0;
+        // Nếu máy chỉ cài đúng 1 giọng tiếng Nhật, đành phải chỉnh pitch nhẹ để phân biệt
+        utterance.pitch = isStudent ? 1.15 : 1.0;
         utterance.rate = 0.95;
       }
       
