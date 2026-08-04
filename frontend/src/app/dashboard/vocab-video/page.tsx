@@ -38,6 +38,7 @@ export default function VocabVideoGenerator() {
   const previewRef = useRef<HTMLDivElement>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
+  const isRecordingRef = useRef<boolean>(false);
 
   // Adjust cards array size when numCards changes
   useEffect(() => {
@@ -132,9 +133,19 @@ export default function VocabVideoGenerator() {
       setVideoUrl(null);
 
       // CẢNH BÁO QUAN TRỌNG
-      alert("ĐỂ CÓ TIẾNG, BẠN PHẢI LÀM ĐÚNG 2 BƯỚC:\n\n1. CHỌN 'Toàn màn hình' (Entire Screen).\n2. BẬT NÚT 'Chia sẻ âm thanh hệ thống' (Share system audio).\n\n(TUYỆT ĐỐI KHÔNG chọn Tab, vì hệ thống của bạn không thu âm được Tab)");
+      alert("ĐỂ CÓ TIẾNG VÀ HÌNH CHUẨN NHẤT:\n\n1. CHỌN tab 'Toàn màn hình' (Entire Screen).\n2. CHỌN màn hình bạn đang mở web (nếu có nhiều màn hình).\n3. BẬT NÚT 'Chia sẻ âm thanh hệ thống' (Share system audio).\n\n(Hệ thống sẽ TỰ ĐỘNG CẮT đúng khung video 9:16 cho bạn!)");
 
-      // 1. Lấy Video từ màn hình 
+      // Ép Fullscreen để lấy toạ độ crop chính xác 100%
+      if (!document.fullscreenElement) {
+        try {
+          await document.documentElement.requestFullscreen();
+          await new Promise(r => setTimeout(r, 600)); // Đợi trình duyệt giãn full màn
+        } catch (e) {
+          console.warn("Fullscreen failed", e);
+        }
+      }
+
+      // 1. Lấy Video từ màn hình (Entire Screen bắt buộc để có System Audio)
       const stream = await navigator.mediaDevices.getDisplayMedia({
         // @ts-ignore
         video: { displaySurface: 'monitor' }, 
@@ -142,22 +153,72 @@ export default function VocabVideoGenerator() {
       });
 
       if (stream.getAudioTracks().length === 0) {
-        alert("BẠN CHƯA BẬT NÚT CHIA SẺ ÂM THANH! Video sẽ bị mất tiếng. Hãy bấm quay lại và nhớ gạt nút Chia sẻ âm thanh nhé.");
+        alert("BẠN CHƯA BẬT NÚT CHIA SẺ ÂM THANH! Video sẽ bị mất tiếng. Hãy làm lại và nhớ gạt nút Chia sẻ âm thanh nhé.");
         stream.getTracks().forEach(t => t.stop());
+        if (document.fullscreenElement) document.exitFullscreen();
         return;
       }
 
-      // Enter fullscreen UI mode to hide everything else
       setIsRecording(true);
+      isRecordingRef.current = true;
 
-      // Prepare media recorder
+      // --- KỸ THUẬT CANVAS CROP CAO CẤP ---
+      // Tạo một luồng video ẩn để đọc hình ảnh từ màn hình
+      const hiddenVideo = document.createElement('video');
+      hiddenVideo.srcObject = stream;
+      hiddenVideo.muted = true;
+      hiddenVideo.playsInline = true;
+      await hiddenVideo.play();
+
+      // Dùng Canvas để cắt (crop) lại đúng tọa độ của khung video 9:16
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      // Xuất video dọc chuẩn 720x1280 (HD TikTok)
+      const outW = 720;
+      const outH = 1280;
+      canvas.width = outW;
+      canvas.height = outH;
+
+      const drawLoop = () => {
+        if (!isRecordingRef.current) return;
+        
+        if (hiddenVideo.videoWidth > 0 && previewRef.current) {
+           const rect = previewRef.current.getBoundingClientRect();
+           
+           // Tính tỉ lệ chuyển đổi giữa pixel màn hình và pixel trình duyệt
+           const scaleX = hiddenVideo.videoWidth / window.innerWidth;
+           const scaleY = hiddenVideo.videoHeight / window.innerHeight;
+
+           const sX = rect.x * scaleX;
+           const sY = rect.y * scaleY;
+           const sW = rect.width * scaleX;
+           const sH = rect.height * scaleY;
+
+           // Vẽ vùng đã cắt lên Canvas
+           ctx?.drawImage(hiddenVideo, sX, sY, sW, sH, 0, 0, outW, outH);
+        }
+        
+        requestAnimationFrame(drawLoop);
+      };
+
+      drawLoop();
+
+      // Lấy stream hình ảnh ĐÃ CẮT từ Canvas (30 FPS)
+      const canvasStream = canvas.captureStream(30);
+      
+      // Gộp Hình ảnh ĐÃ CẮT và Âm thanh GỐC lại thành 1 video hoàn chỉnh!
+      const combinedStream = new MediaStream([
+        ...canvasStream.getVideoTracks(),
+        ...stream.getAudioTracks()
+      ]);
+
+      // Chuẩn bị quay video
       const options = { mimeType: 'video/webm;codecs=vp8,opus' };
       let mediaRecorder;
       try {
-        mediaRecorder = new MediaRecorder(stream, options);
+        mediaRecorder = new MediaRecorder(combinedStream, options);
       } catch (e) {
-        // Fallback for browsers that don't support vp8/opus
-        mediaRecorder = new MediaRecorder(stream);
+        mediaRecorder = new MediaRecorder(combinedStream);
       }
       mediaRecorderRef.current = mediaRecorder;
       chunksRef.current = [];
@@ -170,18 +231,24 @@ export default function VocabVideoGenerator() {
         const blob = new Blob(chunksRef.current, { type: 'video/webm' });
         const url = URL.createObjectURL(blob);
         setVideoUrl(url);
-        // Stop all tracks to end screen sharing
+        
+        // Dọn dẹp stream
         stream.getTracks().forEach(track => track.stop());
+        combinedStream.getTracks().forEach(track => track.stop());
+        
         setIsRecording(false);
+        isRecordingRef.current = false;
+        
+        // Thoát Fullscreen
+        if (document.fullscreenElement) {
+          document.exitFullscreen().catch(e => console.log(e));
+        }
       };
 
-      // Start recording
       mediaRecorder.start();
 
-      // Add a small delay for recording to stabilize, then play sequence
       setTimeout(async () => {
         await playSequence();
-        // Stop recording after sequence ends
         if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
           mediaRecorderRef.current.stop();
         }
@@ -190,6 +257,8 @@ export default function VocabVideoGenerator() {
     } catch (err) {
       console.error('Error starting recording:', err);
       setIsRecording(false);
+      isRecordingRef.current = false;
+      if (document.fullscreenElement) document.exitFullscreen();
     }
   };
 
