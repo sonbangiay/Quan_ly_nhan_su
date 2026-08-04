@@ -78,21 +78,20 @@ export default function VocabVideoGenerator() {
       utterance.lang = 'ja-JP';
       
       const voices = window.speechSynthesis.getVoices();
-      // Tìm các giọng đọc tiếng Nhật có sẵn trên máy
       const jaVoices = voices.filter(v => v.lang.includes('ja'));
+      if (jaVoices.length > 0) {
+        // Luôn dùng 1 giọng Nhật chuẩn đầu tiên tìm được
+        utterance.voice = jaVoices[0]; 
+      }
 
-      if (jaVoices.length > 1) {
-        // Nếu máy có nhiều hơn 1 giọng tiếng Nhật (VD: Nam và Nữ, hoặc 2 giọng nữ khác nhau)
-        // Dùng giọng đầu tiên cho Cô giáo, giọng thứ 2 cho Học sinh
-        utterance.voice = isStudent ? jaVoices[1] : jaVoices[0];
-        
-        // Học sinh: giảm pitch xuống 1 tí (0.95) và giảm tốc độ 1 tí (0.85) để nghe ngoan hơn
-        utterance.pitch = isStudent ? 0.95 : 1.0; 
-        utterance.rate = isStudent ? 0.85 : 0.95; 
+      if (isStudent) {
+        // Giọng học sinh: Chỉnh cao lên MỘT TÍ (1.12) và đọc chậm lại (0.85) để nghe giống học sinh ngoan
+        utterance.pitch = 1.12; 
+        utterance.rate = 0.85; 
       } else {
-        // Nếu máy chỉ cài đúng 1 giọng tiếng Nhật
-        utterance.pitch = isStudent ? 0.95 : 1.0;
-        utterance.rate = isStudent ? 0.85 : 0.95;
+        // Cô giáo
+        utterance.pitch = 1.0;
+        utterance.rate = 0.95;
       }
       
       utterance.onend = () => {
@@ -132,7 +131,9 @@ export default function VocabVideoGenerator() {
       // Request screen capture
       const stream = await navigator.mediaDevices.getDisplayMedia({
         video: { displaySurface: 'browser' },
-        audio: true // Important for capturing TTS
+        audio: true, // Important for capturing TTS
+        // @ts-ignore
+        preferCurrentTab: true // Tự động gợi ý chọn Tab hiện tại để cropTo hoạt động
       });
 
       // Cắt stream chỉ lấy phần khung 9:16 (Region Capture API - Hỗ trợ trên Chrome/Edge mới)
