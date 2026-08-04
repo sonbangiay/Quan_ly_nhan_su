@@ -12,19 +12,6 @@ interface CardData {
   meaning: string;
 }
 
-interface TopicData {
-  image?: string;
-  word: string;
-  kanji?: string;
-  meaning: string;
-}
-
-const DEFAULT_TOPIC: TopicData = {
-  word: 'Kanjou',
-  kanji: '感情',
-  meaning: 'Cảm xúc',
-};
-
 // Initial cards mapping to the screenshot provided by user
 const INITIAL_CARDS: CardData[] = [
   { id: '1', image: '', kanji: 'Onegai Kao', romaji: 'Mặt nài nỉ', hiragana: 'おねがいかお', meaning: 'Mặt nài nỉ' },
@@ -35,14 +22,14 @@ const INITIAL_CARDS: CardData[] = [
   { id: '6', image: '', kanji: 'Ando no Namida', romaji: 'Nước mắt nhẹ nhõm', hiragana: 'あんどのなみだ', meaning: 'Nước mắt nhẹ nhõm' },
   { id: '7', image: '', kanji: 'Kandou', romaji: 'Xúc động', hiragana: 'かんどう', meaning: 'Xúc động' },
   { id: '8', image: '', kanji: 'Atsusa de Bateru', romaji: 'Đuối sức vì nóng', hiragana: 'あつさでバテる', meaning: 'Đuối sức' },
+  { id: '9', image: '', kanji: 'Kanjou', romaji: 'Cảm xúc', hiragana: 'かんじょう', meaning: 'Cảm xúc' },
 ];
 
 export default function VocabVideoGenerator() {
-  const [topic, setTopic] = useState<TopicData>(DEFAULT_TOPIC);
   const [cards, setCards] = useState<CardData[]>(INITIAL_CARDS);
-  const [numCards, setNumCards] = useState<number>(8); // 2, 4, 6, 8
+  const [numCards, setNumCards] = useState<number>(9); // 2, 4, 6, 9
   
-  const [activeHighlight, setActiveHighlight] = useState<string | null>(null); // 'topic' or card.id
+  const [activeHighlight, setActiveHighlight] = useState<string | null>(null);
   const [isRecording, setIsRecording] = useState(false);
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
   
@@ -66,61 +53,17 @@ export default function VocabVideoGenerator() {
     }
   }, [numCards, cards]);
 
-  const handleImageUpload = (index: number | 'topic', e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageUpload = (index: number, e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
       const reader = new FileReader();
       reader.onloadend = () => {
-        if (index === 'topic') {
-          setTopic({ ...topic, image: reader.result as string });
-        } else {
-          const newCards = [...cards];
-          newCards[index].image = reader.result as string;
-          setCards(newCards);
-        }
+        const newCards = [...cards];
+        newCards[index].image = reader.result as string;
+        setCards(newCards);
       };
       reader.readAsDataURL(file);
     }
-  };
-
-  const getGridPosition = (index: number, total: number) => {
-    // 3x3 Grid
-    // [1,1] [1,2] [1,3]
-    // [2,1] [2,2] [2,3]
-    // [3,1] [3,2] [3,3]
-    if (total === 8) {
-      const positions = [
-        { gridRow: 1, gridColumn: 1 }, { gridRow: 1, gridColumn: 2 }, { gridRow: 1, gridColumn: 3 },
-        { gridRow: 2, gridColumn: 1 }, /* center */                   { gridRow: 2, gridColumn: 3 },
-        { gridRow: 3, gridColumn: 1 }, { gridRow: 3, gridColumn: 2 }, { gridRow: 3, gridColumn: 3 },
-      ];
-      return positions[index];
-    }
-    if (total === 6) {
-      const positions = [
-        { gridRow: 1, gridColumn: 1 }, { gridRow: 1, gridColumn: 3 },
-        { gridRow: 2, gridColumn: 1 }, { gridRow: 2, gridColumn: 3 },
-        { gridRow: 3, gridColumn: 1 }, { gridRow: 3, gridColumn: 3 },
-      ];
-      return positions[index];
-    }
-    if (total === 4) {
-      // Four corners
-      const positions = [
-        { gridRow: 1, gridColumn: 1 }, { gridRow: 1, gridColumn: 3 },
-        { gridRow: 3, gridColumn: 1 }, { gridRow: 3, gridColumn: 3 },
-      ];
-      return positions[index];
-    }
-    if (total === 2) {
-      // Top and bottom middle
-      const positions = [
-        { gridRow: 1, gridColumn: 2 },
-        { gridRow: 3, gridColumn: 2 },
-      ];
-      return positions[index];
-    }
-    return {};
   };
 
   const speakText = (text: string, isStudent: boolean = false): Promise<void> => {
@@ -160,19 +103,14 @@ export default function VocabVideoGenerator() {
     // Đảm bảo huỷ các giọng đọc đang bị kẹt
     window.speechSynthesis.cancel();
     
-    // 1. Topic
-    setActiveHighlight('topic');
-    // We try to read Kanji, if empty read Romaji/Word
-    const topicText = topic.kanji || topic.word;
-    await speakText(topicText, false); // Cô giáo đọc
-    await speakText(topicText, true);  // Học sinh lặp lại
-
-    // 2. Cards
+    // Cards
     for (let i = 0; i < cards.length; i++) {
       setActiveHighlight(cards[i].id);
       const cardText = cards[i].hiragana || cards[i].kanji || cards[i].romaji;
-      await speakText(cardText, false); // Cô giáo đọc
-      await speakText(cardText, true);  // Học sinh lặp lại
+      if (cardText) {
+        await speakText(cardText, false); // Cô giáo đọc
+        await speakText(cardText, true);  // Học sinh lặp lại
+      }
     }
 
     setActiveHighlight(null);
@@ -226,6 +164,14 @@ export default function VocabVideoGenerator() {
     }
   };
 
+  // Determine grid template based on numCards
+  const getGridTemplate = () => {
+    if (numCards === 2) return { gridTemplateColumns: 'repeat(1, 1fr)', gridTemplateRows: 'repeat(2, 1fr)' };
+    if (numCards === 4) return { gridTemplateColumns: 'repeat(2, 1fr)', gridTemplateRows: 'repeat(2, 1fr)' };
+    if (numCards === 6) return { gridTemplateColumns: 'repeat(2, 1fr)', gridTemplateRows: 'repeat(3, 1fr)' };
+    // Default 9
+    return { gridTemplateColumns: 'repeat(3, 1fr)', gridTemplateRows: 'repeat(3, 1fr)' };
+  };
 
   return (
     <div className="p-6 h-screen flex flex-col bg-[var(--bg-secondary)] overflow-hidden">
@@ -235,7 +181,7 @@ export default function VocabVideoGenerator() {
             <Video className="text-[var(--accent-purple)]" /> Tạo Video Từ Vựng (TikTok/Shorts)
           </h1>
           <p className="text-[var(--text-muted)] mt-1">
-            Nhập liệu, chọn bố cục, và quay video trực tiếp bằng công nghệ Screen Capture
+            Nhập liệu, chọn số lượng từ, và quay video trực tiếp bằng công nghệ Screen Capture
           </p>
         </div>
         <div className="flex gap-3">
@@ -269,7 +215,7 @@ export default function VocabVideoGenerator() {
             </h2>
             <div className="flex items-center gap-2 bg-[var(--bg-hover)] p-1.5 rounded-lg border border-[var(--border)]">
               <span className="text-sm font-medium px-2">Số ô từ vựng:</span>
-              {[2, 4, 6, 8].map(num => (
+              {[2, 4, 6, 9].map(num => (
                 <button 
                   key={num}
                   onClick={() => setNumCards(num)}
@@ -282,43 +228,6 @@ export default function VocabVideoGenerator() {
           </div>
 
           <div className="space-y-6">
-            {/* Topic Input */}
-            <div className="p-4 rounded-lg bg-[var(--accent-blue)]/5 border border-[var(--accent-blue)]/20 relative">
-              <div className="absolute top-0 right-0 bg-[var(--accent-blue)] text-white text-xs px-2 py-1 rounded-bl-lg rounded-tr-lg font-bold">
-                Ô CHỦ ĐỀ TRUNG TÂM
-              </div>
-              <div className="grid grid-cols-[100px_1fr] gap-4 mt-2">
-                <div>
-                  <label className="block text-xs font-semibold mb-1 text-[var(--text-muted)]">Hình (Tuỳ chọn)</label>
-                  <label className="w-full h-24 border-2 border-dashed border-[var(--border)] rounded-lg flex flex-col items-center justify-center cursor-pointer hover:bg-[var(--bg-hover)] bg-white overflow-hidden">
-                    <input type="file" className="hidden" accept="image/*" onChange={(e) => handleImageUpload('topic', e)} />
-                    {topic.image ? (
-                      <img src={topic.image} alt="Topic" className="w-full h-full object-contain" />
-                    ) : (
-                      <><Upload size={20} className="text-[var(--text-muted)] mb-1" /><span className="text-xs text-[var(--text-muted)]">Tải ảnh</span></>
-                    )}
-                  </label>
-                  {topic.image && <button onClick={() => setTopic({...topic, image: undefined})} className="text-xs text-red-500 mt-1 w-full text-center hover:underline">Xoá ảnh</button>}
-                </div>
-                <div className="space-y-3">
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="block text-xs font-semibold mb-1 text-[var(--text-muted)]">Romaji (Kanjou)</label>
-                      <input type="text" className="input text-sm w-full font-bold" value={topic.word} onChange={e => setTopic({...topic, word: e.target.value})} placeholder="Kanjou" />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-semibold mb-1 text-[var(--text-muted)]">Kanji/Hiragana (感情)</label>
-                      <input type="text" className="input text-sm w-full font-bold text-[var(--accent-orange)]" value={topic.kanji || ''} onChange={e => setTopic({...topic, kanji: e.target.value})} placeholder="感情" />
-                    </div>
-                  </div>
-                  <div>
-                    <label className="block text-xs font-semibold mb-1 text-[var(--text-muted)]">Nghĩa Tiếng Việt</label>
-                    <input type="text" className="input text-sm w-full font-bold" value={topic.meaning} onChange={e => setTopic({...topic, meaning: e.target.value})} placeholder="Cảm xúc" />
-                  </div>
-                </div>
-              </div>
-            </div>
-
             {/* Cards Input */}
             <div className="grid grid-cols-2 gap-4">
               {cards.map((card, idx) => (
@@ -377,55 +286,48 @@ export default function VocabVideoGenerator() {
             }}
           >
             {/* Header / Logo space */}
-            <div className="pt-10 pb-6 w-full flex items-center justify-center">
+            <div className="pt-10 pb-6 w-full flex items-center justify-center shrink-0">
               <h2 className="text-3xl font-black text-[#1F3D7C] flex items-start">
                 DORA <span className="bg-[#E94B6E] text-white text-[10px] px-1 py-0.5 rounded ml-0.5 leading-none mt-1 font-bold">ki</span>
               </h2>
             </div>
 
-            {/* Grid Container */}
+            {/* Dynamic Grid Container */}
             <div 
-              className="flex-1 w-full p-4 grid gap-3"
+              className="flex-1 w-full p-4 grid gap-4 transition-all duration-500"
               style={{
-                gridTemplateColumns: 'repeat(3, 1fr)',
-                gridTemplateRows: 'repeat(3, 1fr)',
+                ...getGridTemplate(),
+                paddingBottom: 32 // Some extra padding at the bottom for aesthetics
               }}
             >
               {/* Cards */}
               {cards.map((card, idx) => (
                 <div 
                   key={card.id}
-                  className={`bg-white rounded-[20px] shadow flex flex-col items-center justify-center p-2 text-center transition-all duration-300 ${activeHighlight === card.id ? 'ring-4 ring-yellow-400 scale-105' : ''}`}
-                  style={{ ...getGridPosition(idx, numCards) }}
+                  className={`bg-white rounded-3xl shadow-md flex flex-col items-center justify-center p-3 text-center transition-all duration-300 ${activeHighlight === card.id ? 'ring-[6px] ring-yellow-400 scale-[1.02]' : ''}`}
                 >
-                  <div className="h-16 w-16 mb-2 flex items-center justify-center">
+                  <div className="flex-1 min-h-[4rem] w-full flex items-center justify-center mb-2">
                     {card.image ? (
-                      <img src={card.image} alt="" className="max-w-full max-h-full object-contain" />
+                      <img src={card.image} alt="" className="max-w-full max-h-[80px] md:max-h-[140px] object-contain drop-shadow-sm" />
                     ) : (
-                      <div className="w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center text-xs text-gray-400">Ảnh</div>
+                      <div className="w-16 h-16 rounded-full bg-gray-50 flex items-center justify-center text-xs text-gray-300 border border-dashed border-gray-200">Ảnh</div>
                     )}
                   </div>
-                  <div className="text-[11px] font-bold text-gray-800 leading-tight mb-1">{card.romaji}</div>
-                  <div className="text-sm font-black text-red-600 mb-1 leading-none">{card.hiragana}</div>
-                  <div className="text-[10px] text-gray-600 leading-tight">{card.meaning}</div>
+                  
+                  <div className="shrink-0 w-full flex flex-col items-center gap-1">
+                    <div className="text-[12px] font-bold text-gray-800 leading-tight">{card.romaji}</div>
+                    
+                    {/* Scale text dynamically based on grid size for better readability */}
+                    <div className={`font-black text-red-600 leading-none ${numCards <= 4 ? 'text-2xl' : 'text-lg'}`}>
+                      {card.hiragana}
+                    </div>
+                    
+                    <div className={`text-gray-600 leading-tight ${numCards <= 4 ? 'text-sm' : 'text-[11px]'}`}>
+                      {card.meaning}
+                    </div>
+                  </div>
                 </div>
               ))}
-
-              {/* Topic Center Card */}
-              <div 
-                className={`bg-[#FFB6C1] rounded-[20px] shadow flex flex-col items-center justify-center p-2 text-center transition-all duration-300 ${activeHighlight === 'topic' ? 'ring-4 ring-yellow-400 scale-105' : ''}`}
-                style={{ gridRow: 2, gridColumn: 2 }}
-              >
-                {topic.image && (
-                  <div className="h-12 w-12 mb-1 flex items-center justify-center">
-                    <img src={topic.image} alt="" className="max-w-full max-h-full object-contain" />
-                  </div>
-                )}
-                <div className="text-xs font-bold text-gray-800 leading-tight mb-1">{topic.word}</div>
-                <div className="text-3xl font-black text-[#E65100] mb-1">{topic.kanji}</div>
-                <div className="text-sm font-bold text-gray-900">{topic.meaning}</div>
-              </div>
-
             </div>
           </div>
         </div>
@@ -450,7 +352,7 @@ export default function VocabVideoGenerator() {
               </button>
               <a 
                 href={videoUrl} 
-                download={`Tu-Vung-${topic.meaning || 'Video'}.webm`}
+                download={`Tu-Vung-${Date.now()}.webm`}
                 className="btn btn-primary flex-1 bg-green-500 hover:bg-green-600 text-white border-none flex items-center justify-center gap-2"
               >
                 <Download size={18} /> Tải Video xuống
