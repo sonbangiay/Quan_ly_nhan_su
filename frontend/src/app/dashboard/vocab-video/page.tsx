@@ -69,72 +69,44 @@ export default function VocabVideoGenerator() {
   };
 
   const speakText = (text: string, isStudent: boolean = false): Promise<void> => {
-    return new Promise(async (resolve) => {
-      try {
-        // Sử dụng Google Translate TTS qua thẻ Audio. Việc này giải quyết 2 vấn đề:
-        // 1. Không bị đơ/treo như window.speechSynthesis
-        // 2. Âm thanh phát ra được tính là âm thanh của Tab, nên Share Tab sẽ BẮT ĐƯỢC TIẾNG!
-        const url = `https://translate.google.com/translate_tts?ie=UTF-8&client=tw-ob&tl=ja&q=${encodeURIComponent(text)}`;
-        const audio = new Audio(url);
-        
-        // Học sinh đọc chậm lại một chút để tạo sự khác biệt
-        audio.playbackRate = isStudent ? 0.85 : 1.0;
-        
-        // Chỉnh pitch nhẹ nếu trình duyệt hỗ trợ (Chrome mới)
-        // @ts-ignore
-        if (typeof audio.preservesPitch !== 'undefined') {
-          // @ts-ignore
-          audio.preservesPitch = !isStudent; // Đổi cao độ theo tốc độ
-        }
-
-        audio.onended = () => {
-          setTimeout(resolve, 400); // Nghỉ một nhịp nhỏ giữa 2 người đọc
-        };
-        
-        audio.onerror = () => {
-          fallbackSpeak(); // Nếu mất mạng hoặc Google lỗi, dùng lại bộ đọc offline
-        };
-
-        await audio.play();
-      } catch (e) {
-        fallbackSpeak();
+    return new Promise((resolve) => {
+      if (!window.speechSynthesis) {
+        resolve();
+        return;
       }
+      
+      const timeoutId = setTimeout(() => {
+        resolve();
+      }, 4000);
 
-      function fallbackSpeak() {
-        if (!window.speechSynthesis) return resolve();
-        
-        const timeoutId = setTimeout(() => {
-          console.warn('TTS onend event timeout');
-          resolve();
-        }, 4000);
-
-        const utterance = new SpeechSynthesisUtterance(text);
-        utterance.lang = 'ja-JP';
-        
-        if (isStudent) {
-          utterance.pitch = 1.15; 
-          utterance.rate = 0.85; 
-        } else {
-          utterance.pitch = 1.0;
-          utterance.rate = 0.95;
-        }
-        
-        utterance.onend = () => {
-          clearTimeout(timeoutId);
-          setTimeout(resolve, 400);
-        };
-        
-        utterance.onerror = () => {
-          clearTimeout(timeoutId);
-          resolve();
-        };
-        
-        // @ts-ignore
-        window.utterances = window.utterances || [];
-        // @ts-ignore
-        window.utterances.push(utterance);
-        window.speechSynthesis.speak(utterance);
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.lang = 'ja-JP';
+      
+      if (isStudent) {
+        // Giọng học sinh: Chỉnh cao lên 1 chút (1.15) và đọc chậm lại (0.85) để nghe giống học sinh
+        utterance.pitch = 1.15; 
+        utterance.rate = 0.85; 
+      } else {
+        // Cô giáo
+        utterance.pitch = 1.0;
+        utterance.rate = 0.95;
       }
+      
+      utterance.onend = () => {
+        clearTimeout(timeoutId);
+        setTimeout(resolve, 400); // Nghỉ một nhịp nhỏ
+      };
+      
+      utterance.onerror = () => {
+        clearTimeout(timeoutId);
+        resolve();
+      };
+      
+      // @ts-ignore
+      window.utterances = window.utterances || [];
+      // @ts-ignore
+      window.utterances.push(utterance);
+      window.speechSynthesis.speak(utterance);
     });
   };
 
@@ -158,18 +130,38 @@ export default function VocabVideoGenerator() {
   const startRecording = async () => {
     try {
       setVideoUrl(null);
-      // Request screen capture
-      const stream = await navigator.mediaDevices.getDisplayMedia({
+
+      // CẢNH BÁO QUAN TRỌNG: Yêu cầu mở loa ngoài
+      alert("LƯU Ý: Để video thu được tiếng đọc, bạn vui lòng MỞ LOA NGOÀI (không dùng tai nghe) nhé! Micro sẽ thu lại âm thanh trực tiếp từ loa để đảm bảo luôn có tiếng.");
+
+      // 1. Lấy Video từ màn hình (chia sẻ Tab)
+      const videoStream = await navigator.mediaDevices.getDisplayMedia({
         video: { displaySurface: 'browser' },
-        audio: true, // Important for capturing TTS
+        audio: false, // Không lấy âm thanh tab nữa vì dễ bị lỗi trên Windows
         // @ts-ignore
-        preferCurrentTab: true // Tự động gợi ý chọn Tab hiện tại để cropTo hoạt động
+        preferCurrentTab: true
       });
 
-      // Cắt stream chỉ lấy phần khung 9:16 (Region Capture API - Hỗ trợ trên Chrome/Edge mới)
+      // 2. Lấy Âm thanh từ Micro (thu lại tiếng loa ngoài và tiếng nói của giáo viên nếu muốn)
+      let audioStream;
+      try {
+        audioStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      } catch (err) {
+        alert("Lỗi: Không tìm thấy Micro hoặc bạn chưa cấp quyền. Video sẽ không có tiếng!");
+        videoStream.getTracks().forEach(t => t.stop());
+        return;
+      }
+
+      // Gộp Video và Audio lại
+      const combinedStream = new MediaStream([
+        ...videoStream.getVideoTracks(),
+        ...audioStream.getAudioTracks()
+      ]);
+
+      // Cắt stream chỉ lấy phần khung 9:16 (Region Capture API)
       if ('CropTarget' in window && previewRef.current) {
         try {
-          const [videoTrack] = stream.getVideoTracks();
+          const [videoTrack] = combinedStream.getVideoTracks();
           // @ts-ignore
           const cropTarget = await window.CropTarget.fromElement(previewRef.current);
           // @ts-ignore
@@ -181,7 +173,7 @@ export default function VocabVideoGenerator() {
 
       // Prepare media recorder
       const options = { mimeType: 'video/webm;codecs=vp8,opus' };
-      const mediaRecorder = new MediaRecorder(stream, options);
+      const mediaRecorder = new MediaRecorder(combinedStream, options);
       mediaRecorderRef.current = mediaRecorder;
       chunksRef.current = [];
 
@@ -194,7 +186,7 @@ export default function VocabVideoGenerator() {
         const url = URL.createObjectURL(blob);
         setVideoUrl(url);
         // Stop all tracks to end screen sharing
-        stream.getTracks().forEach(track => track.stop());
+        combinedStream.getTracks().forEach(track => track.stop());
         setIsRecording(false);
       };
 
