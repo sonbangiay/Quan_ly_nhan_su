@@ -135,6 +135,19 @@ export default function VocabVideoGenerator() {
         audio: true // Important for capturing TTS
       });
 
+      // Cắt stream chỉ lấy phần khung 9:16 (Region Capture API - Hỗ trợ trên Chrome/Edge mới)
+      if ('CropTarget' in window && previewRef.current) {
+        try {
+          const [videoTrack] = stream.getVideoTracks();
+          // @ts-ignore
+          const cropTarget = await window.CropTarget.fromElement(previewRef.current);
+          // @ts-ignore
+          await videoTrack.cropTo(cropTarget);
+        } catch (e) {
+          console.warn("Không thể crop video, fallback quay toàn màn hình", e);
+        }
+      }
+
       // Prepare media recorder
       const options = { mimeType: 'video/webm;codecs=vp8,opus' };
       const mediaRecorder = new MediaRecorder(stream, options);
@@ -169,7 +182,7 @@ export default function VocabVideoGenerator() {
 
     } catch (err) {
       console.error('Error starting recording:', err);
-      alert('Không thể bắt đầu quay video. Vui lòng cấp quyền chia sẻ màn hình và check "Chia sẻ âm thanh"!');
+      alert('Không thể bắt đầu quay video. Vui lòng cấp quyền chia sẻ màn hình Tab và check "Chia sẻ âm thanh"!');
       setIsRecording(false);
     }
   };
@@ -305,10 +318,15 @@ export default function VocabVideoGenerator() {
 
         {/* Right: Video Preview */}
         <div className="w-[450px] shrink-0 bg-[var(--bg-primary)] p-4 rounded-xl border border-[var(--border)] flex flex-col items-center justify-center relative">
-          <div className="absolute top-4 left-4 right-4 flex justify-between items-center z-10">
-            <span className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider">Live Preview</span>
-            {isRecording && <span className="flex items-center gap-2 text-red-500 font-bold text-sm bg-red-50 px-3 py-1 rounded-full animate-pulse"><span className="w-2 h-2 rounded-full bg-red-500"></span> Đang quay</span>}
-          </div>
+          
+          {/* Màn hình thông báo đang quay (sẽ không bị dính vào video) */}
+          {isRecording && (
+            <div className="absolute top-4 left-4 right-4 flex justify-end z-10 pointer-events-none">
+              <span className="flex items-center gap-2 text-red-500 font-bold text-sm bg-red-50/90 px-3 py-1 rounded-full animate-pulse shadow">
+                <span className="w-2 h-2 rounded-full bg-red-500"></span> Đang quay
+              </span>
+            </div>
+          )}
 
           {/* The Actual Video Frame Container (9:16 aspect ratio) */}
           <div 
