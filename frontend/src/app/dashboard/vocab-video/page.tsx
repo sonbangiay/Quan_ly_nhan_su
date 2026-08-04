@@ -40,6 +40,10 @@ export default function VocabVideoGenerator() {
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const isRecordingRef = useRef<boolean>(false);
+  
+  // Refs cho hệ thống âm thanh kỹ thuật số (Direct Audio Injection)
+  const audioCtxRef = useRef<AudioContext | null>(null);
+  const audioDestRef = useRef<MediaStreamAudioDestinationNode | null>(null);
 
   // Adjust cards array size when numCards changes
   useEffect(() => {
@@ -70,181 +74,190 @@ export default function VocabVideoGenerator() {
     }
   };
 
-  const speakText = (text: string, isStudent: boolean = false): Promise<void> => {
-    return new Promise((resolve) => {
-      if (!window.speechSynthesis) {
-        resolve();
-        return;
-      }
-      
-      const timeoutId = setTimeout(() => {
-        resolve();
-      }, 4000);
+  // Kỹ thuật số hoá âm thanh (Không cần thu âm từ loa nữa)
+  const speakTextDigital = async (text: string, isStudent: boolean = false): Promise<void> => {
+    if (!audioCtxRef.current || !audioDestRef.current) return;
+    const ctx = audioCtxRef.current;
+    const dest = audioDestRef.current;
 
-      const utterance = new SpeechSynthesisUtterance(text);
-      utterance.lang = 'ja-JP';
+    try {
+      const gtts = `https://translate.google.com/translate_tts?ie=UTF-8&client=tw-ob&tl=ja&q=${encodeURIComponent(text)}`;
+      // Sử dụng proxy để vượt rào CORS và tải trực tiếp file MP3
+      let proxy = `https://corsproxy.io/?url=${encodeURIComponent(gtts)}`;
       
-      if (isStudent) {
-        // Giọng học sinh: Chỉnh cao lên (1.15) và đọc chậm lại (0.85) để nghe giống học trò ngoan
-        utterance.pitch = 1.15; 
-        utterance.rate = 0.85; 
-      } else {
-        // Cô giáo
-        utterance.pitch = 1.0;
-        utterance.rate = 0.95;
+      let res = await fetch(proxy);
+      if (!res.ok) {
+        proxy = `https://api.allorigins.win/raw?url=${encodeURIComponent(gtts)}`;
+        res = await fetch(proxy);
       }
       
-      utterance.onend = () => {
-        clearTimeout(timeoutId);
-        setTimeout(resolve, 400); // Nghỉ một nhịp nhỏ giữa cô và trò
-      };
+      if (!res.ok) throw new Error("Không tải được âm thanh");
       
-      utterance.onerror = () => {
-        clearTimeout(timeoutId);
-        resolve();
-      };
+      const arrayBuffer = await res.arrayBuffer();
+      const audioBuffer = await ctx.decodeAudioData(arrayBuffer);
       
-      // @ts-ignore
-      window.utterances = window.utterances || [];
-      // @ts-ignore
-      window.utterances.push(utterance);
-      window.speechSynthesis.speak(utterance);
-    });
+      return new Promise<void>((resolve) => {
+        const source = ctx.createBufferSource();
+        source.buffer = audioBuffer;
+        
+        if (isStudent) {
+          // Giọng học sinh: Nâng cao vút và tăng tốc một xíu để phân biệt rõ với giáo viên
+          source.playbackRate.value = 1.18; 
+        }
+        
+        // 1. Nối vào luồng ghi hình (Trực tiếp vào Video)
+        source.connect(dest);
+        // 2. Nối ra loa ngoài (Để bạn nghe được)
+        source.connect(ctx.destination);
+        
+        source.onended = () => {
+          setTimeout(resolve, 400); // Khoảng lặng
+        };
+        
+        source.start();
+      });
+    } catch (err) {
+      console.error("Lỗi tạo âm thanh kỹ thuật số", err);
+      await new Promise(r => setTimeout(r, 1500)); // Nghỉ một chút nếu lỗi để video không chạy quá nhanh
+    }
   };
 
   const playSequence = async () => {
-    window.speechSynthesis.cancel();
     for (let i = 0; i < cards.length; i++) {
       setActiveHighlight(cards[i].id);
       const cardText = cards[i].hiragana || cards[i].kanji || cards[i].romaji;
       if (cardText) {
-        await speakText(cardText, false); // Cô giáo đọc
-        await speakText(cardText, true);  // Học sinh lặp lại
+        await speakTextDigital(cardText, false); // Cô giáo đọc chuẩn
+        await speakTextDigital(cardText, true);  // Học sinh lặp lại giọng trẻ
       }
     }
     setActiveHighlight(null);
   };
 
-  const startActualRecording = () => {
+  const setupCanvasCrop = (originalStream: MediaStream): MediaStream => {
+    const hiddenVideo = document.createElement('video');
+    hiddenVideo.srcObject = originalStream;
+    hiddenVideo.muted = true;
+    hiddenVideo.playsInline = true;
+    hiddenVideo.play();
+
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    const outW = 720;
+    const outH = 1280;
+    canvas.width = outW;
+    canvas.height = outH;
+
+    const drawLoop = () => {
+      if (!isRecordingRef.current) return;
+      if (hiddenVideo.videoWidth > 0 && previewRef.current) {
+          const rect = previewRef.current.getBoundingClientRect();
+          const scaleX = hiddenVideo.videoWidth / window.innerWidth;
+          const scaleY = hiddenVideo.videoHeight / window.innerHeight;
+          const sX = rect.x * scaleX;
+          const sY = rect.y * scaleY;
+          const sW = rect.width * scaleX;
+          const sH = rect.height * scaleY;
+          ctx?.drawImage(hiddenVideo, sX, sY, sW, sH, 0, 0, outW, outH);
+      }
+      requestAnimationFrame(drawLoop);
+    };
+    drawLoop();
+    return canvas.captureStream(30);
+  };
+
+  const startActualRecording = async () => {
     setShowRecordModal(false);
+    
+    try {
+      setVideoUrl(null);
 
-    // 1. Kích hoạt Fullscreen ngay lập tức (bắt buộc phải chạy trực tiếp trong sự kiện click)
-    if (!document.fullscreenElement) {
-      document.documentElement.requestFullscreen().catch(e => console.warn(e));
-    }
+      // 1. Khởi tạo Kênh Âm Thanh Kỹ Thuật Số (Digital Audio Context)
+      if (!audioCtxRef.current) {
+        const AudioContext = window.AudioContext || (window as any).webkitAudioContext;
+        audioCtxRef.current = new AudioContext();
+        audioDestRef.current = audioCtxRef.current.createMediaStreamDestination();
+      }
+      if (audioCtxRef.current.state === 'suspended') {
+        await audioCtxRef.current.resume();
+      }
 
-    // 2. Chờ 600ms để trình duyệt bung Fullscreen hoàn toàn rồi mới gọi hàm quay màn hình
-    setTimeout(async () => {
-      try {
-        setVideoUrl(null);
+      // 2. CHỈ yêu cầu hình ảnh của "Tab Chrome" (Không quan tâm âm thanh nữa vì đã có kỹ thuật số)
+      const stream = await navigator.mediaDevices.getDisplayMedia({
+        video: { displaySurface: 'browser' }, 
+        audio: false, // Bỏ qua chia sẻ âm thanh, ngăn chặn 100% rủi ro người dùng quên bật
+        // @ts-ignore
+        preferCurrentTab: true
+      });
 
-        // Lấy luồng video Toàn màn hình (Entire Screen) để bắt được System Audio
-        const stream = await navigator.mediaDevices.getDisplayMedia({
-          // @ts-ignore
-          video: { displaySurface: 'monitor' }, 
-          audio: true
-        });
+      const videoTrack = stream.getVideoTracks()[0];
+      let finalVideoStream = new MediaStream([videoTrack]);
 
-        if (stream.getAudioTracks().length === 0) {
-          alert("LỖI: BẠN CHƯA BẬT NÚT CHIA SẺ ÂM THANH! Video sẽ bị mất tiếng.\nHãy nhấn 'Bắt đầu quay Video' lại và nhớ gạt nút Chia sẻ âm thanh nhé.");
-          stream.getTracks().forEach(t => t.stop());
-          if (document.fullscreenElement) document.exitFullscreen();
-          return;
-        }
+      setIsRecording(true);
+      isRecordingRef.current = true;
 
-        setIsRecording(true);
-        isRecordingRef.current = true;
-
-        // --- KỸ THUẬT CANVAS CROP HOÀN HẢO ---
-        const hiddenVideo = document.createElement('video');
-        hiddenVideo.srcObject = stream;
-        hiddenVideo.muted = true;
-        hiddenVideo.playsInline = true;
-        await hiddenVideo.play();
-
-        const canvas = document.createElement('canvas');
-        const ctx = canvas.getContext('2d');
-        const outW = 720;
-        const outH = 1280;
-        canvas.width = outW;
-        canvas.height = outH;
-
-        const drawLoop = () => {
-          if (!isRecordingRef.current) return;
-          
-          if (hiddenVideo.videoWidth > 0 && previewRef.current) {
-             const rect = previewRef.current.getBoundingClientRect();
-             
-             // Tỷ lệ chuyển đổi siêu chuẩn xác vì trình duyệt đang ở Fullscreen
-             const scaleX = hiddenVideo.videoWidth / window.innerWidth;
-             const scaleY = hiddenVideo.videoHeight / window.innerHeight;
-
-             const sX = rect.x * scaleX;
-             const sY = rect.y * scaleY;
-             const sW = rect.width * scaleX;
-             const sH = rect.height * scaleY;
-
-             ctx?.drawImage(hiddenVideo, sX, sY, sW, sH, 0, 0, outW, outH);
-          }
-          requestAnimationFrame(drawLoop);
-        };
-
-        drawLoop();
-
-        const canvasStream = canvas.captureStream(30);
-        
-        // Gộp Video ĐÃ CẮT (9:16) và Âm thanh GỐC (có tiếng)
-        const combinedStream = new MediaStream([
-          ...canvasStream.getVideoTracks(),
-          ...stream.getAudioTracks()
-        ]);
-
-        const options = { mimeType: 'video/webm;codecs=vp8,opus' };
-        let mediaRecorder;
+      // 3. Tự động cắt chuẩn 9:16 bằng Region Capture API siêu nét (hoặc Canvas fallback)
+      if ('CropTarget' in window && previewRef.current) {
         try {
-          mediaRecorder = new MediaRecorder(combinedStream, options);
+          // @ts-ignore
+          const cropTarget = await window.CropTarget.fromElement(previewRef.current);
+          // @ts-ignore
+          await videoTrack.cropTo(cropTarget);
         } catch (e) {
-          mediaRecorder = new MediaRecorder(combinedStream);
+          console.warn("Region crop failed, fallback to Canvas", e);
+          finalVideoStream = setupCanvasCrop(stream);
         }
-        mediaRecorderRef.current = mediaRecorder;
-        chunksRef.current = [];
+      } else {
+        finalVideoStream = setupCanvasCrop(stream);
+      }
 
-        mediaRecorder.ondataavailable = (e) => {
-          if (e.data.size > 0) chunksRef.current.push(e.data);
-        };
+      // 4. Trộn Video hoàn hảo + Âm thanh Kỹ thuật số hoàn hảo!
+      const combinedStream = new MediaStream([
+        ...finalVideoStream.getVideoTracks(),
+        ...audioDestRef.current!.stream.getAudioTracks()
+      ]);
 
-        mediaRecorder.onstop = () => {
-          const blob = new Blob(chunksRef.current, { type: 'video/webm' });
-          const url = URL.createObjectURL(blob);
-          setVideoUrl(url);
-          
-          stream.getTracks().forEach(track => track.stop());
-          combinedStream.getTracks().forEach(track => track.stop());
-          
-          setIsRecording(false);
-          isRecordingRef.current = false;
-          
-          if (document.fullscreenElement) {
-            document.exitFullscreen().catch(e => console.log(e));
-          }
-        };
+      const options = { mimeType: 'video/webm;codecs=vp8,opus' };
+      let mediaRecorder;
+      try {
+        mediaRecorder = new MediaRecorder(combinedStream, options);
+      } catch (e) {
+        mediaRecorder = new MediaRecorder(combinedStream);
+      }
+      mediaRecorderRef.current = mediaRecorder;
+      chunksRef.current = [];
 
-        mediaRecorder.start();
+      mediaRecorder.ondataavailable = (e) => {
+        if (e.data.size > 0) chunksRef.current.push(e.data);
+      };
 
-        setTimeout(async () => {
-          await playSequence();
-          if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
-            mediaRecorderRef.current.stop();
-          }
-        }, 1000);
-
-      } catch (err) {
-        console.error('Error starting recording:', err);
+      mediaRecorder.onstop = () => {
+        const blob = new Blob(chunksRef.current, { type: 'video/webm' });
+        const url = URL.createObjectURL(blob);
+        setVideoUrl(url);
+        
+        stream.getTracks().forEach(track => track.stop());
+        finalVideoStream.getTracks().forEach(track => track.stop());
+        combinedStream.getTracks().forEach(track => track.stop());
+        
         setIsRecording(false);
         isRecordingRef.current = false;
-        if (document.fullscreenElement) document.exitFullscreen();
-      }
-    }, 600);
+      };
+
+      mediaRecorder.start();
+
+      setTimeout(async () => {
+        await playSequence();
+        if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+          mediaRecorderRef.current.stop();
+        }
+      }, 1000);
+
+    } catch (err) {
+      console.error('Error starting recording:', err);
+      setIsRecording(false);
+      isRecordingRef.current = false;
+    }
   };
 
   // Determine grid template based on numCards
@@ -383,17 +396,15 @@ export default function VocabVideoGenerator() {
         </div>
 
         {/* Right: Video Preview */}
-        {/* Khi quay: Màn đen toàn bộ, video căn TẬN CÙNG LÊN TRÊN (pt-8) và để trống 1 khoảng khổng lồ ở dưới (pb-[120px]) 
-            Mục đích: Thanh thông báo "Đang chia sẻ màn hình" của Chrome sẽ chui vào khoảng trống màu đen này và KHÔNG BỊ LỌT VÀO CAMERA CẮT */}
-        <div className={isRecording ? "fixed inset-0 z-[100] bg-black flex flex-col items-center justify-start pt-8 pb-[120px]" : "w-[450px] shrink-0 bg-[var(--bg-primary)] p-4 rounded-xl border border-[var(--border)] flex flex-col items-center justify-center relative"}>
+        {/* Layout bình thường, khi quay không bị giật lag */}
+        <div className="w-[450px] shrink-0 bg-[var(--bg-primary)] p-4 rounded-xl border border-[var(--border)] flex flex-col items-center justify-center relative">
 
           {/* The Actual Video Frame Container (9:16 aspect ratio) */}
           <div 
             ref={previewRef}
-            className="relative overflow-hidden flex flex-col items-center shadow-2xl transition-all duration-300 shrink-0"
+            className="relative overflow-hidden flex flex-col items-center shadow-2xl transition-all duration-300"
             style={{ 
-              width: isRecording ? 'auto' : '100%', 
-              height: isRecording ? '100%' : 'auto', // Chiếm 100% không gian còn lại (đã né phần đen dưới)
+              width: '100%', 
               aspectRatio: '9/16',
               borderRadius: isRecording ? 0 : 24, 
               boxShadow: isRecording ? 'none' : '0 10px 30px rgba(0,0,0,0.1)',
@@ -460,24 +471,25 @@ export default function VocabVideoGenerator() {
             </h3>
             
             <div className="space-y-4 mb-6">
-              <p className="text-gray-700 font-medium text-[15px]">Để video có <strong>âm thanh chuẩn</strong> và tự động cắt bỏ viền đen Chrome, bạn <strong>BẮT BUỘC</strong> phải làm đúng 2 bước sau:</p>
+              <p className="text-gray-700 font-medium text-[15px]">Hệ thống đã được nâng cấp <strong>Tự động hoá 100%</strong> cực kỳ xịn xò.</p>
               
               <div className="bg-blue-50 p-5 rounded-2xl border border-blue-100 shadow-inner">
-                <ol className="list-decimal list-inside space-y-3 text-[15px] text-blue-900 font-semibold">
-                  <li>Chọn tab <strong>"Toàn màn hình"</strong> (Entire Screen).</li>
-                  <li>Bật công tắc <strong>"Chia sẻ âm thanh hệ thống"</strong> (Share system audio).</li>
+                <p className="text-[15px] text-blue-900 font-semibold mb-2">Bạn chỉ cần thực hiện 2 thao tác cực dễ:</p>
+                <ol className="list-decimal list-inside space-y-2 text-[15px] text-blue-800 ml-1">
+                  <li>Chọn mục <strong>"Tab Chrome"</strong>.</li>
+                  <li>Bấm nút <strong>"Chia sẻ"</strong> là xong!</li>
                 </ol>
               </div>
               
-              <p className="text-[13px] text-red-600 font-bold bg-red-50 p-3 rounded-xl border border-red-100">
-                ⚠️ Lưu ý: Tuyệt đối KHÔNG chọn "Tab Chrome" hay "Cửa sổ", nếu không video sẽ bị mất tiếng!
+              <p className="text-[13.5px] text-green-700 font-semibold bg-green-50 p-3 rounded-xl border border-green-200 flex items-start gap-2">
+                <span>✨</span> Hệ thống sẽ tự động ghép âm thanh kỹ thuật số sắc nét và tự động cắt chuẩn khung video Tiktok cho bạn.
               </p>
             </div>
 
             <div className="flex justify-end gap-3 pt-2">
               <button onClick={() => setShowRecordModal(false)} className="px-5 py-2.5 text-gray-600 font-bold rounded-xl hover:bg-gray-100 transition-colors">Hủy</button>
               <button onClick={startActualRecording} className="px-6 py-2.5 bg-[var(--accent-purple)] text-white font-bold rounded-xl hover:opacity-90 shadow-lg shadow-purple-500/30 transition-transform active:scale-95 flex items-center gap-2">
-                Đã hiểu, Bắt đầu
+                Bắt đầu luôn
               </button>
             </div>
           </div>
