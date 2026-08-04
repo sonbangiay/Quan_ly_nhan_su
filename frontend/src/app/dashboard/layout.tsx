@@ -25,6 +25,7 @@ const SIDEBAR_ITEMS = [
   { href: '/dashboard/attendance', label: 'Chấm công', icon: Clock, roles: ['Admin', 'Manager', 'Employee', 'Instructor'] },
   { href: '/dashboard/leave', label: 'Nghỉ phép', icon: Calendar, roles: ['Admin', 'Manager', 'Employee', 'Instructor'] },
   { href: '/dashboard/classes', label: 'Quản lý Đào tạo', icon: GraduationCap, roles: ['Admin', 'Manager', 'Instructor'] },
+  { href: '/dashboard/vocab-video', label: 'Video Từ Vựng', icon: MonitorPlay, roles: ['Admin', 'Manager'] },
   { href: '/dashboard/knowledge', label: 'Kho tài liệu', icon: BookOpen, roles: ['Admin', 'Manager', 'Employee', 'Instructor'] },
   { href: '/dashboard/notifications', label: 'Thông báo', icon: Bell, roles: ['Admin', 'Manager', 'Employee', 'Instructor'] },
   { href: '/dashboard/auditlog', label: 'Nhật ký HĐ', icon: Activity, roles: ['Admin'] },
