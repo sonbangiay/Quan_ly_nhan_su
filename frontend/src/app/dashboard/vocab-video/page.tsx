@@ -69,51 +69,72 @@ export default function VocabVideoGenerator() {
   };
 
   const speakText = (text: string, isStudent: boolean = false): Promise<void> => {
-    return new Promise((resolve) => {
-      if (!window.speechSynthesis) {
-        resolve();
-        return;
-      }
-      
-      // Timeout fallback: Nếu API bị kẹt quá 4 giây, tự động bỏ qua để không bị đứng màn hình
-      const timeoutId = setTimeout(() => {
-        console.warn('TTS onend event timeout');
-        resolve();
-      }, 4000);
+    return new Promise(async (resolve) => {
+      try {
+        // Sử dụng Google Translate TTS qua thẻ Audio. Việc này giải quyết 2 vấn đề:
+        // 1. Không bị đơ/treo như window.speechSynthesis
+        // 2. Âm thanh phát ra được tính là âm thanh của Tab, nên Share Tab sẽ BẮT ĐƯỢC TIẾNG!
+        const url = `https://translate.google.com/translate_tts?ie=UTF-8&client=tw-ob&tl=ja&q=${encodeURIComponent(text)}`;
+        const audio = new Audio(url);
+        
+        // Học sinh đọc chậm lại một chút để tạo sự khác biệt
+        audio.playbackRate = isStudent ? 0.85 : 1.0;
+        
+        // Chỉnh pitch nhẹ nếu trình duyệt hỗ trợ (Chrome mới)
+        // @ts-ignore
+        if (typeof audio.preservesPitch !== 'undefined') {
+          // @ts-ignore
+          audio.preservesPitch = !isStudent; // Đổi cao độ theo tốc độ
+        }
 
-      const utterance = new SpeechSynthesisUtterance(text);
-      // Chỉ cần set ngôn ngữ, trình duyệt sẽ tự chọn giọng chuẩn nhất (tránh lỗi kẹt voice)
-      utterance.lang = 'ja-JP';
-      
-      if (isStudent) {
-        // Giọng học sinh: Chỉnh cao lên MỘT TÍ (1.15) và đọc chậm lại (0.85) để phân biệt
-        utterance.pitch = 1.15; 
-        utterance.rate = 0.85; 
-      } else {
-        // Cô giáo
-        utterance.pitch = 1.0;
-        utterance.rate = 0.95;
-      }
-      
-      utterance.onend = () => {
-        clearTimeout(timeoutId);
-        // Nghỉ một nhịp nhỏ giữa cô giáo và học sinh
-        setTimeout(resolve, 400);
-      };
-      
-      utterance.onerror = (e) => {
-        console.error('Speech error:', e);
-        clearTimeout(timeoutId);
-        resolve();
-      };
-      
-      // Workaround cho lỗi Chrome thỉnh thoảng xoá nhầm đối tượng utterance khiến onend không chạy
-      // @ts-ignore
-      window.utterances = window.utterances || [];
-      // @ts-ignore
-      window.utterances.push(utterance);
+        audio.onended = () => {
+          setTimeout(resolve, 400); // Nghỉ một nhịp nhỏ giữa 2 người đọc
+        };
+        
+        audio.onerror = () => {
+          fallbackSpeak(); // Nếu mất mạng hoặc Google lỗi, dùng lại bộ đọc offline
+        };
 
-      window.speechSynthesis.speak(utterance);
+        await audio.play();
+      } catch (e) {
+        fallbackSpeak();
+      }
+
+      function fallbackSpeak() {
+        if (!window.speechSynthesis) return resolve();
+        
+        const timeoutId = setTimeout(() => {
+          console.warn('TTS onend event timeout');
+          resolve();
+        }, 4000);
+
+        const utterance = new SpeechSynthesisUtterance(text);
+        utterance.lang = 'ja-JP';
+        
+        if (isStudent) {
+          utterance.pitch = 1.15; 
+          utterance.rate = 0.85; 
+        } else {
+          utterance.pitch = 1.0;
+          utterance.rate = 0.95;
+        }
+        
+        utterance.onend = () => {
+          clearTimeout(timeoutId);
+          setTimeout(resolve, 400);
+        };
+        
+        utterance.onerror = () => {
+          clearTimeout(timeoutId);
+          resolve();
+        };
+        
+        // @ts-ignore
+        window.utterances = window.utterances || [];
+        // @ts-ignore
+        window.utterances.push(utterance);
+        window.speechSynthesis.speak(utterance);
+      }
     });
   };
 
@@ -228,10 +249,16 @@ export default function VocabVideoGenerator() {
           <button 
             onClick={startRecording}
             disabled={isRecording}
-            className="btn btn-primary flex items-center gap-2 px-4 py-2 bg-[var(--accent-purple)] text-white border-none"
+            className="btn btn-primary flex items-center gap-2 px-4 py-2 bg-[var(--accent-purple)] text-white border-none relative"
           >
             {isRecording ? <span className="spinner w-4 h-4" /> : <Video size={18} />}
             {isRecording ? 'Đang quay...' : 'Bắt đầu quay Video'}
+            
+            {/* Vòng tròn nhấp nháy báo đang quay (chuyển sang nằm trên nút để tránh bị dính vào video) */}
+            {isRecording && <span className="absolute -top-2 -right-2 flex h-4 w-4">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-4 w-4 bg-red-500 border-2 border-white"></span>
+            </span>}
           </button>
         </div>
       </div>
@@ -328,15 +355,6 @@ export default function VocabVideoGenerator() {
 
         {/* Right: Video Preview */}
         <div className="w-[450px] shrink-0 bg-[var(--bg-primary)] p-4 rounded-xl border border-[var(--border)] flex flex-col items-center justify-center relative">
-          
-          {/* Màn hình thông báo đang quay (sẽ không bị dính vào video) */}
-          {isRecording && (
-            <div className="absolute top-4 left-4 right-4 flex justify-end z-10 pointer-events-none">
-              <span className="flex items-center gap-2 text-red-500 font-bold text-sm bg-red-50/90 px-3 py-1 rounded-full animate-pulse shadow">
-                <span className="w-2 h-2 rounded-full bg-red-500"></span> Đang quay
-              </span>
-            </div>
-          )}
 
           {/* The Actual Video Frame Container (9:16 aspect ratio) */}
           <div 
