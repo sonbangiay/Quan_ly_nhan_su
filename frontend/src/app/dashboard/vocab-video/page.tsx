@@ -40,10 +40,6 @@ export default function VocabVideoGenerator() {
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const isRecordingRef = useRef<boolean>(false);
-  
-  // Refs cho hệ thống âm thanh kỹ thuật số (Direct Audio Injection)
-  const audioCtxRef = useRef<AudioContext | null>(null);
-  const audioDestRef = useRef<MediaStreamAudioDestinationNode | null>(null);
 
   // Adjust cards array size when numCards changes
   useEffect(() => {
@@ -74,52 +70,62 @@ export default function VocabVideoGenerator() {
     }
   };
 
-  // Kỹ thuật số hoá âm thanh (Không cần thu âm từ loa nữa)
-  const speakTextDigital = async (text: string, isStudent: boolean = false): Promise<void> => {
-    if (!audioCtxRef.current || !audioDestRef.current) return;
-    const ctx = audioCtxRef.current;
-    const dest = audioDestRef.current;
-
-    try {
-      const gtts = `https://translate.google.com/translate_tts?ie=UTF-8&client=tw-ob&tl=ja&q=${encodeURIComponent(text)}`;
-      // Sử dụng proxy để vượt rào CORS và tải trực tiếp file MP3
-      let proxy = `https://corsproxy.io/?url=${encodeURIComponent(gtts)}`;
-      
-      let res = await fetch(proxy);
-      if (!res.ok) {
-        proxy = `https://api.allorigins.win/raw?url=${encodeURIComponent(gtts)}`;
-        res = await fetch(proxy);
+  // Hàm đọc âm thanh siêu cấp cứu (chống đơ, chống mất tiếng)
+  const speakText = (text: string, isStudent: boolean = false): Promise<void> => {
+    return new Promise((resolve) => {
+      // Dùng thẻ Audio ẩn gắn thẳng vào trang web để đảm bảo Tab Audio 100% bắt được
+      let audio = document.getElementById('tts-audio-player') as HTMLAudioElement;
+      if (!audio) {
+        audio = document.createElement('audio');
+        audio.id = 'tts-audio-player';
+        audio.style.display = 'none';
+        document.body.appendChild(audio);
       }
+
+      const url = `https://translate.google.com/translate_tts?ie=UTF-8&client=tw-ob&tl=ja&q=${encodeURIComponent(text)}`;
+      audio.src = url;
       
-      if (!res.ok) throw new Error("Không tải được âm thanh");
+      // Cơ chế an toàn tuyệt đối: Nếu Audio bị treo, sau 4 giây tự động next!
+      let isResolved = false;
+      const finalize = () => {
+        if (isResolved) return;
+        isResolved = true;
+        setTimeout(resolve, 300); // Khoảng lặng
+      };
+      const safetyTimeout = setTimeout(finalize, 4000);
+
+      audio.onended = () => {
+        clearTimeout(safetyTimeout);
+        finalize();
+      };
       
-      const arrayBuffer = await res.arrayBuffer();
-      const audioBuffer = await ctx.decodeAudioData(arrayBuffer);
-      
-      return new Promise<void>((resolve) => {
-        const source = ctx.createBufferSource();
-        source.buffer = audioBuffer;
-        
-        if (isStudent) {
-          // Giọng học sinh: Nâng cao vút và tăng tốc một xíu để phân biệt rõ với giáo viên
-          source.playbackRate.value = 1.18; 
-        }
-        
-        // 1. Nối vào luồng ghi hình (Trực tiếp vào Video)
-        source.connect(dest);
-        // 2. Nối ra loa ngoài (Để bạn nghe được)
-        source.connect(ctx.destination);
-        
-        source.onended = () => {
-          setTimeout(resolve, 400); // Khoảng lặng
-        };
-        
-        source.start();
+      audio.onerror = () => {
+        console.warn("Lỗi tải âm thanh Google");
+        clearTimeout(safetyTimeout);
+        finalize();
+      };
+
+      if (isStudent) {
+        // Giọng học sinh: Đẩy tốc độ lên 1.15 và ÉP THAY ĐỔI PITCH (độ cao âm thanh)
+        audio.playbackRate = 1.15;
+        // @ts-ignore
+        audio.preservesPitch = false; 
+        // @ts-ignore
+        audio.mozPreservesPitch = false;
+        // @ts-ignore
+        audio.webkitPreservesPitch = false;
+      } else {
+        audio.playbackRate = 1.0;
+        // @ts-ignore
+        audio.preservesPitch = true;
+      }
+
+      audio.play().catch(e => {
+        console.warn("Trình duyệt chặn autoplay", e);
+        clearTimeout(safetyTimeout);
+        finalize();
       });
-    } catch (err) {
-      console.error("Lỗi tạo âm thanh kỹ thuật số", err);
-      await new Promise(r => setTimeout(r, 1500)); // Nghỉ một chút nếu lỗi để video không chạy quá nhanh
-    }
+    });
   };
 
   const playSequence = async () => {
@@ -127,8 +133,8 @@ export default function VocabVideoGenerator() {
       setActiveHighlight(cards[i].id);
       const cardText = cards[i].hiragana || cards[i].kanji || cards[i].romaji;
       if (cardText) {
-        await speakTextDigital(cardText, false); // Cô giáo đọc chuẩn
-        await speakTextDigital(cardText, true);  // Học sinh lặp lại giọng trẻ
+        await speakText(cardText, false); // Cô giáo đọc chuẩn
+        await speakText(cardText, true);  // Học sinh lặp lại giọng cao
       }
     }
     setActiveHighlight(null);
@@ -172,25 +178,22 @@ export default function VocabVideoGenerator() {
     try {
       setVideoUrl(null);
 
-      // 1. Khởi tạo Kênh Âm Thanh Kỹ Thuật Số (Digital Audio Context)
-      if (!audioCtxRef.current) {
-        const AudioContext = window.AudioContext || (window as any).webkitAudioContext;
-        audioCtxRef.current = new AudioContext();
-        audioDestRef.current = audioCtxRef.current.createMediaStreamDestination();
-      }
-      if (audioCtxRef.current.state === 'suspended') {
-        await audioCtxRef.current.resume();
-      }
-
-      // 2. CHỈ yêu cầu hình ảnh của "Tab Chrome" (Không quan tâm âm thanh nữa vì đã có kỹ thuật số)
+      // 1. BẮT BUỘC NGƯỜI DÙNG CHIA SẺ ÂM THANH TAB!
       const stream = await navigator.mediaDevices.getDisplayMedia({
         video: { displaySurface: 'browser' }, 
-        audio: false, // Bỏ qua chia sẻ âm thanh, ngăn chặn 100% rủi ro người dùng quên bật
+        audio: true, // Không có cái này là chết
         // @ts-ignore
         preferCurrentTab: true
       });
 
+      if (stream.getAudioTracks().length === 0) {
+        alert("LỖI: BẠN CHƯA BẬT NÚT CHIA SẺ ÂM THANH TAB! Video sẽ bị mất tiếng.\nHãy nhấn 'Bắt đầu quay' lại và gạt công tắc Chia sẻ âm thanh nhé.");
+        stream.getTracks().forEach(t => t.stop());
+        return;
+      }
+
       const videoTrack = stream.getVideoTracks()[0];
+      const audioTrack = stream.getAudioTracks()[0];
       let finalVideoStream = new MediaStream([videoTrack]);
 
       setIsRecording(true);
@@ -211,10 +214,10 @@ export default function VocabVideoGenerator() {
         finalVideoStream = setupCanvasCrop(stream);
       }
 
-      // 4. Trộn Video hoàn hảo + Âm thanh Kỹ thuật số hoàn hảo!
+      // 4. Trộn Video ĐÃ CẮT + Âm thanh từ TAB
       const combinedStream = new MediaStream([
         ...finalVideoStream.getVideoTracks(),
-        ...audioDestRef.current!.stream.getAudioTracks()
+        audioTrack
       ]);
 
       const options = { mimeType: 'video/webm;codecs=vp8,opus' };
@@ -471,18 +474,17 @@ export default function VocabVideoGenerator() {
             </h3>
             
             <div className="space-y-4 mb-6">
-              <p className="text-gray-700 font-medium text-[15px]">Hệ thống đã được nâng cấp <strong>Tự động hoá 100%</strong> cực kỳ xịn xò.</p>
+              <p className="text-gray-700 font-medium text-[15px]">Để video đẹp 100% không viền đen và CÓ ĐẦY ĐỦ ÂM THANH, bạn vui lòng thao tác ĐÚNG 2 bước:</p>
               
               <div className="bg-blue-50 p-5 rounded-2xl border border-blue-100 shadow-inner">
-                <p className="text-[15px] text-blue-900 font-semibold mb-2">Bạn chỉ cần thực hiện 2 thao tác cực dễ:</p>
-                <ol className="list-decimal list-inside space-y-2 text-[15px] text-blue-800 ml-1">
-                  <li>Chọn mục <strong>"Tab Chrome"</strong>.</li>
-                  <li>Bấm nút <strong>"Chia sẻ"</strong> là xong!</li>
+                <ol className="list-decimal list-inside space-y-3 text-[15px] text-blue-900 font-semibold">
+                  <li>Phía trên chọn đúng mục <strong>"Tab Chrome"</strong>.</li>
+                  <li>Bật công tắc <strong>"Chia sẻ âm thanh Tab"</strong> ở góc dưới bên trái!</li>
                 </ol>
               </div>
               
-              <p className="text-[13.5px] text-green-700 font-semibold bg-green-50 p-3 rounded-xl border border-green-200 flex items-start gap-2">
-                <span>✨</span> Hệ thống sẽ tự động ghép âm thanh kỹ thuật số sắc nét và tự động cắt chuẩn khung video Tiktok cho bạn.
+              <p className="text-[13.5px] text-red-600 font-semibold bg-red-50 p-3 rounded-xl border border-red-200 flex items-start gap-2">
+                <span>⚠️</span> Nếu quên bật "Chia sẻ âm thanh Tab", video sẽ bị điếc. Hãy chú ý nhé!
               </p>
             </div>
 
