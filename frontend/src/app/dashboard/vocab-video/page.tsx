@@ -86,9 +86,9 @@ export default function VocabVideoGenerator() {
       utterance.lang = 'ja-JP';
       
       if (isStudent) {
-        // Giọng học sinh: Chỉnh cao lên (1.15) và đọc chậm lại (0.85) để nghe giống học trò ngoan
-        utterance.pitch = 1.15; 
-        utterance.rate = 0.85; 
+        // Giọng học sinh: Chỉnh cao lên hẳn (1.6) và đọc hơi chậm lại (0.9) để nghe giống trẻ em/học sinh hơn
+        utterance.pitch = 1.6; 
+        utterance.rate = 0.9; 
       } else {
         // Cô giáo
         utterance.pitch = 1.0;
