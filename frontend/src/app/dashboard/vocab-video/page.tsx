@@ -131,49 +131,34 @@ export default function VocabVideoGenerator() {
     try {
       setVideoUrl(null);
 
-      // CẢNH BÁO QUAN TRỌNG: Yêu cầu mở loa ngoài
-      alert("LƯU Ý: Để video thu được tiếng đọc, bạn vui lòng MỞ LOA NGOÀI (không dùng tai nghe) nhé! Micro sẽ thu lại âm thanh trực tiếp từ loa để đảm bảo luôn có tiếng.");
+      // CẢNH BÁO QUAN TRỌNG
+      alert("ĐỂ CÓ TIẾNG, BẠN PHẢI LÀM ĐÚNG 2 BƯỚC:\n\n1. CHỌN 'Toàn màn hình' (Entire Screen).\n2. BẬT NÚT 'Chia sẻ âm thanh hệ thống' (Share system audio).\n\n(TUYỆT ĐỐI KHÔNG chọn Tab, vì hệ thống của bạn không thu âm được Tab)");
 
-      // 1. Lấy Video từ màn hình (chia sẻ Tab)
-      const videoStream = await navigator.mediaDevices.getDisplayMedia({
-        video: { displaySurface: 'browser' },
-        audio: false, // Không lấy âm thanh tab nữa vì dễ bị lỗi trên Windows
+      // 1. Lấy Video từ màn hình 
+      const stream = await navigator.mediaDevices.getDisplayMedia({
         // @ts-ignore
-        preferCurrentTab: true
+        video: { displaySurface: 'monitor' }, 
+        audio: true
       });
 
-      // 2. Lấy Âm thanh từ Micro (thu lại tiếng loa ngoài và tiếng nói của giáo viên nếu muốn)
-      let audioStream;
-      try {
-        audioStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      } catch (err) {
-        alert("Lỗi: Không tìm thấy Micro hoặc bạn chưa cấp quyền. Video sẽ không có tiếng!");
-        videoStream.getTracks().forEach(t => t.stop());
+      if (stream.getAudioTracks().length === 0) {
+        alert("BẠN CHƯA BẬT NÚT CHIA SẺ ÂM THANH! Video sẽ bị mất tiếng. Hãy bấm quay lại và nhớ gạt nút Chia sẻ âm thanh nhé.");
+        stream.getTracks().forEach(t => t.stop());
         return;
       }
 
-      // Gộp Video và Audio lại
-      const combinedStream = new MediaStream([
-        ...videoStream.getVideoTracks(),
-        ...audioStream.getAudioTracks()
-      ]);
-
-      // Cắt stream chỉ lấy phần khung 9:16 (Region Capture API)
-      if ('CropTarget' in window && previewRef.current) {
-        try {
-          const [videoTrack] = combinedStream.getVideoTracks();
-          // @ts-ignore
-          const cropTarget = await window.CropTarget.fromElement(previewRef.current);
-          // @ts-ignore
-          await videoTrack.cropTo(cropTarget);
-        } catch (e) {
-          console.warn("Không thể crop video, fallback quay toàn màn hình", e);
-        }
-      }
+      // Enter fullscreen UI mode to hide everything else
+      setIsRecording(true);
 
       // Prepare media recorder
       const options = { mimeType: 'video/webm;codecs=vp8,opus' };
-      const mediaRecorder = new MediaRecorder(combinedStream, options);
+      let mediaRecorder;
+      try {
+        mediaRecorder = new MediaRecorder(stream, options);
+      } catch (e) {
+        // Fallback for browsers that don't support vp8/opus
+        mediaRecorder = new MediaRecorder(stream);
+      }
       mediaRecorderRef.current = mediaRecorder;
       chunksRef.current = [];
 
@@ -186,13 +171,12 @@ export default function VocabVideoGenerator() {
         const url = URL.createObjectURL(blob);
         setVideoUrl(url);
         // Stop all tracks to end screen sharing
-        combinedStream.getTracks().forEach(track => track.stop());
+        stream.getTracks().forEach(track => track.stop());
         setIsRecording(false);
       };
 
       // Start recording
       mediaRecorder.start();
-      setIsRecording(true);
 
       // Add a small delay for recording to stabilize, then play sequence
       setTimeout(async () => {
@@ -205,7 +189,6 @@ export default function VocabVideoGenerator() {
 
     } catch (err) {
       console.error('Error starting recording:', err);
-      alert('Không thể bắt đầu quay video. Vui lòng cấp quyền chia sẻ màn hình Tab và check "Chia sẻ âm thanh"!');
       setIsRecording(false);
     }
   };
@@ -346,18 +329,19 @@ export default function VocabVideoGenerator() {
         </div>
 
         {/* Right: Video Preview */}
-        <div className="w-[450px] shrink-0 bg-[var(--bg-primary)] p-4 rounded-xl border border-[var(--border)] flex flex-col items-center justify-center relative">
+        {/* Khi đang quay, biến thành màn hình đen che hết UI, chỉ hiện video ở giữa */}
+        <div className={isRecording ? "fixed inset-0 z-[100] bg-black flex items-center justify-center" : "w-[450px] shrink-0 bg-[var(--bg-primary)] p-4 rounded-xl border border-[var(--border)] flex flex-col items-center justify-center relative"}>
 
           {/* The Actual Video Frame Container (9:16 aspect ratio) */}
           <div 
             ref={previewRef}
             className="relative overflow-hidden flex flex-col items-center shadow-2xl transition-all duration-300"
             style={{ 
-              width: '100%', 
+              width: isRecording ? 'auto' : '100%', 
+              height: isRecording ? '100vh' : 'auto', // Lấy full chiều cao màn hình khi quay
               aspectRatio: '9/16',
-              borderRadius: isRecording ? 0 : 24, // Remove border radius when recording for clean edges
-              boxShadow: isRecording ? '0 0 0 4px #ef4444' : '0 10px 30px rgba(0,0,0,0.1)',
-              transform: isRecording ? 'scale(1.05)' : 'scale(1)',
+              borderRadius: isRecording ? 0 : 24, // Bỏ bo góc khi quay để video vuông vức
+              boxShadow: isRecording ? 'none' : '0 10px 30px rgba(0,0,0,0.1)',
               backgroundColor: bgColor,
               backgroundImage: bgImage ? `url(${bgImage})` : 'none',
               backgroundSize: 'cover',
