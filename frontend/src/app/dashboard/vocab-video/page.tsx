@@ -82,6 +82,8 @@ export default function VocabVideoGenerator() {
         document.body.appendChild(audio);
       }
 
+      // Đảm bảo audio dừng trước khi set src mới
+      audio.pause();
       const url = `https://translate.google.com/translate_tts?ie=UTF-8&client=tw-ob&tl=ja&q=${encodeURIComponent(text)}`;
       audio.src = url;
       
@@ -170,6 +172,22 @@ export default function VocabVideoGenerator() {
     };
     drawLoop();
     return canvas.captureStream(30);
+  };
+
+  const unlockAudio = () => {
+    let audio = document.getElementById('tts-audio-player') as HTMLAudioElement;
+    if (!audio) {
+      audio = document.createElement('audio');
+      audio.id = 'tts-audio-player';
+      audio.style.display = 'none';
+      document.body.appendChild(audio);
+    }
+    // Chơi một file âm thanh rỗng tĩnh (silent base64) ngay khi người dùng click
+    // Để mở khóa chính sách "chặn Autoplay" của Chrome
+    audio.src = 'data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA';
+    audio.play().then(() => {
+      audio.pause();
+    }).catch(e => console.warn("Lỗi mở khóa audio", e));
   };
 
   const startActualRecording = async () => {
@@ -490,7 +508,13 @@ export default function VocabVideoGenerator() {
 
             <div className="flex justify-end gap-3 pt-2">
               <button onClick={() => setShowRecordModal(false)} className="px-5 py-2.5 text-gray-600 font-bold rounded-xl hover:bg-gray-100 transition-colors">Hủy</button>
-              <button onClick={startActualRecording} className="px-6 py-2.5 bg-[var(--accent-purple)] text-white font-bold rounded-xl hover:opacity-90 shadow-lg shadow-purple-500/30 transition-transform active:scale-95 flex items-center gap-2">
+              <button 
+                onClick={() => {
+                  unlockAudio();
+                  startActualRecording();
+                }} 
+                className="px-6 py-2.5 bg-[var(--accent-purple)] text-white font-bold rounded-xl hover:opacity-90 shadow-lg shadow-purple-500/30 transition-transform active:scale-95 flex items-center gap-2"
+              >
                 Bắt đầu luôn
               </button>
             </div>
