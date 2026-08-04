@@ -74,19 +74,20 @@ export default function VocabVideoGenerator() {
         resolve();
         return;
       }
+      
+      // Timeout fallback: Nếu API bị kẹt quá 4 giây, tự động bỏ qua để không bị đứng màn hình
+      const timeoutId = setTimeout(() => {
+        console.warn('TTS onend event timeout');
+        resolve();
+      }, 4000);
+
       const utterance = new SpeechSynthesisUtterance(text);
+      // Chỉ cần set ngôn ngữ, trình duyệt sẽ tự chọn giọng chuẩn nhất (tránh lỗi kẹt voice)
       utterance.lang = 'ja-JP';
       
-      const voices = window.speechSynthesis.getVoices();
-      const jaVoices = voices.filter(v => v.lang.includes('ja'));
-      if (jaVoices.length > 0) {
-        // Luôn dùng 1 giọng Nhật chuẩn đầu tiên tìm được
-        utterance.voice = jaVoices[0]; 
-      }
-
       if (isStudent) {
-        // Giọng học sinh: Chỉnh cao lên MỘT TÍ (1.12) và đọc chậm lại (0.85) để nghe giống học sinh ngoan
-        utterance.pitch = 1.12; 
+        // Giọng học sinh: Chỉnh cao lên MỘT TÍ (1.15) và đọc chậm lại (0.85) để phân biệt
+        utterance.pitch = 1.15; 
         utterance.rate = 0.85; 
       } else {
         // Cô giáo
@@ -95,15 +96,23 @@ export default function VocabVideoGenerator() {
       }
       
       utterance.onend = () => {
+        clearTimeout(timeoutId);
         // Nghỉ một nhịp nhỏ giữa cô giáo và học sinh
         setTimeout(resolve, 400);
       };
       
       utterance.onerror = (e) => {
         console.error('Speech error:', e);
+        clearTimeout(timeoutId);
         resolve();
       };
       
+      // Workaround cho lỗi Chrome thỉnh thoảng xoá nhầm đối tượng utterance khiến onend không chạy
+      // @ts-ignore
+      window.utterances = window.utterances || [];
+      // @ts-ignore
+      window.utterances.push(utterance);
+
       window.speechSynthesis.speak(utterance);
     });
   };
