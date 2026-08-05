@@ -154,8 +154,10 @@ export default function VocabVideoGenerator() {
       setActiveHighlight(cards[i].id);
       const cardText = cards[i].hiragana || cards[i].kanji || cards[i].romaji;
       if (cardText) {
-        await speakText(cardText, false); // Cô giáo đọc chuẩn
-        await speakText(cardText, true);  // Học sinh lặp lại
+        await speakText(cardText, false); // Giáo viên / Người kể chuyện đọc
+        if (displayMode !== 'story') {
+          await speakText(cardText, true);  // Học sinh lặp lại (trừ chế độ kể chuyện)
+        }
       }
     }
     setActiveHighlight(null);
@@ -423,10 +425,12 @@ export default function VocabVideoGenerator() {
               <Settings2 size={18} /> Cấu hình Âm thanh & Giọng đọc
             </h2>
           </div>
-          <div className="grid grid-cols-2 gap-4 mb-6 pb-6 border-b border-[var(--border)]">
+          <div className={`grid ${displayMode === 'story' ? 'grid-cols-1' : 'grid-cols-2'} gap-4 mb-6 pb-6 border-b border-[var(--border)]`}>
             <div className="space-y-3 p-3 bg-blue-50/50 rounded-xl border border-blue-100">
               <div>
-                <label className="block text-xs font-bold mb-1 text-blue-800">👩‍🏫 Giáo viên (Đọc trước)</label>
+                <label className="block text-xs font-bold mb-1 text-blue-800">
+                  {displayMode === 'story' ? '🎙️ Người kể chuyện' : '👩‍🏫 Giáo viên (Đọc trước)'}
+                </label>
                 <select 
                   value={teacherVoiceURI} 
                   onChange={e => setTeacherVoiceURI(e.target.value)} 
@@ -442,26 +446,28 @@ export default function VocabVideoGenerator() {
               </div>
             </div>
 
-            <div className="space-y-3 p-3 bg-red-50/50 rounded-xl border border-red-100">
-              <div>
-                <label className="block text-xs font-bold mb-1 text-red-800">🧒 Học sinh (Lặp lại)</label>
-                <select 
-                  value={studentVoiceURI} 
-                  onChange={e => setStudentVoiceURI(e.target.value)} 
-                  className="w-full h-9 rounded-lg border border-red-200 text-sm px-2 bg-white focus:ring-2 focus:ring-red-400 outline-none"
-                >
-                  {EDGE_VOICES.map(v => <option key={v.voiceURI} value={v.voiceURI}>{v.name}</option>)}
-                </select>
+            {displayMode !== 'story' && (
+              <div className="space-y-3 p-3 bg-red-50/50 rounded-xl border border-red-100">
+                <div>
+                  <label className="block text-xs font-bold mb-1 text-red-800">🧒 Học sinh (Lặp lại)</label>
+                  <select 
+                    value={studentVoiceURI} 
+                    onChange={e => setStudentVoiceURI(e.target.value)} 
+                    className="w-full h-9 rounded-lg border border-red-200 text-sm px-2 bg-white focus:ring-2 focus:ring-red-400 outline-none"
+                  >
+                    {EDGE_VOICES.map(v => <option key={v.voiceURI} value={v.voiceURI}>{v.name}</option>)}
+                  </select>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-[11px] text-gray-600 font-medium w-12">Độ cao:</span>
+                  <input type="range" min="0" max="2" step="0.1" value={studentPitch} onChange={e=>setStudentPitch(Number(e.target.value))} className="flex-1 accent-red-600" />
+                  <span className="text-[11px] font-bold text-red-700 w-6">{studentPitch}</span>
+                </div>
               </div>
-              <div className="flex items-center gap-2">
-                <span className="text-[11px] text-gray-600 font-medium w-12">Độ cao:</span>
-                <input type="range" min="0" max="2" step="0.1" value={studentPitch} onChange={e=>setStudentPitch(Number(e.target.value))} className="flex-1 accent-red-600" />
-                <span className="text-[11px] font-bold text-red-700 w-6">{studentPitch}</span>
-              </div>
-            </div>
+            )}
             
             {/* Nhạc nền */}
-            <div className="col-span-2 mt-1 p-3 bg-purple-50/50 rounded-xl border border-purple-100 flex flex-col gap-2">
+            <div className={`${displayMode === 'story' ? 'col-span-1' : 'col-span-2'} mt-1 p-3 bg-purple-50/50 rounded-xl border border-purple-100 flex flex-col gap-2`}>
               <label className="block text-xs font-bold text-purple-800">🎵 Nhạc nền (Background Music)</label>
               <div className="flex items-center gap-3">
                 <label className="shrink-0 px-3 py-1.5 bg-white border border-purple-200 hover:border-purple-300 rounded-lg text-[11px] font-bold text-purple-700 cursor-pointer transition-colors shadow-sm">
