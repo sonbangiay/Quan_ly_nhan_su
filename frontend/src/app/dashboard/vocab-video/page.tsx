@@ -35,7 +35,7 @@ export default function VocabVideoGenerator() {
   const [numCards, setNumCards] = useState<number>(2); // 2, 4, 6, 9
   const [bgColor, setBgColor] = useState<string>('#90C9F9');
   const [bgImage, setBgImage] = useState<string | null>(null);
-  const [displayMode, setDisplayMode] = useState<'vocab' | 'sentence'>('vocab');
+  const [displayMode, setDisplayMode] = useState<'vocab' | 'sentence' | 'story'>('vocab');
   const [topicTitle, setTopicTitle] = useState<string>('THỜI GIAN');
   
   // Voice Settings
@@ -106,7 +106,12 @@ export default function VocabVideoGenerator() {
         const voice = isStudent ? studentVoiceURI : teacherVoiceURI;
         const pitchVal = isStudent ? studentPitch : teacherPitch;
         const pitch = getPitchString(pitchVal);
-        const rate = isStudent ? '-10%' : '+0%'; // Học sinh đọc chậm lại một chút cho rõ
+        
+        // Chế độ kể chuyện sẽ đọc chậm hơn để truyền cảm hơn
+        let rate = isStudent ? '-10%' : '+0%';
+        if (displayMode === 'story') {
+          rate = isStudent ? '-25%' : '-15%';
+        }
 
         const res = await fetch('/api/tts', {
           method: 'POST',
@@ -338,18 +343,24 @@ export default function VocabVideoGenerator() {
           </div>
           
           {/* Mode Switcher */}
-          <div className="flex gap-2 mb-6 bg-[var(--bg-hover)] p-1 rounded-xl border border-[var(--border)]">
+          <div className="flex gap-2 mb-6 bg-[var(--bg-hover)] p-1 rounded-xl border border-[var(--border)] overflow-x-auto">
             <button 
               onClick={() => setDisplayMode('vocab')} 
-              className={`flex-1 py-2 px-3 rounded-lg font-bold text-sm transition-all ${displayMode === 'vocab' ? 'bg-white text-[var(--accent-purple)] shadow-sm' : 'text-[var(--text-secondary)] hover:text-gray-900'}`}
+              className={`whitespace-nowrap flex-1 py-2 px-3 rounded-lg font-bold text-sm transition-all ${displayMode === 'vocab' ? 'bg-white text-[var(--accent-purple)] shadow-sm' : 'text-[var(--text-secondary)] hover:text-gray-900'}`}
             >
-              🌟 Từ Vựng (Có hình)
+              🌟 Từ Vựng
             </button>
             <button 
               onClick={() => setDisplayMode('sentence')} 
-              className={`flex-1 py-2 px-3 rounded-lg font-bold text-sm transition-all ${displayMode === 'sentence' ? 'bg-white text-[var(--accent-purple)] shadow-sm' : 'text-[var(--text-secondary)] hover:text-gray-900'}`}
+              className={`whitespace-nowrap flex-1 py-2 px-3 rounded-lg font-bold text-sm transition-all ${displayMode === 'sentence' ? 'bg-white text-[var(--accent-purple)] shadow-sm' : 'text-[var(--text-secondary)] hover:text-gray-900'}`}
             >
-              📝 Ngữ pháp/Mẫu câu
+              📝 Mẫu câu
+            </button>
+            <button 
+              onClick={() => setDisplayMode('story')} 
+              className={`whitespace-nowrap flex-1 py-2 px-3 rounded-lg font-bold text-sm transition-all ${displayMode === 'story' ? 'bg-black text-[#eab308] shadow-sm' : 'text-[var(--text-secondary)] hover:text-gray-900'}`}
+            >
+              📖 Kể chuyện
             </button>
           </div>
 
@@ -383,12 +394,12 @@ export default function VocabVideoGenerator() {
           <div className="grid grid-cols-2 gap-4 mb-6 pb-6 border-b border-[var(--border)]">
             <div>
               <label className="block text-xs font-semibold mb-1 text-[var(--text-muted)]">Màu nền</label>
-              <input type="color" value={bgColor} onChange={e => setBgColor(e.target.value)} className="w-full h-10 rounded cursor-pointer border border-[var(--border)]" />
+              <input type="color" value={bgColor} onChange={e => setBgColor(e.target.value)} disabled={displayMode === 'story'} className={`w-full h-10 rounded cursor-pointer border border-[var(--border)] ${displayMode === 'story' ? 'opacity-50 cursor-not-allowed' : ''}`} />
             </div>
             <div>
               <label className="block text-xs font-semibold mb-1 text-[var(--text-muted)]">Ảnh nền</label>
-              <label className="w-full h-10 border border-[var(--border)] rounded flex items-center justify-center cursor-pointer hover:bg-[var(--bg-hover)] overflow-hidden bg-white">
-                <input type="file" className="hidden" accept="image/*" onChange={(e) => {
+              <label className={`w-full h-10 border border-[var(--border)] rounded flex items-center justify-center cursor-pointer overflow-hidden bg-white ${displayMode === 'story' ? 'opacity-50 cursor-not-allowed' : 'hover:bg-[var(--bg-hover)]'}`}>
+                <input type="file" className="hidden" accept="image/*" disabled={displayMode === 'story'} onChange={(e) => {
                   const file = e.target.files?.[0];
                   if (file) {
                     const reader = new FileReader();
@@ -398,8 +409,13 @@ export default function VocabVideoGenerator() {
                 }} />
                 {bgImage ? <span className="text-xs font-bold text-green-600">Đã tải ảnh nền</span> : <span className="text-xs text-[var(--text-muted)]">Tải lên ảnh</span>}
               </label>
-              {bgImage && <button onClick={() => setBgImage(null)} className="text-xs text-red-500 mt-1 hover:underline text-center w-full">Xoá ảnh nền</button>}
+              {bgImage && displayMode !== 'story' && <button onClick={() => setBgImage(null)} className="text-xs text-red-500 mt-1 hover:underline text-center w-full">Xoá ảnh nền</button>}
             </div>
+            {displayMode === 'story' && (
+              <div className="col-span-2 text-[11px] text-[#eab308] bg-black/90 p-2 rounded text-center">
+                Chế độ Kể chuyện tự động ép nền sang màu đen.
+              </div>
+            )}
           </div>
 
           <div className="flex items-center justify-between mb-4 mt-4">
@@ -534,8 +550,8 @@ export default function VocabVideoGenerator() {
               aspectRatio: '9/16',
               borderRadius: isRecording ? 0 : 24, 
               boxShadow: isRecording ? 'none' : '0 10px 30px rgba(0,0,0,0.1)',
-              backgroundColor: bgColor,
-              backgroundImage: bgImage ? `url(${bgImage})` : 'none',
+              backgroundColor: displayMode === 'story' ? '#000000' : bgColor,
+              backgroundImage: (bgImage && displayMode !== 'story') ? `url(${bgImage})` : 'none',
               backgroundSize: 'cover',
               backgroundPosition: 'center'
             }}
@@ -545,7 +561,7 @@ export default function VocabVideoGenerator() {
               <img 
                 src="https://nhanphuphuyen.edu.vn/wp-content/uploads/2026/08/Gemini_Generated_Image_c5cnlnc5cnlnc5cn-removebg-preview.png" 
                 alt="Du học Nhân Phú Logo" 
-                className="h-16 md:h-20 object-contain drop-shadow-md"
+                className={`h-16 md:h-20 object-contain drop-shadow-md ${displayMode === 'story' ? 'opacity-80' : ''}`}
               />
             </div>
 
@@ -622,6 +638,34 @@ export default function VocabVideoGenerator() {
                     })}
                   </div>
                 </div>
+              </div>
+            )}
+
+            {/* Story List Container (STORY MODE) */}
+            {displayMode === 'story' && (
+              <div className="flex-1 w-full px-8 pb-12 flex flex-col items-center justify-center z-10 relative">
+                {cards.map((card, idx) => {
+                  // Chỉ hiển thị card đang được đọc, hoặc card đầu tiên nếu chưa bắt đầu đọc
+                  const isActive = activeHighlight ? (activeHighlight === card.id) : (idx === 0);
+                  if (!isActive) return null;
+
+                  return (
+                    <div 
+                      key={card.id}
+                      className="w-full flex flex-col items-center justify-center gap-4 text-center animate-in fade-in zoom-in-95 duration-500"
+                    >
+                      <div className={`font-serif tracking-widest text-[#eab308] drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)] ${numCards <= 4 ? 'text-[32px]' : 'text-[24px]'}`}>
+                        {card.hiragana}
+                      </div>
+                      <div className={`font-light tracking-widest text-gray-200 drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)] ${numCards <= 4 ? 'text-[20px]' : 'text-[16px]'}`}>
+                        {card.romaji}
+                      </div>
+                      <div className={`font-medium tracking-wide text-[#eab308] drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)] ${numCards <= 4 ? 'text-[24px]' : 'text-[18px]'}`}>
+                        {card.meaning}
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             )}
           </div>
