@@ -50,21 +50,25 @@ export default function VocabVideoGenerator() {
 
   // Adjust cards array size when numCards changes
   useEffect(() => {
-    if (cards.length < numCards) {
-      const newCards = [...cards];
-      for (let i = cards.length; i < numCards; i++) {
-        // Find data from INITIAL_CARDS if it exists to keep user content
-        const initData = INITIAL_CARDS[i] || { kanji: '', romaji: '', hiragana: '', meaning: '' };
-        newCards.push({
-          id: Date.now().toString() + i,
-          image: '', ...initData
-        });
+    setCards(prevCards => {
+      if (prevCards.length < numCards) {
+        const newCards = [...prevCards];
+        for (let i = prevCards.length; i < numCards; i++) {
+          // Find data from INITIAL_CARDS if it exists to keep user content
+          const initData = INITIAL_CARDS[i] || { kanji: '', romaji: '', hiragana: '', meaning: '' };
+          newCards.push({
+            ...initData,
+            id: 'id' in initData ? initData.id : (Date.now().toString() + i),
+            image: 'image' in initData ? initData.image : '',
+          });
+        }
+        return newCards;
+      } else if (prevCards.length > numCards) {
+        return prevCards.slice(0, numCards);
       }
-      setCards(newCards);
-    } else if (cards.length > numCards) {
-      setCards(cards.slice(0, numCards));
-    }
-  }, [numCards]); // Removed `cards` from dependency array to avoid infinite loop when modifying cards
+      return prevCards;
+    });
+  }, [numCards]);
 
   // Load Available Voices
   useEffect(() => {
