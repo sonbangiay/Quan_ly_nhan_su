@@ -124,16 +124,18 @@ export default function VocabVideoGenerator() {
         const pitchVal = isStudent ? studentPitch : teacherPitch;
         const pitch = getPitchString(pitchVal);
         
-        // Chế độ kể chuyện sẽ giữ tốc độ bình thường (không quá chậm)
+        // Chế độ kể chuyện sẽ đọc nhẹ nhàng, hơi chậm một chút để truyền cảm
         let rate = isStudent ? '-10%' : '+0%';
+        let volume = '+0%';
         if (displayMode === 'story') {
-          rate = '+0%'; // Trở về tốc độ bình thường theo yêu cầu
+          rate = '-12%'; 
+          volume = '-30%'; // Giảm âm lượng để tạo cảm giác thủ thỉ, nhẹ nhàng
         }
 
         const res = await fetch('/api/tts', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ text, voice, pitch, rate })
+          body: JSON.stringify({ text, voice, pitch, rate, volume })
         });
 
         if (!res.ok) throw new Error('TTS API Error');

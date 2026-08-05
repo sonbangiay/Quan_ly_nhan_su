@@ -6,7 +6,7 @@ import os from 'os';
 
 export async function POST(req: NextRequest) {
   try {
-    const { text, voice, pitch, rate } = await req.json();
+    const { text, voice, pitch, rate, volume } = await req.json();
 
     if (!text) {
       return NextResponse.json({ error: 'Text is required' }, { status: 400 });
@@ -17,7 +17,7 @@ export async function POST(req: NextRequest) {
       lang: 'ja-JP',
       pitch: pitch || 'default',
       rate: rate || 'default',
-      volume: 'default'
+      volume: volume || 'default'
     });
 
     // Create a temporary file path
