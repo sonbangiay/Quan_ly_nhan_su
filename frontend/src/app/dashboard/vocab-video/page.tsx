@@ -40,7 +40,7 @@ export default function VocabVideoGenerator() {
   const [teacherVoiceURI, setTeacherVoiceURI] = useState<string>('ja-JP-NanamiNeural');
   const [studentVoiceURI, setStudentVoiceURI] = useState<string>('ja-JP-KeitaNeural');
   const [teacherPitch, setTeacherPitch] = useState<number>(1.0);
-  const [studentPitch, setStudentPitch] = useState<number>(1.0); 
+  const [studentPitch, setStudentPitch] = useState<number>(1.5); 
 
   // BGM Settings
   const [bgmUrl, setBgmUrl] = useState<string>('/bgm.mp3');
