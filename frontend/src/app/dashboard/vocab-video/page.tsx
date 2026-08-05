@@ -26,14 +26,8 @@ const INITIAL_CARDS: CardData[] = [
 ];
 
 const EDGE_VOICES = [
-  { voiceURI: 'ja-JP-NanamiNeural', name: 'Nanami (Nữ - Tự nhiên)' },
-  { voiceURI: 'ja-JP-AyumiNeural', name: 'Ayumi (Nữ - Sáng sủa)' },
-  { voiceURI: 'ja-JP-ShioriNeural', name: 'Shiori (Nữ - Trầm ấm)' },
-  { voiceURI: 'ja-JP-AoiNeural', name: 'Aoi (Nữ - Ngắn gọn)' },
-  { voiceURI: 'ja-JP-MayuNeural', name: 'Mayu (Nữ - Dịu dàng)' },
-  { voiceURI: 'ja-JP-KeitaNeural', name: 'Keita (Nam - Tự nhiên)' },
-  { voiceURI: 'ja-JP-DaichiNeural', name: 'Daichi (Nam - Trầm)' },
-  { voiceURI: 'ja-JP-NaokiNeural', name: 'Naoki (Nam - Chững chạc)' }
+  { voiceURI: 'ja-JP-NanamiNeural', name: '👩 Nanami (Giọng Nữ)' },
+  { voiceURI: 'ja-JP-KeitaNeural', name: '👨 Keita (Giọng Nam)' }
 ];
 
 export default function VocabVideoGenerator() {
