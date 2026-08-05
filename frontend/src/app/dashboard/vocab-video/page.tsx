@@ -25,6 +25,17 @@ const INITIAL_CARDS: CardData[] = [
   { id: '9', image: '', kanji: 'Kanjou', romaji: 'Cảm xúc', hiragana: 'かんじょう', meaning: 'Cảm xúc' },
 ];
 
+const EDGE_VOICES = [
+  { voiceURI: 'ja-JP-NanamiNeural', name: 'Nanami (Nữ - Tự nhiên)' },
+  { voiceURI: 'ja-JP-AyumiNeural', name: 'Ayumi (Nữ - Sáng sủa)' },
+  { voiceURI: 'ja-JP-ShioriNeural', name: 'Shiori (Nữ - Trầm ấm)' },
+  { voiceURI: 'ja-JP-AoiNeural', name: 'Aoi (Nữ - Ngắn gọn)' },
+  { voiceURI: 'ja-JP-MayuNeural', name: 'Mayu (Nữ - Dịu dàng)' },
+  { voiceURI: 'ja-JP-KeitaNeural', name: 'Keita (Nam - Tự nhiên)' },
+  { voiceURI: 'ja-JP-DaichiNeural', name: 'Daichi (Nam - Trầm)' },
+  { voiceURI: 'ja-JP-NaokiNeural', name: 'Naoki (Nam - Chững chạc)' }
+];
+
 export default function VocabVideoGenerator() {
   const [cards, setCards] = useState<CardData[]>(INITIAL_CARDS.slice(0, 2)); // Default to 2 cards
   const [numCards, setNumCards] = useState<number>(2); // 2, 4, 6, 9
@@ -32,11 +43,10 @@ export default function VocabVideoGenerator() {
   const [bgImage, setBgImage] = useState<string | null>(null);
   
   // Voice Settings
-  const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
-  const [teacherVoiceURI, setTeacherVoiceURI] = useState<string>('');
-  const [studentVoiceURI, setStudentVoiceURI] = useState<string>('');
+  const [teacherVoiceURI, setTeacherVoiceURI] = useState<string>('ja-JP-NanamiNeural');
+  const [studentVoiceURI, setStudentVoiceURI] = useState<string>('ja-JP-KeitaNeural');
   const [teacherPitch, setTeacherPitch] = useState<number>(1.0);
-  const [studentPitch, setStudentPitch] = useState<number>(1.0); // Reset to natural pitch (1.0) instead of 0.7
+  const [studentPitch, setStudentPitch] = useState<number>(1.0); 
 
   // BGM Settings
   const [bgmUrl, setBgmUrl] = useState<string>('/bgm.mp3');
@@ -75,105 +85,51 @@ export default function VocabVideoGenerator() {
     });
   }, [numCards]);
 
-  // Load Available Voices
-  useEffect(() => {
-    const loadVoices = () => {
-      if (typeof window === 'undefined' || !window.speechSynthesis) return;
-      const allVoices = window.speechSynthesis.getVoices();
-      // Lọc các giọng có hỗ trợ tiếng Nhật
-      const jpVoices = allVoices.filter(v => v.lang.includes('ja'));
-      setVoices(jpVoices);
-      
-      if (jpVoices.length > 0) {
-        const googleVoice = jpVoices.find(v => v.name.includes('Google 日本語') || v.name.includes('Google'));
-        const femaleVoice = jpVoices.find(v => v.name.toLowerCase().includes('female') || v.name.includes('Ayumi') || v.name.includes('Haruka'));
-        const maleVoice = jpVoices.find(v => v.name.toLowerCase().includes('male') || v.name.includes('Ichiro') || v.name.includes('Keita'));
-        
-        // Ưu tiên chọn 2 giọng hoàn toàn khác nhau nếu có
-        const defaultTeacher = femaleVoice || googleVoice || jpVoices[0];
-        
-        // Học sinh sẽ tìm một giọng MỚI không trùng với giáo viên (ưu tiên nam)
-        let defaultStudent = maleVoice;
-        if (!defaultStudent || defaultStudent.voiceURI === defaultTeacher.voiceURI) {
-          defaultStudent = jpVoices.find(v => v.voiceURI !== defaultTeacher.voiceURI) || defaultTeacher;
-        }
-
-        if (!teacherVoiceURI) setTeacherVoiceURI(defaultTeacher.voiceURI);
-        if (!studentVoiceURI) setStudentVoiceURI(defaultStudent.voiceURI);
-      }
-    };
-
-    loadVoices();
-    if (typeof window !== 'undefined' && window.speechSynthesis) {
-      window.speechSynthesis.onvoiceschanged = loadVoices;
-    }
-  }, [teacherVoiceURI, studentVoiceURI]);
-
-  const handleImageUpload = (index: number, e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        const newCards = [...cards];
-        newCards[index].image = reader.result as string;
-        setCards(newCards);
-      };
-      reader.readAsDataURL(file);
-    }
+  // Helper to convert pitch value [0, 2] to Edge TTS format (e.g. +0Hz, -50Hz)
+  const getPitchString = (val: number) => {
+    const percent = Math.round((val - 1) * 50);
+    return percent >= 0 ? `+${percent}%` : `${percent}%`;
   };
 
-  // Hệ thống đọc chuẩn: Sử dụng gốc của trình duyệt (Mượt mà 100%, không cần mạng)
-  const speakText = (text: string, isStudent: boolean = false): Promise<void> => {
-    return new Promise((resolve) => {
-      if (!window.speechSynthesis) {
-        resolve();
-        return;
-      }
-      
-      const timeoutId = setTimeout(() => {
-        resolve();
-      }, 4000);
+  const speakText = async (text: string, isStudent: boolean = false): Promise<void> => {
+    return new Promise(async (resolve) => {
+      try {
+        const voice = isStudent ? studentVoiceURI : teacherVoiceURI;
+        const pitchVal = isStudent ? studentPitch : teacherPitch;
+        const pitch = getPitchString(pitchVal);
+        const rate = isStudent ? '-10%' : '+0%'; // Học sinh đọc chậm lại một chút cho rõ
 
-      const utterance = new SpeechSynthesisUtterance(text);
-      utterance.lang = 'ja-JP';
-      
-      if (isStudent) {
-        if (studentVoiceURI) {
-          const v = voices.find(v => v.voiceURI === studentVoiceURI);
-          if (v) utterance.voice = v;
-        }
-        utterance.pitch = studentPitch; 
-        utterance.rate = 0.9; 
-      } else {
-        if (teacherVoiceURI) {
-          const v = voices.find(v => v.voiceURI === teacherVoiceURI);
-          if (v) utterance.voice = v;
-        }
-        utterance.pitch = teacherPitch;
-        utterance.rate = 0.95;
+        const res = await fetch('/api/tts', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ text, voice, pitch, rate })
+        });
+
+        if (!res.ok) throw new Error('TTS API Error');
+
+        const blob = await res.blob();
+        const url = URL.createObjectURL(blob);
+        const audio = new Audio(url);
+        
+        audio.onended = () => {
+          URL.revokeObjectURL(url);
+          setTimeout(resolve, 400); // 400ms pause between teacher and student
+        };
+        
+        audio.onerror = () => {
+          URL.revokeObjectURL(url);
+          resolve();
+        };
+
+        await audio.play();
+      } catch (err) {
+        console.error('Error playing TTS:', err);
+        resolve(); // Continue even if error
       }
-      
-      utterance.onend = () => {
-        clearTimeout(timeoutId);
-        setTimeout(resolve, 400); // Nghỉ một nhịp nhỏ giữa cô và trò
-      };
-      
-      utterance.onerror = () => {
-        clearTimeout(timeoutId);
-        resolve();
-      };
-      
-      // @ts-ignore
-      window.utterances = window.utterances || [];
-      // @ts-ignore
-      window.utterances.push(utterance);
-      window.speechSynthesis.speak(utterance);
     });
   };
 
   const playSequence = async () => {
-    window.speechSynthesis.cancel();
-    
     if (bgmUrl && audioRef.current) {
       audioRef.current.volume = bgmVolume;
       audioRef.current.currentTime = 0;
@@ -425,8 +381,7 @@ export default function VocabVideoGenerator() {
                   onChange={e => setTeacherVoiceURI(e.target.value)} 
                   className="w-full h-9 rounded-lg border border-blue-200 text-sm px-2 bg-white focus:ring-2 focus:ring-blue-400 outline-none"
                 >
-                  {voices.length === 0 && <option>Đang tải giọng...</option>}
-                  {voices.map(v => <option key={v.voiceURI} value={v.voiceURI}>{v.name}</option>)}
+                  {EDGE_VOICES.map(v => <option key={v.voiceURI} value={v.voiceURI}>{v.name}</option>)}
                 </select>
               </div>
               <div className="flex items-center gap-2">
@@ -444,8 +399,7 @@ export default function VocabVideoGenerator() {
                   onChange={e => setStudentVoiceURI(e.target.value)} 
                   className="w-full h-9 rounded-lg border border-red-200 text-sm px-2 bg-white focus:ring-2 focus:ring-red-400 outline-none"
                 >
-                  {voices.length === 0 && <option>Đang tải giọng...</option>}
-                  {voices.map(v => <option key={v.voiceURI} value={v.voiceURI}>{v.name}</option>)}
+                  {EDGE_VOICES.map(v => <option key={v.voiceURI} value={v.voiceURI}>{v.name}</option>)}
                 </select>
               </div>
               <div className="flex items-center gap-2">
