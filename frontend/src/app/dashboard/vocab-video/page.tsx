@@ -31,6 +31,13 @@ export default function VocabVideoGenerator() {
   const [bgColor, setBgColor] = useState<string>('#90C9F9');
   const [bgImage, setBgImage] = useState<string | null>(null);
   
+  // Voice Settings
+  const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
+  const [teacherVoiceURI, setTeacherVoiceURI] = useState<string>('');
+  const [studentVoiceURI, setStudentVoiceURI] = useState<string>('');
+  const [teacherPitch, setTeacherPitch] = useState<number>(1.0);
+  const [studentPitch, setStudentPitch] = useState<number>(1.6);
+
   const [activeHighlight, setActiveHighlight] = useState<string | null>(null);
   const [isRecording, setIsRecording] = useState(false);
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
@@ -56,6 +63,32 @@ export default function VocabVideoGenerator() {
       setCards(cards.slice(0, numCards));
     }
   }, [numCards, cards]);
+
+  // Load Available Voices
+  useEffect(() => {
+    const loadVoices = () => {
+      if (typeof window === 'undefined' || !window.speechSynthesis) return;
+      const allVoices = window.speechSynthesis.getVoices();
+      // Lọc các giọng có hỗ trợ tiếng Nhật
+      const jpVoices = allVoices.filter(v => v.lang.includes('ja'));
+      setVoices(jpVoices);
+      
+      if (jpVoices.length > 0) {
+        // Cố gắng tự động chọn giọng Nữ cho cô giáo (Ayumi/Haruka/Female)
+        const femaleVoice = jpVoices.find(v => v.name.toLowerCase().includes('female') || v.name.includes('Ayumi') || v.name.includes('Haruka'));
+        // Cố gắng chọn giọng Nam cho học sinh (Ichiro/Keita/Male)
+        const maleVoice = jpVoices.find(v => v.name.toLowerCase().includes('male') || v.name.includes('Ichiro') || v.name.includes('Keita'));
+        
+        if (!teacherVoiceURI) setTeacherVoiceURI(femaleVoice ? femaleVoice.voiceURI : jpVoices[0].voiceURI);
+        if (!studentVoiceURI) setStudentVoiceURI(maleVoice ? maleVoice.voiceURI : jpVoices[0].voiceURI);
+      }
+    };
+
+    loadVoices();
+    if (typeof window !== 'undefined' && window.speechSynthesis) {
+      window.speechSynthesis.onvoiceschanged = loadVoices;
+    }
+  }, [teacherVoiceURI, studentVoiceURI]);
 
   const handleImageUpload = (index: number, e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -86,12 +119,18 @@ export default function VocabVideoGenerator() {
       utterance.lang = 'ja-JP';
       
       if (isStudent) {
-        // Giọng học sinh: Chỉnh cao lên hẳn (1.6) và đọc hơi chậm lại (0.9) để nghe giống trẻ em/học sinh hơn
-        utterance.pitch = 1.6; 
+        if (studentVoiceURI) {
+          const v = voices.find(v => v.voiceURI === studentVoiceURI);
+          if (v) utterance.voice = v;
+        }
+        utterance.pitch = studentPitch; 
         utterance.rate = 0.9; 
       } else {
-        // Cô giáo
-        utterance.pitch = 1.0;
+        if (teacherVoiceURI) {
+          const v = voices.find(v => v.voiceURI === teacherVoiceURI);
+          if (v) utterance.voice = v;
+        }
+        utterance.pitch = teacherPitch;
         utterance.rate = 0.95;
       }
       
@@ -339,6 +378,51 @@ export default function VocabVideoGenerator() {
                 {bgImage ? <span className="text-xs font-bold text-green-600">Đã tải ảnh nền</span> : <span className="text-xs text-[var(--text-muted)]">Tải lên ảnh</span>}
               </label>
               {bgImage && <button onClick={() => setBgImage(null)} className="text-xs text-red-500 mt-1 hover:underline text-center w-full">Xoá ảnh nền</button>}
+            </div>
+          </div>
+
+          <div className="flex items-center justify-between mb-4 mt-4">
+            <h2 className="font-semibold text-lg flex items-center gap-2">
+              <Settings2 size={18} /> Cấu hình Giọng đọc
+            </h2>
+          </div>
+          <div className="grid grid-cols-2 gap-4 mb-6 pb-6 border-b border-[var(--border)]">
+            <div className="space-y-3 p-3 bg-blue-50/50 rounded-xl border border-blue-100">
+              <div>
+                <label className="block text-xs font-bold mb-1 text-blue-800">👩‍🏫 Giáo viên (Đọc trước)</label>
+                <select 
+                  value={teacherVoiceURI} 
+                  onChange={e => setTeacherVoiceURI(e.target.value)} 
+                  className="w-full h-9 rounded-lg border border-blue-200 text-sm px-2 bg-white focus:ring-2 focus:ring-blue-400 outline-none"
+                >
+                  {voices.length === 0 && <option>Đang tải giọng...</option>}
+                  {voices.map(v => <option key={v.voiceURI} value={v.voiceURI}>{v.name}</option>)}
+                </select>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-[11px] text-gray-600 font-medium w-12">Độ cao:</span>
+                <input type="range" min="0" max="2" step="0.1" value={teacherPitch} onChange={e=>setTeacherPitch(Number(e.target.value))} className="flex-1 accent-blue-600" />
+                <span className="text-[11px] font-bold text-blue-700 w-6">{teacherPitch}</span>
+              </div>
+            </div>
+
+            <div className="space-y-3 p-3 bg-red-50/50 rounded-xl border border-red-100">
+              <div>
+                <label className="block text-xs font-bold mb-1 text-red-800">🧒 Học sinh (Lặp lại)</label>
+                <select 
+                  value={studentVoiceURI} 
+                  onChange={e => setStudentVoiceURI(e.target.value)} 
+                  className="w-full h-9 rounded-lg border border-red-200 text-sm px-2 bg-white focus:ring-2 focus:ring-red-400 outline-none"
+                >
+                  {voices.length === 0 && <option>Đang tải giọng...</option>}
+                  {voices.map(v => <option key={v.voiceURI} value={v.voiceURI}>{v.name}</option>)}
+                </select>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-[11px] text-gray-600 font-medium w-12">Độ cao:</span>
+                <input type="range" min="0" max="2" step="0.1" value={studentPitch} onChange={e=>setStudentPitch(Number(e.target.value))} className="flex-1 accent-red-600" />
+                <span className="text-[11px] font-bold text-red-700 w-6">{studentPitch}</span>
+              </div>
             </div>
           </div>
 
