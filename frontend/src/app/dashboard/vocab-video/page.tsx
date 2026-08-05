@@ -40,7 +40,7 @@ export default function VocabVideoGenerator() {
   const [cards, setCards] = useState<CardData[]>(INITIAL_CARDS.slice(0, 2)); // Default to 2 cards
   const [numCards, setNumCards] = useState<number>(2); // 2, 4, 6, 9
   const [bgColor, setBgColor] = useState<string>('#90C9F9');
-  const [bgImage, setBgImage] = useState<string | null>(null);
+  const [bgMedia, setBgMedia] = useState<{ url: string, type: 'image' | 'video' } | null>(null);
   const [displayMode, setDisplayMode] = useState<'vocab' | 'sentence' | 'story'>('vocab');
   const [topicTitle, setTopicTitle] = useState<string>('THỜI GIAN');
   
@@ -123,6 +123,89 @@ export default function VocabVideoGenerator() {
       };
       reader.readAsDataURL(file);
     }
+  };
+
+  const handleExcelImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    try {
+      const XLSX = await import('xlsx');
+      const reader = new FileReader();
+      reader.onload = (evt) => {
+        const data = evt.target?.result;
+        if (data) {
+          const workbook = XLSX.read(data, { type: 'array' });
+          const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+          const jsonData = XLSX.utils.sheet_to_json(firstSheet, { header: 1 }) as any[][];
+          
+          // Skip header row if it contains text in first cell
+          let rows = jsonData;
+          if (rows.length > 0 && typeof rows[0][0] === 'string' && (rows[0][0].toLowerCase().includes('tiếng nhật') || rows[0][0].toLowerCase().includes('tieng nhat') || rows[0][0].toLowerCase().includes('kanji'))) {
+            rows = rows.slice(1);
+          }
+
+          // Lọc ra các dòng có dữ liệu
+          const validRows = rows.filter(row => row.some(cell => cell));
+          
+          if (validRows.length === 0) {
+            alert("File Excel không có dữ liệu hợp lệ!");
+            return;
+          }
+
+          // Lấy tối đa theo giới hạn của mode hiện tại
+          const allowedCounts = getAllowedCardCounts();
+          const maxAllowed = Math.max(...allowedCounts);
+          const dataToUse = validRows.slice(0, maxAllowed);
+
+          // Tự động tìm số ô phù hợp nhất
+          let targetNumCards = dataToUse.length;
+          let bestNumCards = allowedCounts.find(n => n >= targetNumCards);
+          if (!bestNumCards) bestNumCards = maxAllowed;
+
+          setNumCards(bestNumCards);
+
+          // Cập nhật mảng cards
+          setCards(prevCards => {
+            const newCards = [...prevCards];
+            
+            // Mở rộng mảng nếu cần
+            if (newCards.length < bestNumCards) {
+               for (let i = newCards.length; i < bestNumCards; i++) {
+                 const initData = INITIAL_CARDS[i] || { kanji: '', romaji: '', hiragana: '', meaning: '' };
+                 newCards.push({
+                   ...initData,
+                   id: initData.id || (Date.now().toString() + i),
+                   image: initData.image || '',
+                 });
+               }
+            } else if (newCards.length > bestNumCards) {
+               newCards.length = bestNumCards; // Truncate
+            }
+
+            // Gán dữ liệu (Cột 0: Hiragana/Kanji, Cột 1: Romaji, Cột 2: Nghĩa)
+            dataToUse.forEach((row, idx) => {
+              if (idx < newCards.length) {
+                 newCards[idx] = {
+                   ...newCards[idx],
+                   hiragana: (row[0] || '').toString(),
+                   romaji: (row[1] || '').toString(),
+                   meaning: (row[2] || '').toString()
+                 };
+              }
+            });
+
+            return newCards;
+          });
+        }
+      };
+      reader.readAsArrayBuffer(file);
+    } catch (err) {
+      console.error(err);
+      alert("Có lỗi xảy ra khi đọc file Excel.");
+    }
+    
+    e.target.value = '';
   };
 
   const speakText = async (text: string, isStudent: boolean = false): Promise<void> => {
@@ -374,6 +457,10 @@ export default function VocabVideoGenerator() {
             <h2 className="font-semibold text-lg flex items-center gap-2">
               <Settings2 size={18} /> Cấu hình Nội dung
             </h2>
+            <label className="btn btn-outline text-xs px-3 py-1.5 flex items-center gap-2 cursor-pointer hover:bg-[var(--accent-purple)] hover:text-white transition-colors rounded-lg border border-[var(--border)] font-bold shadow-sm bg-white">
+              <input type="file" className="hidden" accept=".xlsx, .xls, .csv" onChange={handleExcelImport} />
+              <Upload size={14} /> Nhập từ Excel
+            </label>
           </div>
           
           {/* Mode Switcher */}
@@ -428,28 +515,23 @@ export default function VocabVideoGenerator() {
           <div className="grid grid-cols-2 gap-4 mb-6 pb-6 border-b border-[var(--border)]">
             <div>
               <label className="block text-xs font-semibold mb-1 text-[var(--text-muted)]">Màu nền</label>
-              <input type="color" value={bgColor} onChange={e => setBgColor(e.target.value)} disabled={displayMode === 'story'} className={`w-full h-10 rounded cursor-pointer border border-[var(--border)] ${displayMode === 'story' ? 'opacity-50 cursor-not-allowed' : ''}`} />
+              <input type="color" value={bgColor} onChange={e => setBgColor(e.target.value)} className="w-full h-10 rounded cursor-pointer border border-[var(--border)]" />
             </div>
             <div>
-              <label className="block text-xs font-semibold mb-1 text-[var(--text-muted)]">Ảnh nền</label>
-              <label className={`w-full h-10 border border-[var(--border)] rounded flex items-center justify-center cursor-pointer overflow-hidden bg-white ${displayMode === 'story' ? 'opacity-50 cursor-not-allowed' : 'hover:bg-[var(--bg-hover)]'}`}>
-                <input type="file" className="hidden" accept="image/*" disabled={displayMode === 'story'} onChange={(e) => {
+              <label className="block text-xs font-semibold mb-1 text-[var(--text-muted)]">Ảnh / Video nền</label>
+              <label className="w-full h-10 border border-[var(--border)] rounded flex items-center justify-center cursor-pointer overflow-hidden bg-white hover:bg-[var(--bg-hover)]">
+                <input type="file" className="hidden" accept="image/*,video/*" onChange={(e) => {
                   const file = e.target.files?.[0];
                   if (file) {
-                    const reader = new FileReader();
-                    reader.onloadend = () => setBgImage(reader.result as string);
-                    reader.readAsDataURL(file);
+                    const isVideo = file.type.startsWith('video/');
+                    const url = URL.createObjectURL(file);
+                    setBgMedia({ url, type: isVideo ? 'video' : 'image' });
                   }
                 }} />
-                {bgImage ? <span className="text-xs font-bold text-green-600">Đã tải ảnh nền</span> : <span className="text-xs text-[var(--text-muted)]">Tải lên ảnh</span>}
+                {bgMedia ? <span className="text-xs font-bold text-green-600">Đã tải nền</span> : <span className="text-xs text-[var(--text-muted)]">Tải lên file</span>}
               </label>
-              {bgImage && displayMode !== 'story' && <button onClick={() => setBgImage(null)} className="text-xs text-red-500 mt-1 hover:underline text-center w-full">Xoá ảnh nền</button>}
+              {bgMedia && <button onClick={() => setBgMedia(null)} className="text-xs text-red-500 mt-1 hover:underline text-center w-full">Xoá nền</button>}
             </div>
-            {displayMode === 'story' && (
-              <div className="col-span-2 text-[11px] text-[#eab308] bg-black/90 p-2 rounded text-center">
-                Chế độ Kể chuyện tự động ép nền sang màu đen.
-              </div>
-            )}
           </div>
 
           <div className="flex items-center justify-between mb-4 mt-4">
@@ -600,12 +682,20 @@ export default function VocabVideoGenerator() {
               aspectRatio: '9/16',
               borderRadius: isRecording ? 0 : 24, 
               boxShadow: isRecording ? 'none' : '0 10px 30px rgba(0,0,0,0.1)',
-              backgroundColor: displayMode === 'story' ? '#000000' : bgColor,
-              backgroundImage: (bgImage && displayMode !== 'story') ? `url(${bgImage})` : 'none',
-              backgroundSize: 'cover',
-              backgroundPosition: 'center'
+              backgroundColor: bgColor
             }}
           >
+            {/* Background Media Render */}
+            {bgMedia && bgMedia.type === 'image' && (
+              <div className="absolute inset-0 z-0 bg-cover bg-center" style={{ backgroundImage: `url(${bgMedia.url})` }} />
+            )}
+            {bgMedia && bgMedia.type === 'video' && (
+              <video src={bgMedia.url} autoPlay loop muted playsInline className="absolute inset-0 w-full h-full object-cover z-0" />
+            )}
+            {bgMedia && (
+              <div className="absolute inset-0 z-0 bg-black/10" /> /* Slight overlay for readability */
+            )}
+
             {/* Header / Logo space */}
             <div className="pt-6 pb-2 w-full flex items-center justify-center shrink-0 z-10 relative">
               <img 
