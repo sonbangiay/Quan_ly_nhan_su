@@ -36,7 +36,7 @@ export default function VocabVideoGenerator() {
   const [teacherVoiceURI, setTeacherVoiceURI] = useState<string>('');
   const [studentVoiceURI, setStudentVoiceURI] = useState<string>('');
   const [teacherPitch, setTeacherPitch] = useState<number>(1.0);
-  const [studentPitch, setStudentPitch] = useState<number>(0.7);
+  const [studentPitch, setStudentPitch] = useState<number>(1.0); // Reset to natural pitch (1.0) instead of 0.7
 
   // BGM Settings
   const [bgmUrl, setBgmUrl] = useState<string>('/bgm.mp3');
@@ -85,13 +85,18 @@ export default function VocabVideoGenerator() {
       setVoices(jpVoices);
       
       if (jpVoices.length > 0) {
-        // Ưu tiên chọn giọng Google 日本語 theo ý user
         const googleVoice = jpVoices.find(v => v.name.includes('Google 日本語') || v.name.includes('Google'));
         const femaleVoice = jpVoices.find(v => v.name.toLowerCase().includes('female') || v.name.includes('Ayumi') || v.name.includes('Haruka'));
         const maleVoice = jpVoices.find(v => v.name.toLowerCase().includes('male') || v.name.includes('Ichiro') || v.name.includes('Keita'));
         
-        const defaultTeacher = googleVoice || femaleVoice || jpVoices[0];
-        const defaultStudent = googleVoice || maleVoice || jpVoices[0];
+        // Ưu tiên chọn 2 giọng hoàn toàn khác nhau nếu có
+        const defaultTeacher = femaleVoice || googleVoice || jpVoices[0];
+        
+        // Học sinh sẽ tìm một giọng MỚI không trùng với giáo viên (ưu tiên nam)
+        let defaultStudent = maleVoice;
+        if (!defaultStudent || defaultStudent.voiceURI === defaultTeacher.voiceURI) {
+          defaultStudent = jpVoices.find(v => v.voiceURI !== defaultTeacher.voiceURI) || defaultTeacher;
+        }
 
         if (!teacherVoiceURI) setTeacherVoiceURI(defaultTeacher.voiceURI);
         if (!studentVoiceURI) setStudentVoiceURI(defaultStudent.voiceURI);
