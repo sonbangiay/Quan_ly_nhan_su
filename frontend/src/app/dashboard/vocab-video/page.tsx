@@ -23,6 +23,12 @@ const INITIAL_CARDS: CardData[] = [
   { id: '7', image: '', kanji: 'Kandou', romaji: 'Xúc động', hiragana: 'かんどう', meaning: 'Xúc động' },
   { id: '8', image: '', kanji: 'Atsusa de Bateru', romaji: 'Đuối sức vì nóng', hiragana: 'あつさでバテる', meaning: 'Đuối sức' },
   { id: '9', image: '', kanji: 'Kanjou', romaji: 'Cảm xúc', hiragana: 'かんじょう', meaning: 'Cảm xúc' },
+  { id: '10', image: '', kanji: '', romaji: '', hiragana: '', meaning: '' },
+  { id: '11', image: '', kanji: '', romaji: '', hiragana: '', meaning: '' },
+  { id: '12', image: '', kanji: '', romaji: '', hiragana: '', meaning: '' },
+  { id: '13', image: '', kanji: '', romaji: '', hiragana: '', meaning: '' },
+  { id: '14', image: '', kanji: '', romaji: '', hiragana: '', meaning: '' },
+  { id: '15', image: '', kanji: '', romaji: '', hiragana: '', meaning: '' },
 ];
 
 const EDGE_VOICES = [
@@ -65,12 +71,12 @@ export default function VocabVideoGenerator() {
       if (prevCards.length < numCards) {
         const newCards = [...prevCards];
         for (let i = prevCards.length; i < numCards; i++) {
-          // Find data from INITIAL_CARDS if it exists to keep user content
-          const initData = INITIAL_CARDS[i] || { kanji: '', romaji: '', hiragana: '', meaning: '' };
+          // Dùng dữ liệu từ INITIAL_CARDS (đã mở rộng tới 15 ô)
+          const initData = INITIAL_CARDS[i];
           newCards.push({
             ...initData,
-            id: 'id' in initData ? initData.id : (Date.now().toString() + i),
-            image: 'image' in initData ? initData.image : '',
+            id: initData.id || (Date.now().toString() + i),
+            image: initData.image || '',
           });
         }
         return newCards;
