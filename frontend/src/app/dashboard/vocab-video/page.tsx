@@ -81,6 +81,13 @@ export default function VocabVideoGenerator() {
     });
   }, [numCards]);
 
+  // Đảm bảo chế độ Từ Vựng / Mẫu câu chỉ hiển thị tối đa 9 ô
+  useEffect(() => {
+    if (displayMode !== 'story' && numCards > 9) {
+      setNumCards(9);
+    }
+  }, [displayMode, numCards]);
+
   // Helper to convert pitch value [0, 2] to Edge TTS format (e.g. +0Hz, -50Hz)
   const getPitchString = (val: number) => {
     const percent = Math.round((val - 1) * 50);
@@ -372,7 +379,7 @@ export default function VocabVideoGenerator() {
           <div className="flex items-center justify-between mb-6">
             <div className="flex items-center gap-1 bg-[var(--bg-hover)] p-1.5 rounded-lg border border-[var(--border)] w-full overflow-x-auto">
               <span className="text-sm font-medium px-2 shrink-0">Số lượng:</span>
-              {[2, 4, 6, 9, 12, 15].map(num => (
+              {(displayMode === 'story' ? [2, 4, 6, 9, 12, 15] : [2, 4, 6, 9]).map(num => (
                 <button 
                   key={num}
                   onClick={() => setNumCards(num)}
