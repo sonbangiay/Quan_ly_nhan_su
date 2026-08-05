@@ -107,10 +107,10 @@ export default function VocabVideoGenerator() {
         const pitchVal = isStudent ? studentPitch : teacherPitch;
         const pitch = getPitchString(pitchVal);
         
-        // Chế độ kể chuyện sẽ đọc chậm hơn để truyền cảm hơn
+        // Chế độ kể chuyện sẽ giữ tốc độ bình thường (không quá chậm)
         let rate = isStudent ? '-10%' : '+0%';
         if (displayMode === 'story') {
-          rate = isStudent ? '-25%' : '-15%';
+          rate = '+0%'; // Trở về tốc độ bình thường theo yêu cầu
         }
 
         const res = await fetch('/api/tts', {
@@ -292,6 +292,9 @@ export default function VocabVideoGenerator() {
     if (numCards === 2) return { gridTemplateColumns: 'repeat(1, 1fr)', gridTemplateRows: 'repeat(2, 1fr)' };
     if (numCards === 4) return { gridTemplateColumns: 'repeat(2, 1fr)', gridTemplateRows: 'repeat(2, 1fr)' };
     if (numCards === 6) return { gridTemplateColumns: 'repeat(2, 1fr)', gridTemplateRows: 'repeat(3, 1fr)' };
+    if (numCards === 9) return { gridTemplateColumns: 'repeat(3, 1fr)', gridTemplateRows: 'repeat(3, 1fr)' };
+    if (numCards === 12) return { gridTemplateColumns: 'repeat(3, 1fr)', gridTemplateRows: 'repeat(4, 1fr)' };
+    if (numCards === 15) return { gridTemplateColumns: 'repeat(3, 1fr)', gridTemplateRows: 'repeat(5, 1fr)' };
     // Default 9
     return { gridTemplateColumns: 'repeat(3, 1fr)', gridTemplateRows: 'repeat(3, 1fr)' };
   };
@@ -367,13 +370,13 @@ export default function VocabVideoGenerator() {
           </div>
 
           <div className="flex items-center justify-between mb-6">
-            <div className="flex items-center gap-2 bg-[var(--bg-hover)] p-1.5 rounded-lg border border-[var(--border)] w-full">
-              <span className="text-sm font-medium px-2">Số lượng:</span>
-              {[2, 4, 6, 9].map(num => (
+            <div className="flex items-center gap-1 bg-[var(--bg-hover)] p-1.5 rounded-lg border border-[var(--border)] w-full overflow-x-auto">
+              <span className="text-sm font-medium px-2 shrink-0">Số lượng:</span>
+              {[2, 4, 6, 9, 12, 15].map(num => (
                 <button 
                   key={num}
                   onClick={() => setNumCards(num)}
-                  className={`flex-1 py-1 rounded text-sm font-medium transition-colors ${numCards === num ? 'bg-[var(--accent-purple)] text-white shadow' : 'text-[var(--text-secondary)] hover:bg-[var(--border)]'}`}
+                  className={`flex-1 min-w-[36px] py-1 rounded text-sm font-medium transition-colors ${numCards === num ? 'bg-[var(--accent-purple)] text-white shadow' : 'text-[var(--text-secondary)] hover:bg-[var(--border)]'}`}
                 >
                   {num} ô
                 </button>
