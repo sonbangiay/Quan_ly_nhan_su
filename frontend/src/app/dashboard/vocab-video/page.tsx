@@ -35,6 +35,8 @@ export default function VocabVideoGenerator() {
   const [numCards, setNumCards] = useState<number>(2); // 2, 4, 6, 9
   const [bgColor, setBgColor] = useState<string>('#90C9F9');
   const [bgImage, setBgImage] = useState<string | null>(null);
+  const [displayMode, setDisplayMode] = useState<'vocab' | 'sentence'>('vocab');
+  const [topicTitle, setTopicTitle] = useState<string>('THỜI GIAN');
   
   // Voice Settings
   const [teacherVoiceURI, setTeacherVoiceURI] = useState<string>('ja-JP-NanamiNeural');
@@ -333,19 +335,45 @@ export default function VocabVideoGenerator() {
             <h2 className="font-semibold text-lg flex items-center gap-2">
               <Settings2 size={18} /> Cấu hình Nội dung
             </h2>
-            <div className="flex items-center gap-2 bg-[var(--bg-hover)] p-1.5 rounded-lg border border-[var(--border)]">
-              <span className="text-sm font-medium px-2">Số ô từ vựng:</span>
+          </div>
+          
+          {/* Mode Switcher */}
+          <div className="flex gap-2 mb-6 bg-[var(--bg-hover)] p-1 rounded-xl border border-[var(--border)]">
+            <button 
+              onClick={() => setDisplayMode('vocab')} 
+              className={`flex-1 py-2 px-3 rounded-lg font-bold text-sm transition-all ${displayMode === 'vocab' ? 'bg-white text-[var(--accent-purple)] shadow-sm' : 'text-[var(--text-secondary)] hover:text-gray-900'}`}
+            >
+              🌟 Từ Vựng (Có hình)
+            </button>
+            <button 
+              onClick={() => setDisplayMode('sentence')} 
+              className={`flex-1 py-2 px-3 rounded-lg font-bold text-sm transition-all ${displayMode === 'sentence' ? 'bg-white text-[var(--accent-purple)] shadow-sm' : 'text-[var(--text-secondary)] hover:text-gray-900'}`}
+            >
+              📝 Ngữ pháp/Mẫu câu
+            </button>
+          </div>
+
+          <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center gap-2 bg-[var(--bg-hover)] p-1.5 rounded-lg border border-[var(--border)] w-full">
+              <span className="text-sm font-medium px-2">Số lượng:</span>
               {[2, 4, 6, 9].map(num => (
                 <button 
                   key={num}
                   onClick={() => setNumCards(num)}
-                  className={`px-3 py-1 rounded text-sm font-medium transition-colors ${numCards === num ? 'bg-[var(--accent-purple)] text-white shadow' : 'text-[var(--text-secondary)] hover:bg-[var(--border)]'}`}
+                  className={`flex-1 py-1 rounded text-sm font-medium transition-colors ${numCards === num ? 'bg-[var(--accent-purple)] text-white shadow' : 'text-[var(--text-secondary)] hover:bg-[var(--border)]'}`}
                 >
-                  {num}
+                  {num} ô
                 </button>
               ))}
             </div>
           </div>
+
+          {displayMode === 'sentence' && (
+            <div className="mb-6 p-4 bg-[#D6EFFC]/30 rounded-xl border border-[#D6EFFC]">
+              <label className="block text-xs font-bold mb-2 text-[#1964C3]">Tiêu đề Video</label>
+              <input type="text" className="input w-full font-black text-lg text-[#1964C3] border-[#1964C3]/20 focus:border-[#1964C3]" value={topicTitle} onChange={e => setTopicTitle(e.target.value)} placeholder="Ví dụ: THỜI GIAN" />
+            </div>
+          )}
 
           <div className="flex items-center justify-between mb-4 mt-4">
             <h2 className="font-semibold text-lg flex items-center gap-2">
@@ -457,20 +485,22 @@ export default function VocabVideoGenerator() {
               {cards.map((card, idx) => (
                 <div key={card.id} className="p-4 rounded-lg bg-white border border-[var(--border)] shadow-sm">
                   <div className="font-bold text-sm mb-3 flex items-center justify-between border-b border-[var(--border)] pb-2">
-                    <span>Ô từ vựng #{idx + 1}</span>
+                    <span>{displayMode === 'vocab' ? `Ô từ vựng #${idx + 1}` : `Câu #${idx + 1}`}</span>
                   </div>
-                  <div className="grid grid-cols-[80px_1fr] gap-3">
-                    <div>
-                      <label className="block text-[10px] font-semibold mb-1 text-[var(--text-muted)] uppercase">Emoji/Ảnh</label>
-                      <label className="w-full h-20 border-2 border-dashed border-[var(--border)] rounded flex flex-col items-center justify-center cursor-pointer hover:bg-[var(--bg-hover)] overflow-hidden">
-                        <input type="file" className="hidden" accept="image/*" onChange={(e) => handleImageUpload(idx, e)} />
-                        {card.image ? (
-                          <img src={card.image} alt="Card" className="w-full h-full object-contain" />
-                        ) : (
-                          <Upload size={16} className="text-[var(--text-muted)]" />
-                        )}
-                      </label>
-                    </div>
+                  <div className={`grid ${displayMode === 'vocab' ? 'grid-cols-[80px_1fr]' : 'grid-cols-1'} gap-3`}>
+                    {displayMode === 'vocab' && (
+                      <div>
+                        <label className="block text-[10px] font-semibold mb-1 text-[var(--text-muted)] uppercase">Emoji/Ảnh</label>
+                        <label className="w-full h-20 border-2 border-dashed border-[var(--border)] rounded flex flex-col items-center justify-center cursor-pointer hover:bg-[var(--bg-hover)] overflow-hidden">
+                          <input type="file" className="hidden" accept="image/*" onChange={(e) => handleImageUpload(idx, e)} />
+                          {card.image ? (
+                            <img src={card.image} alt="Card" className="w-full h-full object-contain" />
+                          ) : (
+                            <Upload size={16} className="text-[var(--text-muted)]" />
+                          )}
+                        </label>
+                      </div>
+                    )}
                     <div className="space-y-2">
                       <input type="text" className="input text-xs w-full py-1.5 font-bold" value={card.romaji} onChange={e => {
                         const newCards = [...cards]; newCards[idx].romaji = e.target.value; setCards(newCards);
@@ -519,43 +549,81 @@ export default function VocabVideoGenerator() {
               />
             </div>
 
-            {/* Dynamic Grid Container */}
-            <div 
-              className="flex-1 w-full px-4 pb-2 grid gap-3 transition-all duration-500"
-              style={{
-                ...getGridTemplate(),
-                paddingBottom: 16 // Giảm padding dưới để không bị lẹm
-              }}
-            >
-              {/* Cards */}
-              {cards.map((card, idx) => (
-                <div 
-                  key={card.id}
-                  className={`bg-white rounded-3xl shadow-md flex flex-col items-center justify-center p-2 text-center transition-all duration-300 ${activeHighlight === card.id ? 'ring-[6px] ring-yellow-400 scale-[1.02]' : ''}`}
-                >
-                  <div className="flex-1 min-h-[3rem] w-full flex items-center justify-center mb-1">
-                    {card.image ? (
-                      <img src={card.image} alt="" className="max-w-full max-h-[70px] md:max-h-[120px] object-contain drop-shadow-sm" />
-                    ) : (
-                      <div className="w-14 h-14 rounded-full bg-gray-50 flex items-center justify-center text-xs text-gray-300 border border-dashed border-gray-200">Ảnh</div>
-                    )}
+            {/* Dynamic Grid Container (VOCAB MODE) */}
+            {displayMode === 'vocab' && (
+              <div 
+                className="flex-1 w-full px-4 pb-2 grid gap-3 transition-all duration-500"
+                style={{
+                  ...getGridTemplate(),
+                  paddingBottom: 16 // Giảm padding dưới để không bị lẹm
+                }}
+              >
+                {/* Cards */}
+                {cards.map((card) => (
+                  <div 
+                    key={card.id}
+                    className={`bg-white rounded-3xl shadow-md flex flex-col items-center justify-center p-2 text-center transition-all duration-300 ${activeHighlight === card.id ? 'ring-[6px] ring-yellow-400 scale-[1.02]' : ''}`}
+                  >
+                    <div className="flex-1 min-h-[3rem] w-full flex items-center justify-center mb-1">
+                      {card.image ? (
+                        <img src={card.image} alt="" className="max-w-full max-h-[70px] md:max-h-[120px] object-contain drop-shadow-sm" />
+                      ) : (
+                        <div className="w-14 h-14 rounded-full bg-gray-50 flex items-center justify-center text-xs text-gray-300 border border-dashed border-gray-200">Ảnh</div>
+                      )}
+                    </div>
+                    
+                    <div className="shrink-0 w-full flex flex-col items-center gap-1">
+                      <div className="text-[12px] font-bold text-gray-800 leading-tight">{card.romaji}</div>
+                      
+                      {/* Scale text dynamically based on grid size for better readability */}
+                      <div className={`font-black text-red-600 leading-none ${numCards <= 4 ? 'text-2xl' : 'text-lg'}`}>
+                        {card.hiragana}
+                      </div>
+                      
+                      <div className={`text-gray-600 leading-tight ${numCards <= 4 ? 'text-sm' : 'text-[11px]'}`}>
+                        {card.meaning}
+                      </div>
+                    </div>
                   </div>
-                  
-                  <div className="shrink-0 w-full flex flex-col items-center gap-1">
-                    <div className="text-[12px] font-bold text-gray-800 leading-tight">{card.romaji}</div>
-                    
-                    {/* Scale text dynamically based on grid size for better readability */}
-                    <div className={`font-black text-red-600 leading-none ${numCards <= 4 ? 'text-2xl' : 'text-lg'}`}>
-                      {card.hiragana}
-                    </div>
-                    
-                    <div className={`text-gray-600 leading-tight ${numCards <= 4 ? 'text-sm' : 'text-[11px]'}`}>
-                      {card.meaning}
-                    </div>
+                ))}
+              </div>
+            )}
+
+            {/* Sentence List Container (SENTENCE MODE) */}
+            {displayMode === 'sentence' && (
+              <div className="flex-1 w-full px-5 pb-8 flex flex-col z-10 relative justify-center">
+                <div className="w-full bg-[#D6EFFC]/95 backdrop-blur-md rounded-[32px] flex flex-col p-6 shadow-2xl border border-white/50">
+                  <h2 className="text-[26px] md:text-[30px] font-black text-center text-[#1964C3] mb-6 tracking-wide drop-shadow-sm uppercase">
+                    {topicTitle}
+                  </h2>
+                  <div className="flex flex-col gap-5">
+                    {cards.map((card) => {
+                      const isActive = activeHighlight === card.id;
+                      return (
+                        <div 
+                          key={card.id}
+                          className={`w-full rounded-2xl flex flex-col items-center justify-center py-4 px-3 text-center transition-all duration-300 ${
+                            isActive 
+                              ? 'bg-[#FFC7D8] border-[3px] border-[#FF9EBC] scale-[1.03] shadow-lg shadow-pink-200/50' 
+                              : 'bg-transparent border-[3px] border-transparent'
+                          }`}
+                        >
+                          <div className={`font-black tracking-wide leading-tight text-[#C9002B] ${numCards <= 4 ? 'text-[24px]' : 'text-[18px]'}`}>
+                            {card.hiragana}
+                          </div>
+                          <div className={`font-bold text-gray-800 leading-tight mt-1.5 ${numCards <= 4 ? 'text-[15px]' : 'text-xs'}`}>
+                            /{card.romaji}/
+                          </div>
+                          <div className={`font-semibold text-gray-800 leading-tight mt-1.5 ${numCards <= 4 ? 'text-[16px]' : 'text-sm'}`}>
+                            {card.meaning}
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
-              ))}
-            </div>
+              </div>
+            )}
           </div>
         </div>
       </div>
