@@ -26,8 +26,8 @@ const INITIAL_CARDS: CardData[] = [
 ];
 
 export default function VocabVideoGenerator() {
-  const [cards, setCards] = useState<CardData[]>(INITIAL_CARDS);
-  const [numCards, setNumCards] = useState<number>(9); // 2, 4, 6, 9
+  const [cards, setCards] = useState<CardData[]>(INITIAL_CARDS.slice(0, 2)); // Default to 2 cards
+  const [numCards, setNumCards] = useState<number>(2); // 2, 4, 6, 9
   const [bgColor, setBgColor] = useState<string>('#90C9F9');
   const [bgImage, setBgImage] = useState<string | null>(null);
   
@@ -36,7 +36,7 @@ export default function VocabVideoGenerator() {
   const [teacherVoiceURI, setTeacherVoiceURI] = useState<string>('');
   const [studentVoiceURI, setStudentVoiceURI] = useState<string>('');
   const [teacherPitch, setTeacherPitch] = useState<number>(1.0);
-  const [studentPitch, setStudentPitch] = useState<number>(1.6);
+  const [studentPitch, setStudentPitch] = useState<number>(0.7);
 
   const [activeHighlight, setActiveHighlight] = useState<string | null>(null);
   const [isRecording, setIsRecording] = useState(false);
@@ -53,16 +53,18 @@ export default function VocabVideoGenerator() {
     if (cards.length < numCards) {
       const newCards = [...cards];
       for (let i = cards.length; i < numCards; i++) {
+        // Find data from INITIAL_CARDS if it exists to keep user content
+        const initData = INITIAL_CARDS[i] || { kanji: '', romaji: '', hiragana: '', meaning: '' };
         newCards.push({
           id: Date.now().toString() + i,
-          image: '', kanji: '', romaji: '', hiragana: '', meaning: ''
+          image: '', ...initData
         });
       }
       setCards(newCards);
     } else if (cards.length > numCards) {
       setCards(cards.slice(0, numCards));
     }
-  }, [numCards, cards]);
+  }, [numCards]); // Removed `cards` from dependency array to avoid infinite loop when modifying cards
 
   // Load Available Voices
   useEffect(() => {
@@ -74,13 +76,16 @@ export default function VocabVideoGenerator() {
       setVoices(jpVoices);
       
       if (jpVoices.length > 0) {
-        // Cố gắng tự động chọn giọng Nữ cho cô giáo (Ayumi/Haruka/Female)
+        // Ưu tiên chọn giọng Google 日本語 theo ý user
+        const googleVoice = jpVoices.find(v => v.name.includes('Google 日本語') || v.name.includes('Google'));
         const femaleVoice = jpVoices.find(v => v.name.toLowerCase().includes('female') || v.name.includes('Ayumi') || v.name.includes('Haruka'));
-        // Cố gắng chọn giọng Nam cho học sinh (Ichiro/Keita/Male)
         const maleVoice = jpVoices.find(v => v.name.toLowerCase().includes('male') || v.name.includes('Ichiro') || v.name.includes('Keita'));
         
-        if (!teacherVoiceURI) setTeacherVoiceURI(femaleVoice ? femaleVoice.voiceURI : jpVoices[0].voiceURI);
-        if (!studentVoiceURI) setStudentVoiceURI(maleVoice ? maleVoice.voiceURI : jpVoices[0].voiceURI);
+        const defaultTeacher = googleVoice || femaleVoice || jpVoices[0];
+        const defaultStudent = googleVoice || maleVoice || jpVoices[0];
+
+        if (!teacherVoiceURI) setTeacherVoiceURI(defaultTeacher.voiceURI);
+        if (!studentVoiceURI) setStudentVoiceURI(defaultStudent.voiceURI);
       }
     };
 
