@@ -91,6 +91,19 @@ export default function VocabVideoGenerator() {
     return percent >= 0 ? `+${percent}%` : `${percent}%`;
   };
 
+  const handleImageUpload = (index: number, e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const newCards = [...cards];
+        newCards[index].image = reader.result as string;
+        setCards(newCards);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
   const speakText = async (text: string, isStudent: boolean = false): Promise<void> => {
     return new Promise(async (resolve) => {
       try {
