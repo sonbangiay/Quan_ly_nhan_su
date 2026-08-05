@@ -38,6 +38,11 @@ export default function VocabVideoGenerator() {
   const [teacherPitch, setTeacherPitch] = useState<number>(1.0);
   const [studentPitch, setStudentPitch] = useState<number>(0.7);
 
+  // BGM Settings
+  const [bgmUrl, setBgmUrl] = useState<string>('/bgm.mp3');
+  const [bgmVolume, setBgmVolume] = useState<number>(0.15);
+  const audioRef = useRef<HTMLAudioElement>(null);
+
   const [activeHighlight, setActiveHighlight] = useState<string | null>(null);
   const [isRecording, setIsRecording] = useState(false);
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
@@ -163,6 +168,13 @@ export default function VocabVideoGenerator() {
 
   const playSequence = async () => {
     window.speechSynthesis.cancel();
+    
+    if (bgmUrl && audioRef.current) {
+      audioRef.current.volume = bgmVolume;
+      audioRef.current.currentTime = 0;
+      audioRef.current.play().catch(e => console.log('BGM play blocked:', e));
+    }
+
     for (let i = 0; i < cards.length; i++) {
       setActiveHighlight(cards[i].id);
       const cardText = cards[i].hiragana || cards[i].kanji || cards[i].romaji;
@@ -172,6 +184,10 @@ export default function VocabVideoGenerator() {
       }
     }
     setActiveHighlight(null);
+    
+    if (audioRef.current) {
+      audioRef.current.pause();
+    }
   };
 
   const setupCanvasCrop = (originalStream: MediaStream): MediaStream => {
@@ -392,7 +408,7 @@ export default function VocabVideoGenerator() {
 
           <div className="flex items-center justify-between mb-4 mt-4">
             <h2 className="font-semibold text-lg flex items-center gap-2">
-              <Settings2 size={18} /> Cấu hình Giọng đọc
+              <Settings2 size={18} /> Cấu hình Âm thanh & Giọng đọc
             </h2>
           </div>
           <div className="grid grid-cols-2 gap-4 mb-6 pb-6 border-b border-[var(--border)]">
@@ -431,6 +447,40 @@ export default function VocabVideoGenerator() {
                 <span className="text-[11px] text-gray-600 font-medium w-12">Độ cao:</span>
                 <input type="range" min="0" max="2" step="0.1" value={studentPitch} onChange={e=>setStudentPitch(Number(e.target.value))} className="flex-1 accent-red-600" />
                 <span className="text-[11px] font-bold text-red-700 w-6">{studentPitch}</span>
+              </div>
+            </div>
+            
+            {/* Nhạc nền */}
+            <div className="col-span-2 mt-1 p-3 bg-purple-50/50 rounded-xl border border-purple-100 flex flex-col gap-2">
+              <label className="block text-xs font-bold text-purple-800">🎵 Nhạc nền (Background Music)</label>
+              <div className="flex items-center gap-3">
+                <label className="shrink-0 px-3 py-1.5 bg-white border border-purple-200 hover:border-purple-300 rounded-lg text-[11px] font-bold text-purple-700 cursor-pointer transition-colors shadow-sm">
+                  <input type="file" className="hidden" accept="audio/*" onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) {
+                      const url = URL.createObjectURL(file);
+                      setBgmUrl(url);
+                    }
+                  }} />
+                  {bgmUrl ? 'Đổi nhạc khác' : 'Tải nhạc lên'}
+                </label>
+                <div className="flex-1 flex items-center gap-2 bg-white px-3 py-1.5 rounded-lg border border-purple-100 shadow-sm">
+                  <span className="text-[11px] text-gray-600 font-medium">Âm lượng:</span>
+                  <input 
+                    type="range" min="0" max="1" step="0.05" 
+                    value={bgmVolume} 
+                    onChange={e => {
+                      const vol = Number(e.target.value);
+                      setBgmVolume(vol);
+                      if (audioRef.current) audioRef.current.volume = vol;
+                    }} 
+                    className="flex-1 accent-purple-500" 
+                  />
+                  <span className="text-[11px] font-bold text-purple-700 w-8 text-right">{Math.round(bgmVolume * 100)}%</span>
+                </div>
+                {bgmUrl && (
+                   <button onClick={() => setBgmUrl('')} className="text-[11px] text-red-500 hover:underline shrink-0 font-medium">Xoá nhạc</button>
+                )}
               </div>
             </div>
           </div>
@@ -608,6 +658,7 @@ export default function VocabVideoGenerator() {
           </div>
         </div>
       )}
+      {bgmUrl && <audio ref={audioRef} src={bgmUrl} loop />}
     </div>
   );
 }
