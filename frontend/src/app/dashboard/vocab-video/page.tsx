@@ -115,9 +115,11 @@ export default function VocabVideoGenerator() {
     if (file) {
       const reader = new FileReader();
       reader.onloadend = () => {
-        const newCards = [...cards];
-        newCards[index].image = reader.result as string;
-        setCards(newCards);
+        setCards(prev => {
+          const newCards = [...prev];
+          newCards[index] = { ...newCards[index], image: reader.result as string };
+          return newCards;
+        });
       };
       reader.readAsDataURL(file);
     }
@@ -555,13 +557,25 @@ export default function VocabVideoGenerator() {
                     )}
                     <div className="space-y-2">
                       <input type="text" className="input text-xs w-full py-1.5 font-bold" value={card.romaji} onChange={e => {
-                        const newCards = [...cards]; newCards[idx].romaji = e.target.value; setCards(newCards);
+                        setCards(prev => {
+                          const newCards = [...prev];
+                          newCards[idx] = { ...newCards[idx], romaji: e.target.value };
+                          return newCards;
+                        });
                       }} placeholder="Romaji (Mặt nài nỉ)" />
                       <input type="text" className="input text-xs w-full py-1.5 font-bold text-red-600" value={card.hiragana} onChange={e => {
-                        const newCards = [...cards]; newCards[idx].hiragana = e.target.value; setCards(newCards);
+                        setCards(prev => {
+                          const newCards = [...prev];
+                          newCards[idx] = { ...newCards[idx], hiragana: e.target.value };
+                          return newCards;
+                        });
                       }} placeholder="Hiragana (おねがいかお)" />
                       <input type="text" className="input text-xs w-full py-1.5" value={card.meaning} onChange={e => {
-                        const newCards = [...cards]; newCards[idx].meaning = e.target.value; setCards(newCards);
+                        setCards(prev => {
+                          const newCards = [...prev];
+                          newCards[idx] = { ...newCards[idx], meaning: e.target.value };
+                          return newCards;
+                        });
                       }} placeholder="Nghĩa (Mặt nài nỉ)" />
                     </div>
                   </div>
