@@ -829,11 +829,11 @@ export default function VocabVideoGenerator() {
                       <div 
                         className="w-full rounded-[28px] px-8 py-10 flex flex-col items-center justify-center gap-5 text-center"
                         style={{
-                          background: 'rgba(255,255,255,0.18)',
-                          backdropFilter: 'blur(14px)',
-                          WebkitBackdropFilter: 'blur(14px)',
-                          border: '1px solid rgba(255,255,255,0.35)',
-                          boxShadow: '0 8px 32px rgba(0,0,0,0.12)'
+                          background: 'rgba(255,255,255,0.50)',
+                          backdropFilter: 'blur(20px)',
+                          WebkitBackdropFilter: 'blur(20px)',
+                          border: '1px solid rgba(255,255,255,0.55)',
+                          boxShadow: '0 8px 40px rgba(0,0,0,0.18)'
                         }}
                       >
                         <div 
