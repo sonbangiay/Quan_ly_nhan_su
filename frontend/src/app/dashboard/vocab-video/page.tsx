@@ -823,23 +823,29 @@ export default function VocabVideoGenerator() {
                   return (
                     <div 
                       key={card.id}
-                      className="w-full flex flex-col items-center justify-center gap-4 text-center animate-in fade-in zoom-in-95 duration-500"
+                      className="w-full flex flex-col items-center justify-center gap-5 text-center animate-in fade-in zoom-in-95 duration-500"
                     >
                       <div 
-                        className={`font-serif tracking-widest drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)] ${numCards <= 4 ? 'text-[32px]' : 'text-[24px]'}`}
-                        style={{ color: textColor, WebkitTextStroke: `0.4px ${strokeColor}` }}
+                        className={`font-black tracking-widest ${numCards <= 4 ? 'text-[48px]' : 'text-[36px]'}`}
+                        style={{ 
+                          color: textColor,
+                          textShadow: `0 0 8px ${strokeColor}40, 0 2px 6px rgba(0,0,0,0.15)`
+                        }}
                       >
                         {card.hiragana}
                       </div>
                       <div 
-                        className={`font-light tracking-widest drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)] ${numCards <= 4 ? 'text-[20px]' : 'text-[16px]'}`}
-                        style={{ color: textColor }}
+                        className={`font-light tracking-widest ${numCards <= 4 ? 'text-[22px]' : 'text-[18px]'}`}
+                        style={{ color: textColor, opacity: 0.8 }}
                       >
                         {card.romaji}
                       </div>
                       <div 
-                        className={`font-medium tracking-wide drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)] ${numCards <= 4 ? 'text-[24px]' : 'text-[18px]'}`}
-                        style={{ color: textColor, WebkitTextStroke: `0.4px ${strokeColor}` }}
+                        className={`font-semibold tracking-wide ${numCards <= 4 ? 'text-[28px]' : 'text-[22px]'}`}
+                        style={{ 
+                          color: textColor,
+                          textShadow: `0 0 6px ${strokeColor}30, 0 2px 4px rgba(0,0,0,0.1)`
+                        }}
                       >
                         {card.meaning}
                       </div>
