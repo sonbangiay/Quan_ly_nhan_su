@@ -96,6 +96,8 @@ export default function VocabVideoGenerator() {
     return [2, 4, 6, 9];
   };
 
+  const strokeColor = (textColor.toLowerCase() === '#ffffff' || textColor.toLowerCase() === '#fff') ? '#eab308' : 'white';
+
   // Đảm bảo chế độ Từ Vựng / Mẫu câu hiển thị đúng số lượng ô cho phép
   useEffect(() => {
     const allowed = getAllowedCardCounts();
@@ -734,14 +736,25 @@ export default function VocabVideoGenerator() {
                     </div>
                     
                     <div className="shrink-0 w-full flex flex-col items-center gap-1">
-                      <div className="text-[12px] font-bold text-gray-800 leading-tight">{card.romaji}</div>
+                      <div 
+                        className="text-[12px] font-bold leading-tight"
+                        style={{ color: textColor, WebkitTextStroke: `0.5px ${strokeColor}` }}
+                      >
+                        {card.romaji}
+                      </div>
                       
                       {/* Scale text dynamically based on grid size for better readability */}
-                      <div className={`font-black text-red-600 leading-none ${numCards <= 4 ? 'text-2xl' : 'text-lg'}`}>
+                      <div 
+                        className={`font-black leading-none ${numCards <= 4 ? 'text-2xl' : 'text-lg'}`}
+                        style={{ color: textColor, WebkitTextStroke: `1px ${strokeColor}` }}
+                      >
                         {card.hiragana}
                       </div>
                       
-                      <div className={`text-gray-600 leading-tight ${numCards <= 4 ? 'text-sm' : 'text-[11px]'}`}>
+                      <div 
+                        className={`font-semibold leading-tight ${numCards <= 4 ? 'text-sm' : 'text-[11px]'}`}
+                        style={{ color: textColor, WebkitTextStroke: `0.5px ${strokeColor}` }}
+                      >
                         {card.meaning}
                       </div>
                     </div>
@@ -773,16 +786,22 @@ export default function VocabVideoGenerator() {
                             className={`font-black tracking-wide leading-tight ${numCards <= 4 ? 'text-[24px]' : 'text-[18px]'}`}
                             style={{ 
                               color: textColor, 
-                              WebkitTextStroke: '1.5px white',
+                              WebkitTextStroke: `1.5px ${strokeColor}`,
                               textShadow: '0 1px 3px rgba(0,0,0,0.1)' 
                             }}
                           >
                             {card.hiragana}
                           </div>
-                          <div className={`font-bold text-gray-800 leading-tight mt-1.5 ${numCards <= 4 ? 'text-[15px]' : 'text-xs'}`}>
+                          <div 
+                            className={`font-bold leading-tight mt-1.5 ${numCards <= 4 ? 'text-[15px]' : 'text-xs'}`}
+                            style={{ color: textColor, WebkitTextStroke: `0.5px ${strokeColor}` }}
+                          >
                             /{card.romaji}/
                           </div>
-                          <div className={`font-semibold text-gray-800 leading-tight mt-1.5 ${numCards <= 4 ? 'text-[16px]' : 'text-sm'}`}>
+                          <div 
+                            className={`font-semibold leading-tight mt-1.5 ${numCards <= 4 ? 'text-[16px]' : 'text-sm'}`}
+                            style={{ color: textColor, WebkitTextStroke: `0.5px ${strokeColor}` }}
+                          >
                             {card.meaning}
                           </div>
                         </div>
@@ -806,13 +825,22 @@ export default function VocabVideoGenerator() {
                       key={card.id}
                       className="w-full flex flex-col items-center justify-center gap-4 text-center animate-in fade-in zoom-in-95 duration-500"
                     >
-                      <div className={`font-serif tracking-widest text-[#eab308] drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)] ${numCards <= 4 ? 'text-[32px]' : 'text-[24px]'}`}>
+                      <div 
+                        className={`font-serif tracking-widest drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)] ${numCards <= 4 ? 'text-[32px]' : 'text-[24px]'}`}
+                        style={{ color: textColor, WebkitTextStroke: `1px ${strokeColor}` }}
+                      >
                         {card.hiragana}
                       </div>
-                      <div className={`font-light tracking-widest text-gray-200 drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)] ${numCards <= 4 ? 'text-[20px]' : 'text-[16px]'}`}>
+                      <div 
+                        className={`font-light tracking-widest drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)] ${numCards <= 4 ? 'text-[20px]' : 'text-[16px]'}`}
+                        style={{ color: textColor, WebkitTextStroke: `0.5px ${strokeColor}` }}
+                      >
                         {card.romaji}
                       </div>
-                      <div className={`font-medium tracking-wide text-[#eab308] drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)] ${numCards <= 4 ? 'text-[24px]' : 'text-[18px]'}`}>
+                      <div 
+                        className={`font-medium tracking-wide drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)] ${numCards <= 4 ? 'text-[24px]' : 'text-[18px]'}`}
+                        style={{ color: textColor, WebkitTextStroke: `1px ${strokeColor}` }}
+                      >
                         {card.meaning}
                       </div>
                     </div>
