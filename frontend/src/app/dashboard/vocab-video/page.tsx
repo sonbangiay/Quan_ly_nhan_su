@@ -814,7 +814,7 @@ export default function VocabVideoGenerator() {
 
             {/* Story List Container (STORY MODE) */}
             {displayMode === 'story' && (
-              <div className="flex-1 w-full px-8 pb-12 flex flex-col items-center justify-center z-10 relative">
+              <div className="flex-1 w-full px-6 pb-10 flex flex-col items-center justify-center z-10 relative">
                 {cards.map((card, idx) => {
                   // Chỉ hiển thị card đang được đọc, hoặc card đầu tiên nếu chưa bắt đầu đọc
                   const isActive = activeHighlight ? (activeHighlight === card.id) : (idx === 0);
@@ -823,37 +823,50 @@ export default function VocabVideoGenerator() {
                   return (
                     <div 
                       key={card.id}
-                      className="w-full flex flex-col items-center justify-center gap-5 text-center animate-in fade-in zoom-in-95 duration-500"
+                      className="w-full animate-in fade-in zoom-in-95 duration-500"
                     >
+                      {/* Frosted glass backdrop */}
                       <div 
-                        className={`font-black tracking-widest ${numCards <= 4 ? 'text-[48px]' : 'text-[36px]'}`}
-                        style={{ 
-                          color: textColor,
-                          textShadow: `0 0 8px ${strokeColor}40, 0 2px 6px rgba(0,0,0,0.15)`
+                        className="w-full rounded-[28px] px-8 py-10 flex flex-col items-center justify-center gap-5 text-center"
+                        style={{
+                          background: 'rgba(255,255,255,0.18)',
+                          backdropFilter: 'blur(14px)',
+                          WebkitBackdropFilter: 'blur(14px)',
+                          border: '1px solid rgba(255,255,255,0.35)',
+                          boxShadow: '0 8px 32px rgba(0,0,0,0.12)'
                         }}
                       >
-                        {card.hiragana}
-                      </div>
-                      <div 
-                        className={`font-light tracking-widest ${numCards <= 4 ? 'text-[22px]' : 'text-[18px]'}`}
-                        style={{ color: textColor, opacity: 0.8 }}
-                      >
-                        {card.romaji}
-                      </div>
-                      <div 
-                        className={`font-semibold tracking-wide ${numCards <= 4 ? 'text-[28px]' : 'text-[22px]'}`}
-                        style={{ 
-                          color: textColor,
-                          textShadow: `0 0 6px ${strokeColor}30, 0 2px 4px rgba(0,0,0,0.1)`
-                        }}
-                      >
-                        {card.meaning}
+                        <div 
+                          className={`font-black tracking-widest ${numCards <= 4 ? 'text-[48px]' : 'text-[36px]'}`}
+                          style={{ 
+                            color: textColor,
+                            textShadow: `0 2px 8px rgba(0,0,0,0.2)`
+                          }}
+                        >
+                          {card.hiragana}
+                        </div>
+                        <div 
+                          className={`font-light tracking-widest ${numCards <= 4 ? 'text-[22px]' : 'text-[18px]'}`}
+                          style={{ color: textColor, opacity: 0.85 }}
+                        >
+                          {card.romaji}
+                        </div>
+                        <div 
+                          className={`font-semibold tracking-wide ${numCards <= 4 ? 'text-[28px]' : 'text-[22px]'}`}
+                          style={{ 
+                            color: textColor,
+                            textShadow: `0 2px 6px rgba(0,0,0,0.15)`
+                          }}
+                        >
+                          {card.meaning}
+                        </div>
                       </div>
                     </div>
                   );
                 })}
               </div>
             )}
+
           </div>
         </div>
       </div>
