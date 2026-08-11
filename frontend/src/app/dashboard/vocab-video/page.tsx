@@ -40,7 +40,7 @@ export default function VocabVideoGenerator() {
   const [cards, setCards] = useState<CardData[]>(INITIAL_CARDS.slice(0, 2)); // Default to 2 cards
   const [numCards, setNumCards] = useState<number>(2); // 2, 4, 6, 9
   const [bgColor, setBgColor] = useState<string>('#90C9F9');
-  const [textColor, setTextColor] = useState<string>('#C9002B');
+  const [textColor, setTextColor] = useState<string>('#1a1a2e');
   const [bgMedia, setBgMedia] = useState<{ url: string, type: 'image' | 'video' } | null>(null);
   const [displayMode, setDisplayMode] = useState<'vocab' | 'sentence' | 'story'>('vocab');
   const [topicTitle, setTopicTitle] = useState<string>('THỜI GIAN');
@@ -738,7 +738,7 @@ export default function VocabVideoGenerator() {
                     <div className="shrink-0 w-full flex flex-col items-center gap-1">
                       <div 
                         className="text-[12px] font-bold leading-tight"
-                        style={{ color: textColor, WebkitTextStroke: `0.5px ${strokeColor}` }}
+                        style={{ color: textColor }}
                       >
                         {card.romaji}
                       </div>
@@ -746,14 +746,14 @@ export default function VocabVideoGenerator() {
                       {/* Scale text dynamically based on grid size for better readability */}
                       <div 
                         className={`font-black leading-none ${numCards <= 4 ? 'text-2xl' : 'text-lg'}`}
-                        style={{ color: textColor, WebkitTextStroke: `1px ${strokeColor}` }}
+                        style={{ color: textColor, WebkitTextStroke: `0.4px ${strokeColor}` }}
                       >
                         {card.hiragana}
                       </div>
                       
                       <div 
                         className={`font-semibold leading-tight ${numCards <= 4 ? 'text-sm' : 'text-[11px]'}`}
-                        style={{ color: textColor, WebkitTextStroke: `0.5px ${strokeColor}` }}
+                        style={{ color: textColor }}
                       >
                         {card.meaning}
                       </div>
@@ -786,7 +786,7 @@ export default function VocabVideoGenerator() {
                             className={`font-black tracking-wide leading-tight ${numCards <= 4 ? 'text-[24px]' : 'text-[18px]'}`}
                             style={{ 
                               color: textColor, 
-                              WebkitTextStroke: `1.5px ${strokeColor}`,
+                              WebkitTextStroke: `0.4px ${strokeColor}`,
                               textShadow: '0 1px 3px rgba(0,0,0,0.1)' 
                             }}
                           >
@@ -794,13 +794,13 @@ export default function VocabVideoGenerator() {
                           </div>
                           <div 
                             className={`font-bold leading-tight mt-1.5 ${numCards <= 4 ? 'text-[15px]' : 'text-xs'}`}
-                            style={{ color: textColor, WebkitTextStroke: `0.5px ${strokeColor}` }}
+                            style={{ color: textColor }}
                           >
                             /{card.romaji}/
                           </div>
                           <div 
                             className={`font-semibold leading-tight mt-1.5 ${numCards <= 4 ? 'text-[16px]' : 'text-sm'}`}
-                            style={{ color: textColor, WebkitTextStroke: `0.5px ${strokeColor}` }}
+                            style={{ color: textColor }}
                           >
                             {card.meaning}
                           </div>
@@ -827,19 +827,19 @@ export default function VocabVideoGenerator() {
                     >
                       <div 
                         className={`font-serif tracking-widest drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)] ${numCards <= 4 ? 'text-[32px]' : 'text-[24px]'}`}
-                        style={{ color: textColor, WebkitTextStroke: `1px ${strokeColor}` }}
+                        style={{ color: textColor, WebkitTextStroke: `0.4px ${strokeColor}` }}
                       >
                         {card.hiragana}
                       </div>
                       <div 
                         className={`font-light tracking-widest drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)] ${numCards <= 4 ? 'text-[20px]' : 'text-[16px]'}`}
-                        style={{ color: textColor, WebkitTextStroke: `0.5px ${strokeColor}` }}
+                        style={{ color: textColor }}
                       >
                         {card.romaji}
                       </div>
                       <div 
                         className={`font-medium tracking-wide drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)] ${numCards <= 4 ? 'text-[24px]' : 'text-[18px]'}`}
-                        style={{ color: textColor, WebkitTextStroke: `1px ${strokeColor}` }}
+                        style={{ color: textColor, WebkitTextStroke: `0.4px ${strokeColor}` }}
                       >
                         {card.meaning}
                       </div>
