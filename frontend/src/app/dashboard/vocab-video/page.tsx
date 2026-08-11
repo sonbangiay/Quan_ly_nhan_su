@@ -40,6 +40,7 @@ export default function VocabVideoGenerator() {
   const [cards, setCards] = useState<CardData[]>(INITIAL_CARDS.slice(0, 2)); // Default to 2 cards
   const [numCards, setNumCards] = useState<number>(2); // 2, 4, 6, 9
   const [bgColor, setBgColor] = useState<string>('#90C9F9');
+  const [textColor, setTextColor] = useState<string>('#C9002B');
   const [bgMedia, setBgMedia] = useState<{ url: string, type: 'image' | 'video' } | null>(null);
   const [displayMode, setDisplayMode] = useState<'vocab' | 'sentence' | 'story'>('vocab');
   const [topicTitle, setTopicTitle] = useState<string>('THỜI GIAN');
@@ -90,7 +91,7 @@ export default function VocabVideoGenerator() {
   // Định nghĩa số lượng ô được phép cho từng chế độ
   const getAllowedCardCounts = () => {
     if (displayMode === 'vocab') return [2, 4, 6, 9];
-    if (displayMode === 'sentence') return [3];
+    if (displayMode === 'sentence') return [3, 4, 5];
     if (displayMode === 'story') return [2, 4, 6, 9, 12, 15];
     return [2, 4, 6, 9];
   };
@@ -509,13 +510,17 @@ export default function VocabVideoGenerator() {
 
           <div className="flex items-center justify-between mb-4 mt-4">
             <h2 className="font-semibold text-lg flex items-center gap-2">
-              <Settings2 size={18} /> Giao diện nền
+              <Settings2 size={18} /> Giao diện Nền & Chữ
             </h2>
           </div>
-          <div className="grid grid-cols-2 gap-4 mb-6 pb-6 border-b border-[var(--border)]">
+          <div className="grid grid-cols-3 gap-4 mb-6 pb-6 border-b border-[var(--border)]">
             <div>
               <label className="block text-xs font-semibold mb-1 text-[var(--text-muted)]">Màu nền</label>
               <input type="color" value={bgColor} onChange={e => setBgColor(e.target.value)} className="w-full h-10 rounded cursor-pointer border border-[var(--border)]" />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold mb-1 text-[var(--text-muted)]">Màu chữ chính</label>
+              <input type="color" value={textColor} onChange={e => setTextColor(e.target.value)} className="w-full h-10 rounded cursor-pointer border border-[var(--border)]" />
             </div>
             <div>
               <label className="block text-xs font-semibold mb-1 text-[var(--text-muted)]">Ảnh / Video nền</label>
@@ -748,23 +753,30 @@ export default function VocabVideoGenerator() {
             {/* Sentence List Container (SENTENCE MODE) */}
             {displayMode === 'sentence' && (
               <div className="flex-1 w-full px-5 pb-8 flex flex-col z-10 relative justify-center">
-                <div className="w-full bg-[#D6EFFC]/95 backdrop-blur-md rounded-[32px] flex flex-col p-6 shadow-2xl border border-white/50">
+                <div className="w-full bg-white/80 backdrop-blur-md rounded-[32px] flex flex-col p-6 shadow-2xl border border-white/60">
                   <h2 className="text-[26px] md:text-[30px] font-black text-center text-[#1964C3] mb-6 tracking-wide drop-shadow-sm uppercase">
                     {topicTitle}
                   </h2>
-                  <div className="flex flex-col gap-5">
+                  <div className={`flex flex-col ${numCards >= 5 ? 'gap-3' : 'gap-5'}`}>
                     {cards.map((card) => {
                       const isActive = activeHighlight === card.id;
                       return (
                         <div 
                           key={card.id}
-                          className={`w-full rounded-2xl flex flex-col items-center justify-center py-4 px-3 text-center transition-all duration-300 ${
+                          className={`w-full rounded-2xl flex flex-col items-center justify-center ${numCards >= 5 ? 'py-2 px-2' : 'py-4 px-3'} text-center transition-all duration-300 ${
                             isActive 
                               ? 'bg-[#FFC7D8] border-[3px] border-[#FF9EBC] scale-[1.03] shadow-lg shadow-pink-200/50' 
                               : 'bg-transparent border-[3px] border-transparent'
                           }`}
                         >
-                          <div className={`font-black tracking-wide leading-tight text-[#C9002B] ${numCards <= 4 ? 'text-[24px]' : 'text-[18px]'}`}>
+                          <div 
+                            className={`font-black tracking-wide leading-tight ${numCards <= 4 ? 'text-[24px]' : 'text-[18px]'}`}
+                            style={{ 
+                              color: textColor, 
+                              WebkitTextStroke: '1.5px white',
+                              textShadow: '0 1px 3px rgba(0,0,0,0.1)' 
+                            }}
+                          >
                             {card.hiragana}
                           </div>
                           <div className={`font-bold text-gray-800 leading-tight mt-1.5 ${numCards <= 4 ? 'text-[15px]' : 'text-xs'}`}>
