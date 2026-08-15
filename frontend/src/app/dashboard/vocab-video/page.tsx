@@ -12,6 +12,14 @@ interface CardData {
   meaning: string;
 }
 
+interface QuizQuestion {
+  id: string;
+  question: string;    // Hiragana/Kanji (câu hỏi)
+  correct: string;     // Đáp án đúng
+  wrongA: string;      // Đáp án sai 1
+  wrongB: string;      // Đáp án sai 2
+}
+
 // Initial cards mapping to the screenshot provided by user
 const INITIAL_CARDS: CardData[] = [
   { id: '1', image: '', kanji: 'Onegai Kao', romaji: 'Mặt nài nỉ', hiragana: 'おねがいかお', meaning: 'Mặt nài nỉ' },
@@ -42,8 +50,19 @@ export default function VocabVideoGenerator() {
   const [bgColor, setBgColor] = useState<string>('#90C9F9');
   const [textColor, setTextColor] = useState<string>('#1a1a2e');
   const [bgMedia, setBgMedia] = useState<{ url: string, type: 'image' | 'video' } | null>(null);
-  const [displayMode, setDisplayMode] = useState<'vocab' | 'sentence' | 'story'>('vocab');
+  const [displayMode, setDisplayMode] = useState<'vocab' | 'sentence' | 'story' | 'quiz'>('vocab');
   const [topicTitle, setTopicTitle] = useState<string>('THỜI GIAN');
+
+  // Quiz state
+  const [quizQuestions, setQuizQuestions] = useState<QuizQuestion[]>([
+    { id: 'q1', question: 'おねがいかお', correct: 'Mặt nài nỉ', wrongA: 'Nổi giận', wrongB: 'Sợ hãi' },
+    { id: 'q2', question: 'いかり', correct: 'Nổi giận', wrongA: 'Xúc động', wrongB: 'Mặt nài nỉ' },
+    { id: 'q3', question: 'ぜっきょう', correct: 'Hét lên vì sợ hãi', wrongA: 'Dằn vặt', wrongB: 'Nước mắt nhẹ nhõm' },
+  ]);
+  const [quizIndex, setQuizIndex] = useState<number>(0);
+  const [quizCountdown, setQuizCountdown] = useState<number | null>(null);
+  const [quizShowAnswer, setQuizShowAnswer] = useState<boolean>(false);
+  const quizTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   
   // Voice Settings
   const [teacherVoiceURI, setTeacherVoiceURI] = useState<string>('ja-JP-NanamiNeural');
@@ -95,6 +114,22 @@ export default function VocabVideoGenerator() {
     if (displayMode === 'story') return [2, 4, 6, 9, 12, 15];
     return [2, 4, 6, 9];
   };
+
+  // Shuffle 3 options for a quiz question
+  const getShuffledOptions = (q: QuizQuestion): string[] => {
+    const opts = [q.correct, q.wrongA, q.wrongB];
+    for (let i = opts.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [opts[i], opts[j]] = [opts[j], opts[i]];
+    }
+    return opts;
+  };
+
+  // Shuffled options are recalculated only when question changes
+  const [quizOptions, setQuizOptions] = useState<string[]>(() => {
+    const q = { id: 'q1', question: 'おねがいかお', correct: 'Mặt nài nỉ', wrongA: 'Nổi giận', wrongB: 'Sợ hãi' };
+    return [q.correct, q.wrongA, q.wrongB];
+  });
 
   const strokeColor = (textColor.toLowerCase() === '#ffffff' || textColor.toLowerCase() === '#fff') ? '#eab308' : 'white';
 
@@ -282,6 +317,59 @@ export default function VocabVideoGenerator() {
     }
   };
 
+  const playQuizSequence = async () => {
+    if (bgmUrl && audioRef.current) {
+      audioRef.current.volume = bgmVolume;
+      audioRef.current.currentTime = 0;
+      audioRef.current.play().catch(e => console.log('BGM play blocked:', e));
+    }
+
+    for (let i = 0; i < quizQuestions.length; i++) {
+      const q = quizQuestions[i];
+      const shuffled = getShuffledOptions(q);
+
+      setQuizIndex(i);
+      setQuizOptions(shuffled);
+      setQuizShowAnswer(false);
+      setQuizCountdown(3);
+
+      // Read the question aloud first
+      await speakText(q.question, false);
+
+      // Countdown 3 → 2 → 1 → 0
+      await new Promise<void>((resolve) => {
+        let count = 3;
+        quizTimerRef.current = setInterval(() => {
+          count -= 1;
+          if (count <= 0) {
+            clearInterval(quizTimerRef.current!);
+            setQuizCountdown(0);
+            resolve();
+          } else {
+            setQuizCountdown(count);
+          }
+        }, 1000);
+      });
+
+      // Reveal answer
+      setQuizShowAnswer(true);
+
+      // Read the correct answer
+      await new Promise(r => setTimeout(r, 500));
+      await speakText(q.correct, false);
+
+      // Pause before next question
+      await new Promise(r => setTimeout(r, 2000));
+    }
+
+    setQuizCountdown(null);
+    setQuizShowAnswer(false);
+
+    if (audioRef.current) {
+      audioRef.current.pause();
+    }
+  };
+
   const setupCanvasCrop = (originalStream: MediaStream): MediaStream => {
     const hiddenVideo = document.createElement('video');
     hiddenVideo.srcObject = originalStream;
@@ -427,7 +515,7 @@ export default function VocabVideoGenerator() {
         </div>
         <div className="flex gap-3">
           <button 
-            onClick={playSequence}
+            onClick={displayMode === 'quiz' ? playQuizSequence : playSequence}
             disabled={isRecording}
             className="btn btn-outline flex items-center gap-2 px-4 py-2"
           >
@@ -485,6 +573,12 @@ export default function VocabVideoGenerator() {
               className={`whitespace-nowrap flex-1 py-2 px-3 rounded-lg font-bold text-sm transition-all ${displayMode === 'story' ? 'bg-black text-[#eab308] shadow-sm' : 'text-[var(--text-secondary)] hover:text-gray-900'}`}
             >
               📖 Kể chuyện
+            </button>
+            <button 
+              onClick={() => setDisplayMode('quiz')} 
+              className={`whitespace-nowrap flex-1 py-2 px-3 rounded-lg font-bold text-sm transition-all ${displayMode === 'quiz' ? 'bg-gradient-to-r from-orange-500 to-rose-500 text-white shadow-sm' : 'text-[var(--text-secondary)] hover:text-gray-900'}`}
+            >
+              🎯 Trắc nghiệm
             </button>
           </div>
 
@@ -623,55 +717,121 @@ export default function VocabVideoGenerator() {
           </div>
 
           <div className="space-y-6">
-            {/* Cards Input */}
-            <div className="grid grid-cols-2 gap-4">
-              {cards.map((card, idx) => (
-                <div key={card.id} className="p-4 rounded-lg bg-white border border-[var(--border)] shadow-sm">
-                  <div className="font-bold text-sm mb-3 flex items-center justify-between border-b border-[var(--border)] pb-2">
-                    <span>{displayMode === 'vocab' ? `Ô từ vựng #${idx + 1}` : `Câu #${idx + 1}`}</span>
-                  </div>
-                  <div className={`grid ${displayMode === 'vocab' ? 'grid-cols-[80px_1fr]' : 'grid-cols-1'} gap-3`}>
-                    {displayMode === 'vocab' && (
-                      <div>
-                        <label className="block text-[10px] font-semibold mb-1 text-[var(--text-muted)] uppercase">Emoji/Ảnh</label>
-                        <label className="w-full h-20 border-2 border-dashed border-[var(--border)] rounded flex flex-col items-center justify-center cursor-pointer hover:bg-[var(--bg-hover)] overflow-hidden">
-                          <input type="file" className="hidden" accept="image/*" onChange={(e) => handleImageUpload(idx, e)} />
-                          {card.image ? (
-                            <img src={card.image} alt="Card" className="w-full h-full object-contain" />
-                          ) : (
-                            <Upload size={16} className="text-[var(--text-muted)]" />
-                          )}
-                        </label>
+            {/* Cards Input - only for non-quiz modes */}
+            {displayMode !== 'quiz' && (
+              <div className="grid grid-cols-2 gap-4">
+                {cards.map((card, idx) => (
+                  <div key={card.id} className="p-4 rounded-lg bg-white border border-[var(--border)] shadow-sm">
+                    <div className="font-bold text-sm mb-3 flex items-center justify-between border-b border-[var(--border)] pb-2">
+                      <span>{displayMode === 'vocab' ? `Ô từ vựng #${idx + 1}` : `Câu #${idx + 1}`}</span>
+                    </div>
+                    <div className={`grid ${displayMode === 'vocab' ? 'grid-cols-[80px_1fr]' : 'grid-cols-1'} gap-3`}>
+                      {displayMode === 'vocab' && (
+                        <div>
+                          <label className="block text-[10px] font-semibold mb-1 text-[var(--text-muted)] uppercase">Emoji/Ảnh</label>
+                          <label className="w-full h-20 border-2 border-dashed border-[var(--border)] rounded flex flex-col items-center justify-center cursor-pointer hover:bg-[var(--bg-hover)] overflow-hidden">
+                            <input type="file" className="hidden" accept="image/*" onChange={(e) => handleImageUpload(idx, e)} />
+                            {card.image ? (
+                              <img src={card.image} alt="Card" className="w-full h-full object-contain" />
+                            ) : (
+                              <Upload size={16} className="text-[var(--text-muted)]" />
+                            )}
+                          </label>
+                        </div>
+                      )}
+                      <div className="space-y-2">
+                        <input type="text" className="input text-xs w-full py-1.5 font-bold" value={card.romaji} onChange={e => {
+                          setCards(prev => {
+                            const newCards = [...prev];
+                            newCards[idx] = { ...newCards[idx], romaji: e.target.value };
+                            return newCards;
+                          });
+                        }} placeholder="Romaji (Mặt nài nỉ)" />
+                        <input type="text" className="input text-xs w-full py-1.5 font-bold text-red-600" value={card.hiragana} onChange={e => {
+                          setCards(prev => {
+                            const newCards = [...prev];
+                            newCards[idx] = { ...newCards[idx], hiragana: e.target.value };
+                            return newCards;
+                          });
+                        }} placeholder="Hiragana (おねがいかお)" />
+                        <input type="text" className="input text-xs w-full py-1.5" value={card.meaning} onChange={e => {
+                          setCards(prev => {
+                            const newCards = [...prev];
+                            newCards[idx] = { ...newCards[idx], meaning: e.target.value };
+                            return newCards;
+                          });
+                        }} placeholder="Nghĩa (Mặt nài nỉ)" />
                       </div>
-                    )}
-                    <div className="space-y-2">
-                      <input type="text" className="input text-xs w-full py-1.5 font-bold" value={card.romaji} onChange={e => {
-                        setCards(prev => {
-                          const newCards = [...prev];
-                          newCards[idx] = { ...newCards[idx], romaji: e.target.value };
-                          return newCards;
-                        });
-                      }} placeholder="Romaji (Mặt nài nỉ)" />
-                      <input type="text" className="input text-xs w-full py-1.5 font-bold text-red-600" value={card.hiragana} onChange={e => {
-                        setCards(prev => {
-                          const newCards = [...prev];
-                          newCards[idx] = { ...newCards[idx], hiragana: e.target.value };
-                          return newCards;
-                        });
-                      }} placeholder="Hiragana (おねがいかお)" />
-                      <input type="text" className="input text-xs w-full py-1.5" value={card.meaning} onChange={e => {
-                        setCards(prev => {
-                          const newCards = [...prev];
-                          newCards[idx] = { ...newCards[idx], meaning: e.target.value };
-                          return newCards;
-                        });
-                      }} placeholder="Nghĩa (Mặt nài nỉ)" />
                     </div>
                   </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
 
+            {/* Quiz Questions Input */}
+            {displayMode === 'quiz' && (
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <p className="text-sm text-[var(--text-muted)]">Mỗi câu gồm: câu hỏi (tiếng Nhật) + 1 đáp án đúng + 2 đáp án sai</p>
+                  <button
+                    onClick={() => setQuizQuestions(prev => [...prev, {
+                      id: Date.now().toString(),
+                      question: '',
+                      correct: '',
+                      wrongA: '',
+                      wrongB: ''
+                    }])}
+                    className="px-3 py-1.5 bg-orange-500 text-white text-xs font-bold rounded-lg hover:bg-orange-600 transition-colors"
+                  >
+                    + Thêm câu hỏi
+                  </button>
+                </div>
+                {quizQuestions.map((q, idx) => (
+                  <div key={q.id} className="p-4 rounded-xl bg-white border border-orange-200 shadow-sm">
+                    <div className="flex items-center justify-between mb-3 pb-2 border-b border-orange-100">
+                      <span className="font-bold text-sm text-orange-700">🎯 Câu {idx + 1}</span>
+                      {quizQuestions.length > 1 && (
+                        <button onClick={() => setQuizQuestions(prev => prev.filter(x => x.id !== q.id))} className="text-red-400 hover:text-red-600">
+                          <X size={14} />
+                        </button>
+                      )}
+                    </div>
+                    <div className="space-y-2">
+                      <input
+                        type="text"
+                        className="input text-sm w-full py-1.5 font-bold text-[#1a1a2e]"
+                        value={q.question}
+                        onChange={e => setQuizQuestions(prev => prev.map(x => x.id === q.id ? { ...x, question: e.target.value } : x))}
+                        placeholder="❓ Câu hỏi - Tiếng Nhật (おねがいかお)"
+                      />
+                      <input
+                        type="text"
+                        className="input text-sm w-full py-1.5 text-green-700 font-semibold"
+                        value={q.correct}
+                        onChange={e => setQuizQuestions(prev => prev.map(x => x.id === q.id ? { ...x, correct: e.target.value } : x))}
+                        placeholder="✅ Đáp án ĐÚNG (Mặt nài nỉ)"
+                      />
+                      <div className="grid grid-cols-2 gap-2">
+                        <input
+                          type="text"
+                          className="input text-xs w-full py-1.5 text-red-500"
+                          value={q.wrongA}
+                          onChange={e => setQuizQuestions(prev => prev.map(x => x.id === q.id ? { ...x, wrongA: e.target.value } : x))}
+                          placeholder="❌ Sai 1 (Nổi giận)"
+                        />
+                        <input
+                          type="text"
+                          className="input text-xs w-full py-1.5 text-red-500"
+                          value={q.wrongB}
+                          onChange={e => setQuizQuestions(prev => prev.map(x => x.id === q.id ? { ...x, wrongB: e.target.value } : x))}
+                          placeholder="❌ Sai 2 (Sợ hãi)"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
 
@@ -866,6 +1026,88 @@ export default function VocabVideoGenerator() {
                 })}
               </div>
             )}
+
+            {/* Quiz Container (QUIZ MODE) */}
+            {displayMode === 'quiz' && (() => {
+              const currentQ = quizQuestions[quizIndex] ?? quizQuestions[0];
+              const optionLabels = ['A', 'B', 'C'];
+              return (
+                <div className="flex-1 w-full px-5 pb-6 flex flex-col items-center justify-between z-10 relative gap-4">
+                  {/* Question box */}
+                  <div className="w-full rounded-[24px] px-6 py-6 text-center"
+                    style={{
+                      background: 'rgba(255,255,255,0.22)',
+                      backdropFilter: 'blur(16px)',
+                      WebkitBackdropFilter: 'blur(16px)',
+                      border: '1.5px solid rgba(255,255,255,0.45)',
+                      boxShadow: '0 6px 24px rgba(0,0,0,0.13)'
+                    }}
+                  >
+                    <p className="text-xs font-bold tracking-widest uppercase mb-2 opacity-70" style={{ color: textColor }}>Câu hỏi {quizIndex + 1} / {quizQuestions.length}</p>
+                    <div className="text-[42px] font-black tracking-widest leading-tight" style={{ color: textColor, textShadow: '0 2px 8px rgba(0,0,0,0.18)' }}>
+                      {currentQ?.question || 'おねがいかお'}
+                    </div>
+                  </div>
+
+                  {/* Answer options */}
+                  <div className="w-full flex flex-col gap-3">
+                    {(quizOptions.length === 3 ? quizOptions : [currentQ?.correct, currentQ?.wrongA, currentQ?.wrongB]).map((opt, i) => {
+                      const isCorrect = opt === currentQ?.correct;
+                      const revealed = quizShowAnswer;
+                      return (
+                        <div
+                          key={i}
+                          className="w-full rounded-2xl px-5 py-4 flex items-center gap-4 transition-all duration-500"
+                          style={{
+                            background: revealed
+                              ? isCorrect
+                                ? 'rgba(34,197,94,0.85)'
+                                : 'rgba(255,255,255,0.25)'
+                              : 'rgba(255,255,255,0.25)',
+                            backdropFilter: 'blur(12px)',
+                            WebkitBackdropFilter: 'blur(12px)',
+                            border: revealed && isCorrect
+                              ? '2px solid rgba(34,197,94,1)'
+                              : '1.5px solid rgba(255,255,255,0.45)',
+                            boxShadow: revealed && isCorrect ? '0 0 20px rgba(34,197,94,0.4)' : '0 4px 16px rgba(0,0,0,0.1)',
+                            transform: revealed && isCorrect ? 'scale(1.03)' : 'scale(1)'
+                          }}
+                        >
+                          <span className="text-[22px] font-black w-8 shrink-0" style={{ color: revealed && isCorrect ? 'white' : textColor }}>
+                            {optionLabels[i]}
+                          </span>
+                          <span className="text-[18px] font-bold" style={{ color: revealed && isCorrect ? 'white' : textColor }}>
+                            {opt}
+                          </span>
+                          {revealed && isCorrect && (
+                            <span className="ml-auto text-white text-[22px]">✅</span>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {/* Countdown timer */}
+                  <div className="flex flex-col items-center gap-1">
+                    {quizCountdown !== null && (
+                      <div
+                        className="text-[80px] font-black leading-none tabular-nums transition-all duration-300"
+                        style={{
+                          color: quizCountdown === 0 ? '#22c55e' : quizCountdown === 1 ? '#ef4444' : textColor,
+                          textShadow: '0 4px 16px rgba(0,0,0,0.25)',
+                          transform: `scale(${quizCountdown === 0 ? 1.2 : 1})`,
+                        }}
+                      >
+                        {quizCountdown}
+                      </div>
+                    )}
+                    {quizCountdown === null && !quizShowAnswer && (
+                      <div className="text-[18px] font-bold opacity-60" style={{ color: textColor }}>⏳ Nhấn Nghe thử để bắt đầu</div>
+                    )}
+                  </div>
+                </div>
+              );
+            })()}
 
           </div>
         </div>
