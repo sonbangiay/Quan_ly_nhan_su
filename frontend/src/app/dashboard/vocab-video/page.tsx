@@ -14,6 +14,7 @@ interface CardData {
 
 interface QuizQuestion {
   id: string;
+  type?: 'ja-vi' | 'vi-ja';
   question: string;    // Hiragana/Kanji (câu hỏi)
   romaji: string;      // Romaji của câu hỏi
   correct: string;     // Đáp án đúng
@@ -56,9 +57,9 @@ export default function VocabVideoGenerator() {
 
   // Quiz state
   const [quizQuestions, setQuizQuestions] = useState<QuizQuestion[]>([
-    { id: 'q1', question: 'おまたせしました', romaji: 'omatase shimashita', correct: 'Xin lỗi vì đã làm bạn chờ', wrongA: 'Tôi hiểu rồi', wrongB: 'Cảm ơn bạn đã đến' },
-    { id: 'q2', question: 'いかり', romaji: 'ikari', correct: 'Nổi giận', wrongA: 'Xúc động', wrongB: 'Mặt nài nỉ' },
-    { id: 'q3', question: 'ぜっきょう', romaji: 'zekkyou', correct: 'Hét lên vì sợ hãi', wrongA: 'Dằn vặt', wrongB: 'Nước mắt nhẹ nhõm' },
+    { id: 'q1', type: 'ja-vi', question: 'おまたせしました', romaji: 'omatase shimashita', correct: 'Xin lỗi vì đã làm bạn chờ', wrongA: 'Tôi hiểu rồi', wrongB: 'Cảm ơn bạn đã đến' },
+    { id: 'q2', type: 'ja-vi', question: 'いかり', romaji: 'ikari', correct: 'Nổi giận', wrongA: 'Xúc động', wrongB: 'Mặt nài nỉ' },
+    { id: 'q3', type: 'ja-vi', question: 'ぜっきょう', romaji: 'zekkyou', correct: 'Hét lên vì sợ hãi', wrongA: 'Dằn vặt', wrongB: 'Nước mắt nhẹ nhõm' },
   ]);
   const [quizIndex, setQuizIndex] = useState<number>(0);
   const [quizCountdown, setQuizCountdown] = useState<number | null>(null);
@@ -334,8 +335,10 @@ export default function VocabVideoGenerator() {
       setQuizShowAnswer(false);
       setQuizCountdown(3);
 
-      // Read the question aloud first
-      await speakText(q.question, false);
+      // Read the question aloud first (chỉ đọc nếu là tiếng Nhật)
+      if (q.type !== 'vi-ja') {
+        await speakText(q.question, false);
+      }
 
       // Countdown 3 → 2 → 1 → 0
       await new Promise<void>((resolve) => {
@@ -367,6 +370,11 @@ export default function VocabVideoGenerator() {
         osc.start();
         osc.stop(audioCtx.currentTime + 0.5);
       } catch (e) {}
+
+      // Nếu là câu hỏi Việt -> Nhật thì đọc tiếng Nhật ở phần đáp án đúng
+      if (q.type === 'vi-ja') {
+        await speakText(q.correct, false);
+      }
 
       // Pause to let viewer see the answer before next question
       await new Promise(r => setTimeout(r, 2500));
@@ -811,27 +819,43 @@ export default function VocabVideoGenerator() {
                         </button>
                       )}
                     </div>
+
+                    <div className="flex gap-2 mb-3">
+                      <button 
+                        onClick={() => setQuizQuestions(prev => prev.map(x => x.id === q.id ? { ...x, type: 'ja-vi' } : x))}
+                        className={`flex-1 py-1.5 text-xs font-bold rounded border ${q.type !== 'vi-ja' ? 'bg-orange-100 border-orange-300 text-orange-700 shadow-inner' : 'bg-gray-50 border-gray-200 text-gray-500 hover:bg-gray-100'}`}
+                      >
+                        🇯🇵 Hỏi Nhật ➔ Đáp Việt
+                      </button>
+                      <button 
+                        onClick={() => setQuizQuestions(prev => prev.map(x => x.id === q.id ? { ...x, type: 'vi-ja' } : x))}
+                        className={`flex-1 py-1.5 text-xs font-bold rounded border ${q.type === 'vi-ja' ? 'bg-orange-100 border-orange-300 text-orange-700 shadow-inner' : 'bg-gray-50 border-gray-200 text-gray-500 hover:bg-gray-100'}`}
+                      >
+                        🇻🇳 Hỏi Việt ➔ Đáp Nhật
+                      </button>
+                    </div>
+
                     <div className="space-y-2">
                       <input
                         type="text"
                         className="input text-sm w-full py-1.5 font-bold text-[#1a1a2e]"
                         value={q.question}
                         onChange={e => setQuizQuestions(prev => prev.map(x => x.id === q.id ? { ...x, question: e.target.value } : x))}
-                        placeholder="❓ Câu hỏi - Tiếng Nhật (おまたせしました)"
+                        placeholder={q.type === 'vi-ja' ? "❓ Câu hỏi - Tiếng Việt (Bạn tên là gì?)" : "❓ Câu hỏi - Tiếng Nhật (おまたせしました)"}
                       />
                       <input
                         type="text"
                         className="input text-sm w-full py-1.5 text-gray-500 italic"
                         value={q.romaji}
                         onChange={e => setQuizQuestions(prev => prev.map(x => x.id === q.id ? { ...x, romaji: e.target.value } : x))}
-                        placeholder="🔤 Romaji (omatase shimashita)"
+                        placeholder="🔤 Ghi chú thêm / Romaji (omatase shimashita)"
                       />
                       <input
                         type="text"
                         className="input text-sm w-full py-1.5 text-green-700 font-semibold"
                         value={q.correct}
                         onChange={e => setQuizQuestions(prev => prev.map(x => x.id === q.id ? { ...x, correct: e.target.value } : x))}
-                        placeholder="✅ Đáp án ĐÚNG (Mặt nài nỉ)"
+                        placeholder={q.type === 'vi-ja' ? "✅ Đáp án ĐÚNG - Tiếng Nhật" : "✅ Đáp án ĐÚNG (Mặt nài nỉ)"}
                       />
                       <div className="grid grid-cols-2 gap-2">
                         <input
@@ -839,14 +863,14 @@ export default function VocabVideoGenerator() {
                           className="input text-xs w-full py-1.5 text-red-500"
                           value={q.wrongA}
                           onChange={e => setQuizQuestions(prev => prev.map(x => x.id === q.id ? { ...x, wrongA: e.target.value } : x))}
-                          placeholder="❌ Sai 1 (Nổi giận)"
+                          placeholder={q.type === 'vi-ja' ? "❌ Sai 1 - Tiếng Nhật" : "❌ Sai 1 (Nổi giận)"}
                         />
                         <input
                           type="text"
                           className="input text-xs w-full py-1.5 text-red-500"
                           value={q.wrongB}
                           onChange={e => setQuizQuestions(prev => prev.map(x => x.id === q.id ? { ...x, wrongB: e.target.value } : x))}
-                          placeholder="❌ Sai 2 (Sợ hãi)"
+                          placeholder={q.type === 'vi-ja' ? "❌ Sai 2 - Tiếng Nhật" : "❌ Sai 2 (Sợ hãi)"}
                         />
                       </div>
                     </div>
@@ -1065,18 +1089,30 @@ export default function VocabVideoGenerator() {
                       border: '2px solid rgba(255,255,255,0.9)'
                     }}
                   >
-                    {/* Japanese question in red */}
-                    <div className="text-[32px] font-black leading-tight text-red-600" style={{ fontFamily: 'serif' }}>
-                      「{currentQ?.question || 'おねがいかお'}」
-                    </div>
-                    {/* Romaji */}
-                    <div className="text-[13px] font-medium text-gray-600 mt-1 italic">
-                      ({currentQ?.romaji || 'omatase shimashita'})
-                    </div>
-                    {/* "nghĩa là gì?" */}
-                    <div className="text-[17px] font-black text-gray-900 mt-2">
-                      nghĩa là gì?
-                    </div>
+                    {currentQ?.type === 'vi-ja' ? (
+                      <>
+                        <div className="text-[26px] font-black leading-tight text-gray-900 mb-2">
+                          {currentQ?.question || 'Bạn tên là gì?'}
+                        </div>
+                        {currentQ?.romaji && (
+                          <div className="text-[14px] font-medium text-gray-600 mt-1 italic">
+                            ({currentQ?.romaji})
+                          </div>
+                        )}
+                      </>
+                    ) : (
+                      <>
+                        <div className="text-[32px] font-black leading-tight text-red-600" style={{ fontFamily: 'serif' }}>
+                          「{currentQ?.question || 'おねがいかお'}」
+                        </div>
+                        <div className="text-[13px] font-medium text-gray-600 mt-1 italic">
+                          ({currentQ?.romaji || 'omatase shimashita'})
+                        </div>
+                        <div className="text-[17px] font-black text-gray-900 mt-2">
+                          nghĩa là gì?
+                        </div>
+                      </>
+                    )}
                   </div>
 
                   {/* Answer option bars */}
