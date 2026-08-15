@@ -354,6 +354,19 @@ export default function VocabVideoGenerator() {
 
       // Reveal answer (visual only, no reading)
       setQuizShowAnswer(true);
+      try {
+        const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+        const osc = audioCtx.createOscillator();
+        const gainNode = audioCtx.createGain();
+        osc.connect(gainNode);
+        gainNode.connect(audioCtx.destination);
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(880, audioCtx.currentTime);
+        gainNode.gain.setValueAtTime(0.5, audioCtx.currentTime);
+        gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.5);
+        osc.start();
+        osc.stop(audioCtx.currentTime + 0.5);
+      } catch (e) {}
 
       // Pause to let viewer see the answer before next question
       await new Promise(r => setTimeout(r, 2500));
@@ -474,7 +487,11 @@ export default function VocabVideoGenerator() {
       mediaRecorder.start();
 
       setTimeout(async () => {
-        await playSequence();
+        if (displayMode === 'quiz') {
+          await playQuizSequence();
+        } else {
+          await playSequence();
+        }
         if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
           mediaRecorderRef.current.stop();
         }
