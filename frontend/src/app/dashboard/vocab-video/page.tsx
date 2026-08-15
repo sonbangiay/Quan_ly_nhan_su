@@ -352,15 +352,11 @@ export default function VocabVideoGenerator() {
         }, 1000);
       });
 
-      // Reveal answer
+      // Reveal answer (visual only, no reading)
       setQuizShowAnswer(true);
 
-      // Read the correct answer
-      await new Promise(r => setTimeout(r, 500));
-      await speakText(q.correct, false);
-
-      // Pause before next question
-      await new Promise(r => setTimeout(r, 2000));
+      // Pause to let viewer see the answer before next question
+      await new Promise(r => setTimeout(r, 2500));
     }
 
     setQuizCountdown(null);
