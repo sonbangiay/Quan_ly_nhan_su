@@ -15,6 +15,7 @@ interface CardData {
 interface QuizQuestion {
   id: string;
   question: string;    // Hiragana/Kanji (câu hỏi)
+  romaji: string;      // Romaji của câu hỏi
   correct: string;     // Đáp án đúng
   wrongA: string;      // Đáp án sai 1
   wrongB: string;      // Đáp án sai 2
@@ -55,9 +56,9 @@ export default function VocabVideoGenerator() {
 
   // Quiz state
   const [quizQuestions, setQuizQuestions] = useState<QuizQuestion[]>([
-    { id: 'q1', question: 'おねがいかお', correct: 'Mặt nài nỉ', wrongA: 'Nổi giận', wrongB: 'Sợ hãi' },
-    { id: 'q2', question: 'いかり', correct: 'Nổi giận', wrongA: 'Xúc động', wrongB: 'Mặt nài nỉ' },
-    { id: 'q3', question: 'ぜっきょう', correct: 'Hét lên vì sợ hãi', wrongA: 'Dằn vặt', wrongB: 'Nước mắt nhẹ nhõm' },
+    { id: 'q1', question: 'おまたせしました', romaji: 'omatase shimashita', correct: 'Xin lỗi vì đã làm bạn chờ', wrongA: 'Tôi hiểu rồi', wrongB: 'Cảm ơn bạn đã đến' },
+    { id: 'q2', question: 'いかり', romaji: 'ikari', correct: 'Nổi giận', wrongA: 'Xúc động', wrongB: 'Mặt nài nỉ' },
+    { id: 'q3', question: 'ぜっきょう', romaji: 'zekkyou', correct: 'Hét lên vì sợ hãi', wrongA: 'Dằn vặt', wrongB: 'Nước mắt nhẹ nhõm' },
   ]);
   const [quizIndex, setQuizIndex] = useState<number>(0);
   const [quizCountdown, setQuizCountdown] = useState<number | null>(null);
@@ -127,7 +128,7 @@ export default function VocabVideoGenerator() {
 
   // Shuffled options are recalculated only when question changes
   const [quizOptions, setQuizOptions] = useState<string[]>(() => {
-    const q = { id: 'q1', question: 'おねがいかお', correct: 'Mặt nài nỉ', wrongA: 'Nổi giận', wrongB: 'Sợ hãi' };
+    const q = { id: 'q1', question: 'おまたせしました', romaji: 'omatase shimashita', correct: 'Xin lỗi vì đã làm bạn chờ', wrongA: 'Tôi hiểu rồi', wrongB: 'Cảm ơn bạn đã đến' };
     return [q.correct, q.wrongA, q.wrongB];
   });
 
@@ -777,6 +778,7 @@ export default function VocabVideoGenerator() {
                     onClick={() => setQuizQuestions(prev => [...prev, {
                       id: Date.now().toString(),
                       question: '',
+                      romaji: '',
                       correct: '',
                       wrongA: '',
                       wrongB: ''
@@ -802,7 +804,14 @@ export default function VocabVideoGenerator() {
                         className="input text-sm w-full py-1.5 font-bold text-[#1a1a2e]"
                         value={q.question}
                         onChange={e => setQuizQuestions(prev => prev.map(x => x.id === q.id ? { ...x, question: e.target.value } : x))}
-                        placeholder="❓ Câu hỏi - Tiếng Nhật (おねがいかお)"
+                        placeholder="❓ Câu hỏi - Tiếng Nhật (おまたせしました)"
+                      />
+                      <input
+                        type="text"
+                        className="input text-sm w-full py-1.5 text-gray-500 italic"
+                        value={q.romaji}
+                        onChange={e => setQuizQuestions(prev => prev.map(x => x.id === q.id ? { ...x, romaji: e.target.value } : x))}
+                        placeholder="🔤 Romaji (omatase shimashita)"
                       />
                       <input
                         type="text"
@@ -1030,81 +1039,91 @@ export default function VocabVideoGenerator() {
             {/* Quiz Container (QUIZ MODE) */}
             {displayMode === 'quiz' && (() => {
               const currentQ = quizQuestions[quizIndex] ?? quizQuestions[0];
-              const optionLabels = ['A', 'B', 'C'];
+              const opts = quizOptions.length === 3 ? quizOptions : [currentQ?.correct, currentQ?.wrongA, currentQ?.wrongB];
               return (
-                <div className="flex-1 w-full px-5 pb-6 flex flex-col items-center justify-between z-10 relative gap-4">
-                  {/* Question box */}
-                  <div className="w-full rounded-[24px] px-6 py-6 text-center"
+                <div className="flex-1 w-full px-4 pb-4 flex flex-col items-center justify-center z-10 relative gap-3">
+
+                  {/* Question box — white background, red Japanese text */}
+                  <div
+                    className="w-full rounded-2xl px-5 py-5 text-center"
                     style={{
-                      background: 'rgba(255,255,255,0.22)',
-                      backdropFilter: 'blur(16px)',
-                      WebkitBackdropFilter: 'blur(16px)',
-                      border: '1.5px solid rgba(255,255,255,0.45)',
-                      boxShadow: '0 6px 24px rgba(0,0,0,0.13)'
+                      background: 'rgba(255,255,255,0.92)',
+                      boxShadow: '0 4px 20px rgba(0,0,0,0.18)',
+                      border: '2px solid rgba(255,255,255,0.9)'
                     }}
                   >
-                    <p className="text-xs font-bold tracking-widest uppercase mb-2 opacity-70" style={{ color: textColor }}>Câu hỏi {quizIndex + 1} / {quizQuestions.length}</p>
-                    <div className="text-[42px] font-black tracking-widest leading-tight" style={{ color: textColor, textShadow: '0 2px 8px rgba(0,0,0,0.18)' }}>
-                      {currentQ?.question || 'おねがいかお'}
+                    {/* Japanese question in red */}
+                    <div className="text-[32px] font-black leading-tight text-red-600" style={{ fontFamily: 'serif' }}>
+                      「{currentQ?.question || 'おねがいかお'}」
+                    </div>
+                    {/* Romaji */}
+                    <div className="text-[13px] font-medium text-gray-600 mt-1 italic">
+                      ({currentQ?.romaji || 'omatase shimashita'})
+                    </div>
+                    {/* "nghĩa là gì?" */}
+                    <div className="text-[17px] font-black text-gray-900 mt-2">
+                      nghĩa là gì?
                     </div>
                   </div>
 
-                  {/* Answer options */}
-                  <div className="w-full flex flex-col gap-3">
-                    {(quizOptions.length === 3 ? quizOptions : [currentQ?.correct, currentQ?.wrongA, currentQ?.wrongB]).map((opt, i) => {
+                  {/* Answer option bars */}
+                  <div className="w-full flex flex-col gap-2.5 mt-1">
+                    {opts.map((opt, i) => {
                       const isCorrect = opt === currentQ?.correct;
                       const revealed = quizShowAnswer;
                       return (
                         <div
                           key={i}
-                          className="w-full rounded-2xl px-5 py-4 flex items-center gap-4 transition-all duration-500"
+                          className="w-full rounded-xl px-5 py-4 text-center transition-all duration-500"
                           style={{
-                            background: revealed
-                              ? isCorrect
-                                ? 'rgba(34,197,94,0.85)'
-                                : 'rgba(255,255,255,0.25)'
-                              : 'rgba(255,255,255,0.25)',
-                            backdropFilter: 'blur(12px)',
-                            WebkitBackdropFilter: 'blur(12px)',
+                            background: revealed && isCorrect
+                              ? 'rgba(34,197,94,0.92)'
+                              : 'rgba(255,255,255,0.88)',
+                            boxShadow: revealed && isCorrect
+                              ? '0 0 24px rgba(34,197,94,0.5)'
+                              : '0 3px 12px rgba(0,0,0,0.15)',
                             border: revealed && isCorrect
-                              ? '2px solid rgba(34,197,94,1)'
-                              : '1.5px solid rgba(255,255,255,0.45)',
-                            boxShadow: revealed && isCorrect ? '0 0 20px rgba(34,197,94,0.4)' : '0 4px 16px rgba(0,0,0,0.1)',
-                            transform: revealed && isCorrect ? 'scale(1.03)' : 'scale(1)'
+                              ? '2px solid #22c55e'
+                              : '2px solid rgba(255,255,255,0.9)',
+                            transform: revealed && isCorrect ? 'scale(1.02)' : 'scale(1)'
                           }}
                         >
-                          <span className="text-[22px] font-black w-8 shrink-0" style={{ color: revealed && isCorrect ? 'white' : textColor }}>
-                            {optionLabels[i]}
-                          </span>
-                          <span className="text-[18px] font-bold" style={{ color: revealed && isCorrect ? 'white' : textColor }}>
+                          <span
+                            className="text-[17px] font-bold"
+                            style={{ color: revealed && isCorrect ? 'white' : '#1a1a2e' }}
+                          >
                             {opt}
+                            {revealed && isCorrect && ' ✅'}
                           </span>
-                          {revealed && isCorrect && (
-                            <span className="ml-auto text-white text-[22px]">✅</span>
-                          )}
                         </div>
                       );
                     })}
                   </div>
 
-                  {/* Countdown timer */}
-                  <div className="flex flex-col items-center gap-1">
-                    {quizCountdown !== null && (
+                  {/* Countdown circle at bottom */}
+                  <div className="flex items-center justify-center mt-2">
+                    {quizCountdown !== null ? (
                       <div
-                        className="text-[80px] font-black leading-none tabular-nums transition-all duration-300"
+                        className="w-16 h-16 rounded-full flex items-center justify-center text-[36px] font-black transition-all duration-300"
                         style={{
-                          color: quizCountdown === 0 ? '#22c55e' : quizCountdown === 1 ? '#ef4444' : textColor,
-                          textShadow: '0 4px 16px rgba(0,0,0,0.25)',
-                          transform: `scale(${quizCountdown === 0 ? 1.2 : 1})`,
+                          background: quizCountdown === 0 ? '#22c55e' : quizCountdown === 1 ? '#ef4444' : 'rgba(255,255,255,0.85)',
+                          color: quizCountdown <= 1 ? 'white' : '#1a1a2e',
+                          boxShadow: quizCountdown === 0 ? '0 0 24px rgba(34,197,94,0.6)' : quizCountdown === 1 ? '0 0 24px rgba(239,68,68,0.5)' : '0 4px 16px rgba(0,0,0,0.2)',
+                          transform: `scale(${quizCountdown === 0 ? 1.2 : 1})`
                         }}
                       >
                         {quizCountdown}
                       </div>
-                    )}
-                    {quizCountdown === null && !quizShowAnswer && (
-                      <div className="text-[18px] font-bold opacity-60" style={{ color: textColor }}>⏳ Nhấn Nghe thử để bắt đầu</div>
+                    ) : (
+                      !quizShowAnswer && (
+                        <div className="text-[14px] font-bold text-center px-4 py-2 rounded-full"
+                          style={{ background: 'rgba(255,255,255,0.7)', color: '#1a1a2e' }}>
+                          ⏳ Nhấn Nghe thử để bắt đầu
+                        </div>
+                      )
                     )}
                   </div>
+
                 </div>
               );
             })()}
