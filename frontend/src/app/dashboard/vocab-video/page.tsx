@@ -993,10 +993,7 @@ export default function VocabVideoGenerator() {
                             style={{ 
                               color: textColor, 
                               WebkitTextStroke: `0.4px ${strokeColor}`,
-                              textShadow: '0 1px 3px rgba(0,0,0,0.1)',
-                              background: 'rgba(255,255,255,0.25)',
-                              backdropFilter: 'blur(4px)',
-                              WebkitBackdropFilter: 'blur(4px)'
+                              background: 'rgba(255,255,255,0.88)'
                             }}
                           >
                             {card.hiragana}
@@ -1005,9 +1002,7 @@ export default function VocabVideoGenerator() {
                             className={`font-bold leading-tight mt-0.5 ${numCards >= 4 ? 'text-[12px]' : 'text-[15px]'} px-2 py-0.5 rounded-md w-fit`}
                             style={{ 
                               color: textColor,
-                              background: 'rgba(255,255,255,0.20)',
-                              backdropFilter: 'blur(4px)',
-                              WebkitBackdropFilter: 'blur(4px)'
+                              background: 'rgba(255,255,255,0.80)'
                             }}
                           >
                             /{card.romaji}/
@@ -1016,9 +1011,7 @@ export default function VocabVideoGenerator() {
                             className={`font-semibold leading-tight mt-0.5 ${numCards >= 4 ? 'text-[13px]' : 'text-[16px]'} px-3 py-0.5 rounded-lg w-fit`}
                             style={{ 
                               color: textColor,
-                              background: 'rgba(255,255,255,0.25)',
-                              backdropFilter: 'blur(4px)',
-                              WebkitBackdropFilter: 'blur(4px)'
+                              background: 'rgba(255,255,255,0.88)'
                             }}
                           >
                             {card.meaning}
@@ -1050,10 +1043,7 @@ export default function VocabVideoGenerator() {
                           className={`font-black tracking-widest ${numCards <= 4 ? 'text-[20px]' : 'text-[16px]'} px-4 py-1.5 rounded-xl w-fit`}
                           style={{ 
                             color: textColor,
-                            textShadow: `0 2px 8px rgba(0,0,0,0.2)`,
-                            background: 'rgba(255,255,255,0.25)',
-                            backdropFilter: 'blur(4px)',
-                            WebkitBackdropFilter: 'blur(4px)'
+                            background: 'rgba(255,255,255,0.88)'
                           }}
                         >
                           {card.hiragana}
@@ -1061,11 +1051,8 @@ export default function VocabVideoGenerator() {
                         <div 
                           className={`font-light tracking-widest ${numCards <= 4 ? 'text-[15px]' : 'text-[12px]'} px-3 py-1 rounded-lg w-fit`}
                           style={{ 
-                            color: textColor, 
-                            opacity: 0.9,
-                            background: 'rgba(255,255,255,0.20)',
-                            backdropFilter: 'blur(4px)',
-                            WebkitBackdropFilter: 'blur(4px)'
+                            color: textColor,
+                            background: 'rgba(255,255,255,0.80)'
                           }}
                         >
                           {card.romaji}
@@ -1074,10 +1061,7 @@ export default function VocabVideoGenerator() {
                           className={`font-semibold tracking-wide ${numCards <= 4 ? 'text-[20px]' : 'text-[16px]'} px-4 py-1.5 rounded-xl w-fit`}
                           style={{ 
                             color: textColor,
-                            textShadow: `0 2px 6px rgba(0,0,0,0.15)`,
-                            background: 'rgba(255,255,255,0.25)',
-                            backdropFilter: 'blur(4px)',
-                            WebkitBackdropFilter: 'blur(4px)'
+                            background: 'rgba(255,255,255,0.88)'
                           }}
                         >
                           {card.meaning}
