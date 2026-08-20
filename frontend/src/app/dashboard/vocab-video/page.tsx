@@ -972,7 +972,7 @@ export default function VocabVideoGenerator() {
             {/* Sentence List Container (SENTENCE MODE) */}
             {displayMode === 'sentence' && (
               <div className="flex-1 w-full px-5 pb-8 flex flex-col z-10 relative justify-center items-center">
-                <div className="w-fit min-w-[60%] max-w-full bg-white/10 backdrop-blur-[2px] rounded-[32px] flex flex-col px-8 py-6 shadow-md border border-white/20 items-center">
+                <div className="w-full flex flex-col items-center">
                   <h2 className="text-[26px] md:text-[30px] font-black text-center text-[#1964C3] mb-6 tracking-wide drop-shadow-sm uppercase">
                     {topicTitle}
                   </h2>
@@ -1031,17 +1031,8 @@ export default function VocabVideoGenerator() {
                       key={card.id}
                       className="w-full animate-in fade-in zoom-in-95 duration-500 flex justify-center"
                     >
-                      {/* Frosted glass backdrop */}
-                      <div 
-                        className="w-fit min-w-[70%] max-w-full rounded-[28px] px-8 py-8 flex flex-col items-center justify-center gap-5 text-center"
-                        style={{
-                          background: 'rgba(255,255,255,0.05)',
-                          backdropFilter: 'blur(2px)',
-                          WebkitBackdropFilter: 'blur(2px)',
-                          border: '1px solid rgba(255,255,255,0.15)',
-                          boxShadow: '0 4px 20px rgba(0,0,0,0.1)'
-                        }}
-                      >
+                      {/* Text wrapper with no box */}
+                      <div className="w-fit flex flex-col items-center justify-center gap-5 text-center">
                         <div 
                           className={`font-black tracking-widest ${numCards <= 4 ? 'text-[20px]' : 'text-[16px]'}`}
                           style={{ 
