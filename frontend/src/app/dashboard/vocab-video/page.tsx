@@ -971,25 +971,25 @@ export default function VocabVideoGenerator() {
 
             {/* Sentence List Container (SENTENCE MODE) */}
             {displayMode === 'sentence' && (
-              <div className="flex-1 w-full px-5 pb-8 flex flex-col z-10 relative justify-center items-center">
+              <div className="flex-1 w-full px-4 pb-4 flex flex-col z-10 relative justify-center items-center overflow-y-auto">
                 <div className="w-full flex flex-col items-center">
-                  <h2 className="text-[26px] md:text-[30px] font-black text-center text-[#1964C3] mb-6 tracking-wide drop-shadow-sm uppercase">
+                  <h2 className={`font-black text-center text-[#1964C3] tracking-wide drop-shadow-sm uppercase mb-3 ${numCards >= 4 ? 'text-[20px]' : 'text-[26px]'}`}>
                     {topicTitle}
                   </h2>
-                  <div className={`flex flex-col ${numCards >= 5 ? 'gap-3' : 'gap-5'}`}>
+                  <div className={`flex flex-col w-full items-center ${numCards >= 4 ? 'gap-1.5' : 'gap-3'}`}>
                     {cards.map((card) => {
                       const isActive = activeHighlight === card.id;
                       return (
                         <div 
                           key={card.id}
-                          className={`w-full rounded-2xl flex flex-col items-center justify-center ${numCards >= 5 ? 'py-2 px-2' : 'py-4 px-3'} text-center transition-all duration-300 ${
+                          className={`w-full rounded-2xl flex flex-col items-center justify-center ${numCards >= 4 ? 'py-1.5 px-2' : 'py-3 px-3'} text-center transition-all duration-300 ${
                             isActive 
                               ? 'bg-[#FFC7D8] border-[3px] border-[#FF9EBC] scale-[1.03] shadow-lg shadow-pink-200/50' 
                               : 'bg-transparent border-[3px] border-transparent'
                           }`}
                         >
                           <div 
-                            className={`font-black tracking-wide leading-tight ${numCards <= 4 ? 'text-[24px]' : 'text-[18px]'} px-3 py-1 rounded-lg w-fit`}
+                            className={`font-black tracking-wide leading-tight ${numCards >= 4 ? 'text-[18px]' : 'text-[24px]'} px-3 py-0.5 rounded-lg w-fit`}
                             style={{ 
                               color: textColor, 
                               WebkitTextStroke: `0.4px ${strokeColor}`,
@@ -1002,7 +1002,7 @@ export default function VocabVideoGenerator() {
                             {card.hiragana}
                           </div>
                           <div 
-                            className={`font-bold leading-tight mt-1.5 ${numCards <= 4 ? 'text-[15px]' : 'text-xs'} px-2 py-0.5 rounded-md w-fit`}
+                            className={`font-bold leading-tight mt-0.5 ${numCards >= 4 ? 'text-[12px]' : 'text-[15px]'} px-2 py-0.5 rounded-md w-fit`}
                             style={{ 
                               color: textColor,
                               background: 'rgba(255,255,255,0.20)',
@@ -1013,7 +1013,7 @@ export default function VocabVideoGenerator() {
                             /{card.romaji}/
                           </div>
                           <div 
-                            className={`font-semibold leading-tight mt-1.5 ${numCards <= 4 ? 'text-[16px]' : 'text-sm'} px-3 py-1 rounded-lg w-fit`}
+                            className={`font-semibold leading-tight mt-0.5 ${numCards >= 4 ? 'text-[13px]' : 'text-[16px]'} px-3 py-0.5 rounded-lg w-fit`}
                             style={{ 
                               color: textColor,
                               background: 'rgba(255,255,255,0.25)',
