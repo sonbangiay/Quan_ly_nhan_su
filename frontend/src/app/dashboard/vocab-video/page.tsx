@@ -921,7 +921,7 @@ export default function VocabVideoGenerator() {
             {/* Dynamic Grid Container (VOCAB MODE) */}
             {displayMode === 'vocab' && (
               <div 
-                className="flex-1 w-full px-4 pb-2 grid gap-3 transition-all duration-500"
+                className="flex-1 w-full px-4 pb-2 grid gap-3 transition-all duration-500 z-10 relative"
                 style={{
                   ...getGridTemplate(),
                   paddingBottom: 16 // Giảm padding dưới để không bị lẹm
@@ -971,8 +971,8 @@ export default function VocabVideoGenerator() {
 
             {/* Sentence List Container (SENTENCE MODE) */}
             {displayMode === 'sentence' && (
-              <div className="flex-1 w-full px-5 pb-8 flex flex-col z-10 relative justify-center">
-                <div className="w-full bg-white/20 backdrop-blur-sm rounded-[32px] flex flex-col p-6 shadow-xl border border-white/30">
+              <div className="flex-1 w-full px-5 pb-8 flex flex-col z-10 relative justify-center items-center">
+                <div className="w-fit min-w-[60%] max-w-full bg-white/10 backdrop-blur-[2px] rounded-[32px] flex flex-col px-8 py-6 shadow-md border border-white/20 items-center">
                   <h2 className="text-[26px] md:text-[30px] font-black text-center text-[#1964C3] mb-6 tracking-wide drop-shadow-sm uppercase">
                     {topicTitle}
                   </h2>
@@ -1029,17 +1029,17 @@ export default function VocabVideoGenerator() {
                   return (
                     <div 
                       key={card.id}
-                      className="w-full animate-in fade-in zoom-in-95 duration-500"
+                      className="w-full animate-in fade-in zoom-in-95 duration-500 flex justify-center"
                     >
                       {/* Frosted glass backdrop */}
                       <div 
-                        className="w-full rounded-[28px] px-8 py-10 flex flex-col items-center justify-center gap-5 text-center"
+                        className="w-fit min-w-[70%] max-w-full rounded-[28px] px-8 py-8 flex flex-col items-center justify-center gap-5 text-center"
                         style={{
-                          background: 'rgba(255,255,255,0.15)',
-                          backdropFilter: 'blur(4px)',
-                          WebkitBackdropFilter: 'blur(4px)',
-                          border: '1px solid rgba(255,255,255,0.20)',
-                          boxShadow: '0 8px 40px rgba(0,0,0,0.18)'
+                          background: 'rgba(255,255,255,0.05)',
+                          backdropFilter: 'blur(2px)',
+                          WebkitBackdropFilter: 'blur(2px)',
+                          border: '1px solid rgba(255,255,255,0.15)',
+                          boxShadow: '0 4px 20px rgba(0,0,0,0.1)'
                         }}
                       >
                         <div 
