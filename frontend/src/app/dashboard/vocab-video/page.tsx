@@ -972,7 +972,7 @@ export default function VocabVideoGenerator() {
             {/* Sentence List Container (SENTENCE MODE) */}
             {displayMode === 'sentence' && (
               <div className="flex-1 w-full px-5 pb-8 flex flex-col z-10 relative justify-center">
-                <div className="w-full bg-white/80 backdrop-blur-md rounded-[32px] flex flex-col p-6 shadow-2xl border border-white/60">
+                <div className="w-full bg-white/20 backdrop-blur-sm rounded-[32px] flex flex-col p-6 shadow-xl border border-white/30">
                   <h2 className="text-[26px] md:text-[30px] font-black text-center text-[#1964C3] mb-6 tracking-wide drop-shadow-sm uppercase">
                     {topicTitle}
                   </h2>
@@ -1035,10 +1035,10 @@ export default function VocabVideoGenerator() {
                       <div 
                         className="w-full rounded-[28px] px-8 py-10 flex flex-col items-center justify-center gap-5 text-center"
                         style={{
-                          background: 'rgba(255,255,255,0.25)',
-                          backdropFilter: 'blur(8px)',
-                          WebkitBackdropFilter: 'blur(8px)',
-                          border: '1px solid rgba(255,255,255,0.35)',
+                          background: 'rgba(255,255,255,0.15)',
+                          backdropFilter: 'blur(4px)',
+                          WebkitBackdropFilter: 'blur(4px)',
+                          border: '1px solid rgba(255,255,255,0.20)',
                           boxShadow: '0 8px 40px rgba(0,0,0,0.18)'
                         }}
                       >
