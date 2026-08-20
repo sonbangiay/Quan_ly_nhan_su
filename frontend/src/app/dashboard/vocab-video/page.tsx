@@ -989,24 +989,37 @@ export default function VocabVideoGenerator() {
                           }`}
                         >
                           <div 
-                            className={`font-black tracking-wide leading-tight ${numCards <= 4 ? 'text-[24px]' : 'text-[18px]'}`}
+                            className={`font-black tracking-wide leading-tight ${numCards <= 4 ? 'text-[24px]' : 'text-[18px]'} px-3 py-1 rounded-lg w-fit`}
                             style={{ 
                               color: textColor, 
                               WebkitTextStroke: `0.4px ${strokeColor}`,
-                              textShadow: '0 1px 3px rgba(0,0,0,0.1)' 
+                              textShadow: '0 1px 3px rgba(0,0,0,0.1)',
+                              background: 'rgba(255,255,255,0.25)',
+                              backdropFilter: 'blur(4px)',
+                              WebkitBackdropFilter: 'blur(4px)'
                             }}
                           >
                             {card.hiragana}
                           </div>
                           <div 
-                            className={`font-bold leading-tight mt-1.5 ${numCards <= 4 ? 'text-[15px]' : 'text-xs'}`}
-                            style={{ color: textColor }}
+                            className={`font-bold leading-tight mt-1.5 ${numCards <= 4 ? 'text-[15px]' : 'text-xs'} px-2 py-0.5 rounded-md w-fit`}
+                            style={{ 
+                              color: textColor,
+                              background: 'rgba(255,255,255,0.20)',
+                              backdropFilter: 'blur(4px)',
+                              WebkitBackdropFilter: 'blur(4px)'
+                            }}
                           >
                             /{card.romaji}/
                           </div>
                           <div 
-                            className={`font-semibold leading-tight mt-1.5 ${numCards <= 4 ? 'text-[16px]' : 'text-sm'}`}
-                            style={{ color: textColor }}
+                            className={`font-semibold leading-tight mt-1.5 ${numCards <= 4 ? 'text-[16px]' : 'text-sm'} px-3 py-1 rounded-lg w-fit`}
+                            style={{ 
+                              color: textColor,
+                              background: 'rgba(255,255,255,0.25)',
+                              backdropFilter: 'blur(4px)',
+                              WebkitBackdropFilter: 'blur(4px)'
+                            }}
                           >
                             {card.meaning}
                           </div>
@@ -1034,25 +1047,37 @@ export default function VocabVideoGenerator() {
                       {/* Text wrapper with no box */}
                       <div className="w-fit flex flex-col items-center justify-center gap-5 text-center">
                         <div 
-                          className={`font-black tracking-widest ${numCards <= 4 ? 'text-[20px]' : 'text-[16px]'}`}
+                          className={`font-black tracking-widest ${numCards <= 4 ? 'text-[20px]' : 'text-[16px]'} px-4 py-1.5 rounded-xl w-fit`}
                           style={{ 
                             color: textColor,
-                            textShadow: `0 2px 8px rgba(0,0,0,0.2)`
+                            textShadow: `0 2px 8px rgba(0,0,0,0.2)`,
+                            background: 'rgba(255,255,255,0.25)',
+                            backdropFilter: 'blur(4px)',
+                            WebkitBackdropFilter: 'blur(4px)'
                           }}
                         >
                           {card.hiragana}
                         </div>
                         <div 
-                          className={`font-light tracking-widest ${numCards <= 4 ? 'text-[15px]' : 'text-[12px]'}`}
-                          style={{ color: textColor, opacity: 0.85 }}
+                          className={`font-light tracking-widest ${numCards <= 4 ? 'text-[15px]' : 'text-[12px]'} px-3 py-1 rounded-lg w-fit`}
+                          style={{ 
+                            color: textColor, 
+                            opacity: 0.9,
+                            background: 'rgba(255,255,255,0.20)',
+                            backdropFilter: 'blur(4px)',
+                            WebkitBackdropFilter: 'blur(4px)'
+                          }}
                         >
                           {card.romaji}
                         </div>
                         <div 
-                          className={`font-semibold tracking-wide ${numCards <= 4 ? 'text-[20px]' : 'text-[16px]'}`}
+                          className={`font-semibold tracking-wide ${numCards <= 4 ? 'text-[20px]' : 'text-[16px]'} px-4 py-1.5 rounded-xl w-fit`}
                           style={{ 
                             color: textColor,
-                            textShadow: `0 2px 6px rgba(0,0,0,0.15)`
+                            textShadow: `0 2px 6px rgba(0,0,0,0.15)`,
+                            background: 'rgba(255,255,255,0.25)',
+                            backdropFilter: 'blur(4px)',
+                            WebkitBackdropFilter: 'blur(4px)'
                           }}
                         >
                           {card.meaning}
