@@ -1043,7 +1043,7 @@ export default function VocabVideoGenerator() {
                         }}
                       >
                         <div 
-                          className={`font-black tracking-widest ${numCards <= 4 ? 'text-[36px]' : 'text-[28px]'}`}
+                          className={`font-black tracking-widest ${numCards <= 4 ? 'text-[28px]' : 'text-[22px]'}`}
                           style={{ 
                             color: textColor,
                             textShadow: `0 2px 8px rgba(0,0,0,0.2)`
@@ -1052,13 +1052,13 @@ export default function VocabVideoGenerator() {
                           {card.hiragana}
                         </div>
                         <div 
-                          className={`font-light tracking-widest ${numCards <= 4 ? 'text-[18px]' : 'text-[14px]'}`}
+                          className={`font-light tracking-widest ${numCards <= 4 ? 'text-[15px]' : 'text-[12px]'}`}
                           style={{ color: textColor, opacity: 0.85 }}
                         >
                           {card.romaji}
                         </div>
                         <div 
-                          className={`font-semibold tracking-wide ${numCards <= 4 ? 'text-[24px]' : 'text-[18px]'}`}
+                          className={`font-semibold tracking-wide ${numCards <= 4 ? 'text-[20px]' : 'text-[16px]'}`}
                           style={{ 
                             color: textColor,
                             textShadow: `0 2px 6px rgba(0,0,0,0.15)`
