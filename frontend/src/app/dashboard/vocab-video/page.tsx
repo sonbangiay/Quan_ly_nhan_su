@@ -973,9 +973,33 @@ export default function VocabVideoGenerator() {
             {displayMode === 'sentence' && (
               <div className="flex-1 w-full px-4 pb-4 flex flex-col z-10 relative justify-center items-center overflow-y-auto">
                 <div className="w-full flex flex-col items-center">
-                  <h2 className={`font-black text-center text-[#1964C3] tracking-wide drop-shadow-sm uppercase mb-3 ${numCards >= 4 ? 'text-[20px]' : 'text-[26px]'}`}>
-                    {topicTitle}
-                  </h2>
+                  {/* Title với hiệu ứng đẹp */}
+                  <div className="mb-4 flex flex-col items-center gap-1">
+                    <div 
+                      className="px-6 py-2 rounded-2xl"
+                      style={{
+                        background: 'linear-gradient(135deg, rgba(25,100,195,0.92) 0%, rgba(6,182,212,0.92) 100%)',
+                        boxShadow: '0 4px 20px rgba(25,100,195,0.4), 0 1px 0 rgba(255,255,255,0.3) inset'
+                      }}
+                    >
+                      <h2 
+                        className={`font-black text-center tracking-widest uppercase leading-tight ${numCards >= 4 ? 'text-[26px]' : 'text-[32px]'}`}
+                        style={{
+                          color: 'white',
+                          textShadow: '0 2px 8px rgba(0,0,0,0.3), 0 0 20px rgba(255,255,255,0.2)',
+                          letterSpacing: '0.12em'
+                        }}
+                      >
+                        {topicTitle}
+                      </h2>
+                    </div>
+                    {/* Đường kẻ trang trí dưới tiêu đề */}
+                    <div className="flex items-center gap-1.5">
+                      <div className="h-[2px] w-8 rounded-full" style={{ background: 'rgba(25,100,195,0.5)' }} />
+                      <div className="h-[3px] w-4 rounded-full" style={{ background: 'rgba(6,182,212,0.8)' }} />
+                      <div className="h-[2px] w-8 rounded-full" style={{ background: 'rgba(25,100,195,0.5)' }} />
+                    </div>
+                  </div>
                   <div className={`flex flex-col w-full items-center ${numCards >= 4 ? 'gap-1.5' : 'gap-3'}`}>
                     {cards.map((card) => {
                       const isActive = activeHighlight === card.id;
