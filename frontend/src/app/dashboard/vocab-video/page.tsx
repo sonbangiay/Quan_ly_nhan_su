@@ -1043,7 +1043,7 @@ export default function VocabVideoGenerator() {
                         }}
                       >
                         <div 
-                          className={`font-black tracking-widest ${numCards <= 4 ? 'text-[28px]' : 'text-[22px]'}`}
+                          className={`font-black tracking-widest ${numCards <= 4 ? 'text-[20px]' : 'text-[16px]'}`}
                           style={{ 
                             color: textColor,
                             textShadow: `0 2px 8px rgba(0,0,0,0.2)`
