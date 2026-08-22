@@ -17,6 +17,7 @@ interface QuizQuestion {
   type?: 'ja-vi' | 'vi-ja';
   question: string;    // Hiragana/Kanji (câu hỏi)
   romaji: string;      // Romaji của câu hỏi
+  questionSuffix?: string; // Chữ phụ bên dưới (mặc định: nghĩa là gì?)
   correct: string;     // Đáp án đúng
   wrongA: string;      // Đáp án sai 1
   wrongB: string;      // Đáp án sai 2
@@ -850,6 +851,15 @@ export default function VocabVideoGenerator() {
                         onChange={e => setQuizQuestions(prev => prev.map(x => x.id === q.id ? { ...x, romaji: e.target.value } : x))}
                         placeholder="🔤 Ghi chú thêm / Romaji (omatase shimashita)"
                       />
+                      {q.type !== 'vi-ja' && (
+                        <input
+                          type="text"
+                          className="input text-sm w-full py-1.5 text-blue-700 font-bold bg-blue-50/50 border-blue-200"
+                          value={q.questionSuffix !== undefined ? q.questionSuffix : 'nghĩa là gì?'}
+                          onChange={e => setQuizQuestions(prev => prev.map(x => x.id === q.id ? { ...x, questionSuffix: e.target.value } : x))}
+                          placeholder="✏️ Dòng chữ hỏi bên dưới (Mặc định: nghĩa là gì?)"
+                        />
+                      )}
                       <input
                         type="text"
                         className="input text-sm w-full py-1.5 text-green-700 font-semibold"
@@ -1147,7 +1157,7 @@ export default function VocabVideoGenerator() {
                           ({currentQ?.romaji || 'omatase shimashita'})
                         </div>
                         <div className="text-[17px] font-black text-gray-900 mt-2">
-                          nghĩa là gì?
+                          {currentQ?.questionSuffix !== undefined ? currentQ.questionSuffix : 'nghĩa là gì?'}
                         </div>
                       </>
                     )}
