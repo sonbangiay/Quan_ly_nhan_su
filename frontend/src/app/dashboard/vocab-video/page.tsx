@@ -1104,6 +1104,20 @@ export default function VocabVideoGenerator() {
               return (
                 <div className="flex-1 w-full px-4 pb-4 flex flex-col items-center justify-center z-10 relative gap-3">
 
+                  {/* Label Chọn Đáp Án Đúng */}
+                  <div 
+                    className="px-5 py-1.5 rounded-full flex items-center gap-2"
+                    style={{
+                      background: 'linear-gradient(135deg, #f97316 0%, #ef4444 100%)',
+                      boxShadow: '0 3px 12px rgba(239,68,68,0.4)'
+                    }}
+                  >
+                    <span style={{ fontSize: '14px' }}>🎯</span>
+                    <span className="font-black text-white tracking-widest uppercase text-[13px]">
+                      Chọn Đáp Án Đúng
+                    </span>
+                  </div>
+
                   {/* Question box — white background, red Japanese text */}
                   <div
                     className="w-full rounded-2xl px-5 py-5 text-center"
