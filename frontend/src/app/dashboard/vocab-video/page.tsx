@@ -620,7 +620,7 @@ export default function VocabVideoGenerator() {
             </div>
           </div>
 
-          {displayMode === 'sentence' && (
+          {(displayMode === 'sentence' || displayMode === 'story') && (
             <div className="mb-6 p-4 bg-[#D6EFFC]/30 rounded-xl border border-[#D6EFFC]">
               <label className="block text-xs font-bold mb-2 text-[#1964C3]">Tiêu đề Video</label>
               <input type="text" className="input w-full font-black text-lg text-[#1964C3] border-[#1964C3]/20 focus:border-[#1964C3]" value={topicTitle} onChange={e => setTopicTitle(e.target.value)} placeholder="Ví dụ: THỜI GIAN" />
@@ -748,8 +748,8 @@ export default function VocabVideoGenerator() {
                     <div className="font-bold text-sm mb-3 flex items-center justify-between border-b border-[var(--border)] pb-2">
                       <span>{displayMode === 'vocab' ? `Ô từ vựng #${idx + 1}` : `Câu #${idx + 1}`}</span>
                     </div>
-                    <div className={`grid ${displayMode === 'vocab' ? 'grid-cols-[80px_1fr]' : 'grid-cols-1'} gap-3`}>
-                      {displayMode === 'vocab' && (
+                    <div className={`grid ${(displayMode === 'vocab' || displayMode === 'story') ? 'grid-cols-[80px_1fr]' : 'grid-cols-1'} gap-3`}>
+                      {(displayMode === 'vocab' || displayMode === 'story') && (
                         <div>
                           <label className="block text-[10px] font-semibold mb-1 text-[var(--text-muted)] uppercase">Emoji/Ảnh</label>
                           <label className="w-full h-20 border-2 border-dashed border-[var(--border)] rounded flex flex-col items-center justify-center cursor-pointer hover:bg-[var(--bg-hover)] overflow-hidden">
@@ -1061,6 +1061,13 @@ export default function VocabVideoGenerator() {
             {/* Story List Container (STORY MODE) */}
             {displayMode === 'story' && (
               <div className="flex-1 w-full px-6 pb-10 flex flex-col items-center justify-center z-10 relative">
+                {topicTitle && (
+                  <div className="mb-4 px-5 py-1.5 rounded-xl bg-black/30 backdrop-blur-sm border border-white/20">
+                    <h2 className="text-sm font-black text-amber-300 tracking-widest uppercase">
+                      {topicTitle}
+                    </h2>
+                  </div>
+                )}
                 {cards.map((card, idx) => {
                   // Chỉ hiển thị card đang được đọc, hoặc card đầu tiên nếu chưa bắt đầu đọc
                   const isActive = activeHighlight ? (activeHighlight === card.id) : (idx === 0);
@@ -1072,7 +1079,14 @@ export default function VocabVideoGenerator() {
                       className="w-full animate-in fade-in zoom-in-95 duration-500 flex justify-center"
                     >
                       {/* Text wrapper with no box */}
-                      <div className="w-fit flex flex-col items-center justify-center gap-5 text-center">
+                      <div className="w-fit flex flex-col items-center justify-center gap-4 text-center">
+                        {card.image && (
+                          <img 
+                            src={card.image} 
+                            alt="" 
+                            className="max-h-[140px] object-contain drop-shadow-lg rounded-2xl mb-1 bg-white/40 p-2 border border-white/50" 
+                          />
+                        )}
                         <div 
                           className={`font-black tracking-widest ${numCards <= 4 ? 'text-[20px]' : 'text-[16px]'} px-4 py-1.5 rounded-xl w-fit`}
                           style={{ 
