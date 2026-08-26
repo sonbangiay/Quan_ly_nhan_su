@@ -1016,36 +1016,38 @@ export default function VocabVideoGenerator() {
                       return (
                         <div 
                           key={card.id}
-                          className={`w-full rounded-2xl flex flex-col items-center justify-center ${numCards >= 4 ? 'py-1.5 px-2' : 'py-3 px-3'} text-center transition-all duration-300 ${
+                          className={`w-fit max-w-[92%] rounded-2xl flex flex-col items-center justify-center ${numCards >= 4 ? 'py-2 px-5' : 'py-3 px-6'} text-center transition-all duration-300 ${
                             isActive 
                               ? 'bg-[#FFC7D8] border-[3px] border-[#FF9EBC] scale-[1.03] shadow-lg shadow-pink-200/50' 
-                              : 'bg-transparent border-[3px] border-transparent'
+                              : 'border border-white/80'
                           }`}
+                          style={{
+                            background: isActive ? undefined : 'rgba(255,255,255,0.88)',
+                            boxShadow: isActive ? undefined : '0 2px 12px rgba(0,0,0,0.08)'
+                          }}
                         >
                           <div 
-                            className={`font-black tracking-wide leading-tight ${numCards >= 4 ? 'text-[18px]' : 'text-[24px]'} px-3 py-0.5 rounded-lg w-fit`}
+                            className={`font-black tracking-wide leading-tight ${numCards >= 4 ? 'text-[18px]' : 'text-[24px]'}`}
                             style={{ 
                               color: textColor, 
-                              WebkitTextStroke: `0.4px ${strokeColor}`,
-                              background: 'rgba(255,255,255,0.88)'
+                              WebkitTextStroke: `0.4px ${strokeColor}`
                             }}
                           >
                             {card.hiragana}
                           </div>
                           <div 
-                            className={`font-bold leading-tight mt-0.5 ${numCards >= 4 ? 'text-[12px]' : 'text-[15px]'} px-2 py-0.5 rounded-md w-fit`}
+                            className={`font-bold leading-tight mt-0.5 ${numCards >= 4 ? 'text-[12px]' : 'text-[15px]'}`}
                             style={{ 
                               color: textColor,
-                              background: 'rgba(255,255,255,0.80)'
+                              opacity: 0.85
                             }}
                           >
                             /{card.romaji}/
                           </div>
                           <div 
-                            className={`font-semibold leading-tight mt-0.5 ${numCards >= 4 ? 'text-[13px]' : 'text-[16px]'} px-3 py-0.5 rounded-lg w-fit`}
+                            className={`font-semibold leading-tight mt-0.5 ${numCards >= 4 ? 'text-[13px]' : 'text-[16px]'}`}
                             style={{ 
-                              color: textColor,
-                              background: 'rgba(255,255,255,0.88)'
+                              color: textColor
                             }}
                           >
                             {card.meaning}
@@ -1078,8 +1080,14 @@ export default function VocabVideoGenerator() {
                       key={card.id}
                       className="w-full animate-in fade-in zoom-in-95 duration-500 flex justify-center"
                     >
-                      {/* Text wrapper with no box */}
-                      <div className="w-fit flex flex-col items-center justify-center gap-4 text-center">
+                      {/* Text wrapper with single background box */}
+                      <div 
+                        className="w-fit max-w-[90%] flex flex-col items-center justify-center gap-2 text-center px-6 py-4 rounded-2xl border border-white/80"
+                        style={{
+                          background: 'rgba(255,255,255,0.88)',
+                          boxShadow: '0 4px 20px rgba(0,0,0,0.08)'
+                        }}
+                      >
                         {card.image && (
                           <img 
                             src={card.image} 
@@ -1088,29 +1096,20 @@ export default function VocabVideoGenerator() {
                           />
                         )}
                         <div 
-                          className={`font-black tracking-widest ${numCards <= 4 ? 'text-[20px]' : 'text-[16px]'} px-4 py-1.5 rounded-xl w-fit`}
-                          style={{ 
-                            color: textColor,
-                            background: 'rgba(255,255,255,0.88)'
-                          }}
+                          className={`font-black tracking-widest ${numCards <= 4 ? 'text-[20px]' : 'text-[16px]'}`}
+                          style={{ color: textColor }}
                         >
                           {card.hiragana}
                         </div>
                         <div 
-                          className={`font-light tracking-widest ${numCards <= 4 ? 'text-[15px]' : 'text-[12px]'} px-3 py-1 rounded-lg w-fit`}
-                          style={{ 
-                            color: textColor,
-                            background: 'rgba(255,255,255,0.80)'
-                          }}
+                          className={`font-light tracking-widest ${numCards <= 4 ? 'text-[15px]' : 'text-[12px]'}`}
+                          style={{ color: textColor, opacity: 0.85 }}
                         >
                           {card.romaji}
                         </div>
                         <div 
-                          className={`font-semibold tracking-wide ${numCards <= 4 ? 'text-[20px]' : 'text-[16px]'} px-4 py-1.5 rounded-xl w-fit`}
-                          style={{ 
-                            color: textColor,
-                            background: 'rgba(255,255,255,0.88)'
-                          }}
+                          className={`font-semibold tracking-wide ${numCards <= 4 ? 'text-[20px]' : 'text-[16px]'}`}
+                          style={{ color: textColor }}
                         >
                           {card.meaning}
                         </div>
