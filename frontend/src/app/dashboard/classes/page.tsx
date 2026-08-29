@@ -101,7 +101,7 @@ export default function ClassesPage() {
   
   // Loading & UI State
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'classes' | 'students' | 'alerts' | 'history'>('classes');
+  const [activeTab, setActiveTab] = useState<'classes' | 'ended' | 'students' | 'alerts' | 'history'>('classes');
   const [searchTerm, setSearchTerm] = useState('');
   const [subjectFilter, setSubjectFilter] = useState('');
   
@@ -808,7 +808,7 @@ export default function ClassesPage() {
     const matchesSubject = subjectFilter ? c.subjectType === subjectFilter : true;
     
     const status = getClassStatus(c.startDate, c.endDate);
-    const matchesTab = activeTab === 'history' ? status === 'Kết thúc' : status !== 'Kết thúc';
+    const matchesTab = activeTab === 'ended' ? status === 'Kết thúc' : status !== 'Kết thúc';
     
     return matchesSearch && matchesSubject && matchesTab;
   });
@@ -909,13 +909,20 @@ export default function ClassesPage() {
       </div>
 
       {/* Tabs list */}
-      <div style={{ display: 'flex', background: 'var(--bg-secondary)', borderRadius: 10, padding: 4, width: 'fit-content', marginBottom: 20, border: '1px solid var(--border)' }}>
+      <div style={{ display: 'flex', background: 'var(--bg-secondary)', borderRadius: 10, padding: 4, width: 'fit-content', marginBottom: 20, border: '1px solid var(--border)', flexWrap: 'wrap', gap: 4 }}>
         <button 
           className={`btn ${activeTab === 'classes' ? 'btn-primary' : ''}`}
           style={{ background: activeTab !== 'classes' ? 'transparent' : undefined, border: 'none' }}
           onClick={() => { setActiveTab('classes'); setSearchTerm(''); }}
         >
-          Lớp học ({classes.filter(c => getClassStatus(c.startDate, c.endDate) !== 'Kết thúc').length})
+          Lớp đang học ({classes.filter(c => getClassStatus(c.startDate, c.endDate) !== 'Kết thúc').length})
+        </button>
+        <button 
+          className={`btn ${activeTab === 'ended' ? 'btn-primary' : ''}`}
+          style={{ background: activeTab !== 'ended' ? 'transparent' : undefined, border: 'none' }}
+          onClick={() => { setActiveTab('ended'); setSearchTerm(''); }}
+        >
+          Lớp đã kết thúc ({classes.filter(c => getClassStatus(c.startDate, c.endDate) === 'Kết thúc').length})
         </button>
         <button 
           className={`btn ${activeTab === 'students' ? 'btn-primary' : ''}`}
@@ -941,7 +948,7 @@ export default function ClassesPage() {
           style={{ background: activeTab !== 'history' ? 'transparent' : undefined, border: 'none' }}
           onClick={() => { setActiveTab('history'); setSearchTerm(''); }}
         >
-          Lịch sử ({trashItems.length})
+          Thùng rác ({trashItems.length})
         </button>
       </div>
 
@@ -951,14 +958,14 @@ export default function ClassesPage() {
           <Search size={16} color="var(--text-muted)" />
           <input 
             type="text" 
-            placeholder={activeTab === 'classes' ? "Tìm lớp học, giảng viên..." : activeTab === 'students' ? "Tìm tên học viên, số điện thoại..." : "Tìm học viên, lớp nợ học phí..."}
+            placeholder={activeTab === 'classes' ? "Tìm lớp đang học, giảng viên..." : activeTab === 'ended' ? "Tìm lớp đã kết thúc, giảng viên..." : activeTab === 'students' ? "Tìm tên học viên, số điện thoại..." : "Tìm học viên, lớp nợ học phí..."}
             value={searchTerm}
             onChange={e => setSearchTerm(e.target.value)}
             style={{ background: 'transparent', border: 'none', color: 'var(--text-primary)', outline: 'none', width: '100%', padding: '8px 0', fontSize: 14 }}
           />
         </div>
 
-        {activeTab === 'classes' && (
+        {(activeTab === 'classes' || activeTab === 'ended') && (
           <select 
             className="form-input" 
             style={{ width: 200, padding: '8px 12px' }}
@@ -979,8 +986,8 @@ export default function ClassesPage() {
         </div>
       ) : (
         <>
-          {/* TAB 1: Classes Grid */}
-          {activeTab === 'classes' && (
+          {/* TAB 1 & TAB 2: Classes Grid */}
+          {(activeTab === 'classes' || activeTab === 'ended') && (
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: 20 }}>
               {filteredClasses.map(c => {
                 const enrolledCount = c.enrollments?.length || 0;
@@ -1085,7 +1092,7 @@ export default function ClassesPage() {
               {filteredClasses.length === 0 && (
                 <div style={{ gridColumn: '1/-1', textAlign: 'center', padding: 60, color: 'var(--text-muted)' }}>
                   <GraduationCap size={48} style={{ margin: '0 auto 12px', opacity: 0.3 }} />
-                  <p>Không tìm thấy lớp học nào.</p>
+                  <p>{activeTab === 'ended' ? 'Không có lớp học nào đã kết thúc.' : 'Không tìm thấy lớp học nào.'}</p>
                 </div>
               )}
             </div>
