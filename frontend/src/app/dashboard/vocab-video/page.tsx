@@ -64,7 +64,8 @@ export default function VocabVideoGenerator() {
   const [topicTitle, setTopicTitle] = useState<string>('THỜI GIAN');
 
   // Grammar state
-  const [grammarTitle, setGrammarTitle] = useState<string>('NGỮ PHÁP N3 SẼ XUẤT HIỆN TRONG ĐỀ THI JLPT');
+  const [grammarTitlePink, setGrammarTitlePink] = useState<string>('NGỮ PHÁP N3');
+  const [grammarTitleCyan, setGrammarTitleCyan] = useState<string>('SẼ XUẤT HIỆN TRONG ĐỀ THI JLPT');
   const [grammarPattern, setGrammarPattern] = useState<string>('V てからでないと');
   const [grammarMeaning, setGrammarMeaning] = useState<string>('Nếu chưa...thì không...');
   const [grammarExamples, setGrammarExamples] = useState<GrammarExample[]>([
@@ -960,15 +961,27 @@ export default function VocabVideoGenerator() {
             {displayMode === 'grammar' && (
               <div className="space-y-4">
                 <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200 space-y-3 shadow-sm">
-                  <div>
-                    <label className="block text-xs font-bold mb-1 text-slate-800">📌 Tiêu đề Video Ngữ Pháp</label>
-                    <input 
-                      type="text" 
-                      className="input w-full font-black text-sm text-slate-900 border-slate-300" 
-                      value={grammarTitle} 
-                      onChange={e => setGrammarTitle(e.target.value)} 
-                      placeholder="NGỮ PHÁP N3 SẼ XUẤT HIỆN TRONG ĐỀ THI JLPT" 
-                    />
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-bold mb-1 text-rose-600">💖 Tiêu đề - Vế chữ Nổi bật (Hồng)</label>
+                      <input 
+                        type="text" 
+                        className="input w-full font-black text-sm text-rose-600 bg-rose-50/50 border-rose-200" 
+                        value={grammarTitlePink} 
+                        onChange={e => setGrammarTitlePink(e.target.value)} 
+                        placeholder="NGỮ PHÁP N3" 
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold mb-1 text-cyan-600">💎 Tiêu đề - Vế chữ Chính (Cyan)</label>
+                      <input 
+                        type="text" 
+                        className="input w-full font-black text-sm text-cyan-700 bg-cyan-50/50 border-cyan-200" 
+                        value={grammarTitleCyan} 
+                        onChange={e => setGrammarTitleCyan(e.target.value)} 
+                        placeholder="SẼ XUẤT HIỆN TRONG ĐỀ THI JLPT" 
+                      />
+                    </div>
                   </div>
                   <div className="grid grid-cols-2 gap-3">
                     <div>
@@ -1399,59 +1412,62 @@ export default function VocabVideoGenerator() {
 
             {/* Grammar Container (GRAMMAR MODE) */}
             {displayMode === 'grammar' && (
-              <div className="flex-1 w-full px-4 pb-6 flex flex-col items-center justify-between z-10 relative py-2 gap-3 overflow-hidden">
+              <div className="flex-1 w-full px-3 pb-4 flex flex-col items-center justify-between z-10 relative py-2 gap-2.5 overflow-hidden">
                 
-                {/* 1. Header Title Box (Navy Dark) */}
+                {/* 1. Header Title Box (Dark Navy / Black Blue) */}
                 <div 
-                  className="w-full max-w-[94%] rounded-2xl p-3 md:p-4 text-center shadow-xl border border-slate-700/60 mt-1"
+                  className="w-full rounded-2xl py-3.5 px-4 text-center border border-slate-700/80 shadow-2xl mt-1"
                   style={{
-                    background: 'rgba(11, 25, 44, 0.95)',
-                    boxShadow: '0 8px 32px rgba(0,0,0,0.3), 0 0 1px rgba(255,255,255,0.2) inset'
+                    background: 'linear-gradient(180deg, #091c36 0%, #061325 100%)',
+                    boxShadow: '0 8px 24px rgba(0,0,0,0.4), 0 1px 0 rgba(255,255,255,0.15) inset'
                   }}
                 >
-                  <h2 className="text-[16px] md:text-[18px] font-black uppercase tracking-wider leading-snug">
-                    <span className="text-[#FF4081] drop-shadow-[0_2px_6px_rgba(255,64,129,0.5)]">
-                      {grammarTitle ? grammarTitle : 'NGỮ PHÁP N3 SẼ XUẤT HIỆN TRONG ĐỀ THI JLPT'}
+                  <h2 className="text-[17px] md:text-[19px] font-black uppercase tracking-wide leading-snug flex flex-col items-center justify-center gap-0.5">
+                    <span className="text-[#FF3366] drop-shadow-[0_2px_8px_rgba(255,51,102,0.6)]">
+                      {grammarTitlePink || 'NGỮ PHÁP N3'}
+                    </span>
+                    <span className="text-[#00E5FF] drop-shadow-[0_2px_8px_rgba(0,229,255,0.6)]">
+                      {grammarTitleCyan || 'SẼ XUẤT HIỆN TRONG ĐỀ THI JLPT'}
                     </span>
                   </h2>
                 </div>
 
                 {/* 2. Grammar Pattern Pill (Yellow) */}
                 <div 
-                  className={`w-fit max-w-[90%] bg-[#FFE600] text-slate-950 px-6 py-2 rounded-xl shadow-lg border border-yellow-200 text-center transition-all duration-300 ${
-                    activeHighlight === 'grammar-pattern' ? 'scale-105 ring-4 ring-yellow-300 shadow-yellow-300/40' : ''
+                  className={`w-fit max-w-[92%] bg-[#FFE600] text-slate-950 px-6 py-2 rounded-xl shadow-lg border border-yellow-300 text-center transition-all duration-300 ${
+                    activeHighlight === 'grammar-pattern' ? 'scale-105 ring-4 ring-yellow-300 shadow-yellow-300/50' : ''
                   }`}
-                  style={{ boxShadow: '0 4px 16px rgba(255,230,0,0.3)' }}
+                  style={{ boxShadow: '0 4px 16px rgba(255,230,0,0.35)' }}
                 >
-                  <span className="text-[19px] md:text-[21px] font-black tracking-wide">
+                  <span className="text-[20px] md:text-[22px] font-black tracking-wide text-slate-950">
                     {grammarPattern}
                   </span>
                 </div>
 
                 {/* 3. Grammar Meaning Pill (White) */}
                 <div 
-                  className="w-fit max-w-[90%] bg-white text-[#0B192C] px-6 py-1.5 rounded-xl shadow-md text-center border border-slate-100"
+                  className="w-fit max-w-[92%] bg-white text-[#091c36] px-6 py-1.5 rounded-xl shadow-md text-center border border-slate-100"
                 >
-                  <span className="text-[14px] md:text-[15px] font-bold tracking-wide">
+                  <span className="text-[15px] md:text-[16px] font-black tracking-wide text-[#091c36]">
                     {grammarMeaning}
                   </span>
                 </div>
 
                 {/* 4. Examples List (Cyan cards & White pills) */}
-                <div className="w-full max-w-[94%] flex flex-col gap-3 my-auto overflow-y-auto px-1 py-1">
+                <div className="w-full flex flex-col gap-2.5 my-auto overflow-y-auto px-1 py-1">
                   {grammarExamples.map((ex) => {
                     const isActive = activeHighlight === ex.id;
                     return (
-                      <div key={ex.id} className="flex flex-col items-center gap-1.5">
+                      <div key={ex.id} className="flex flex-col items-center gap-1.5 w-full">
                         {/* Cyan Card */}
                         <div 
-                          className={`w-full bg-[#00E5FF] text-slate-950 p-2.5 px-4 rounded-2xl text-center shadow-md transition-all duration-300 ${
+                          className={`w-full bg-[#00E5FF] text-slate-950 py-2.5 px-3 rounded-2xl text-center shadow-md transition-all duration-300 ${
                             isActive ? 'ring-4 ring-yellow-300 scale-[1.02] shadow-xl' : ''
                           }`}
-                          style={{ boxShadow: '0 4px 14px rgba(0,229,255,0.25)' }}
+                          style={{ boxShadow: '0 4px 14px rgba(0,229,255,0.3)' }}
                         >
                           {ex.romaji && (
-                            <div className="text-[11px] font-medium text-slate-800 italic leading-tight mb-0.5">
+                            <div className="text-[11px] font-semibold text-slate-900 italic leading-tight mb-0.5 tracking-tight">
                               {ex.romaji}
                             </div>
                           )}
@@ -1461,8 +1477,8 @@ export default function VocabVideoGenerator() {
                         </div>
 
                         {/* White Meaning Pill */}
-                        <div className="w-fit max-w-[94%] bg-white text-[#0B192C] px-4 py-1 rounded-full shadow-sm text-center border border-slate-100">
-                          <span className="text-[12px] md:text-[13px] font-bold leading-tight">
+                        <div className="w-fit max-w-[95%] bg-white text-[#091c36] px-4 py-1 rounded-full shadow-sm text-center border border-slate-100">
+                          <span className="text-[12px] md:text-[13px] font-bold leading-tight text-[#091c36]">
                             {ex.meaning}
                           </span>
                         </div>
