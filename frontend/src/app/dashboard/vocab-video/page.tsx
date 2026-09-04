@@ -49,6 +49,11 @@ const INITIAL_CARDS: CardData[] = [
   { id: '15', image: '', kanji: '', romaji: '', hiragana: '', meaning: '' },
 ];
 
+const EDGE_VOICES = [
+  { voiceURI: 'ja-JP-NanamiNeural', name: '👩 Nanami (Giọng Nữ)' },
+  { voiceURI: 'ja-JP-KeitaNeural', name: '👨 Keita (Giọng Nam)' }
+];
+
 interface ThemePreset {
   id: string;
   name: string;
@@ -796,30 +801,111 @@ export default function VocabVideoGenerator() {
             </div>
           )}
 
-          {(displayMode === 'sentence' || displayMode === 'story') && (
+          {(displayMode === 'vocab' || displayMode === 'sentence' || displayMode === 'story') && (
             <div className="mb-6 p-4 bg-[#D6EFFC]/30 rounded-xl border border-[#D6EFFC]">
               <label className="block text-xs font-bold mb-2 text-[#1964C3]">Tiêu đề Video</label>
               <input type="text" className="input w-full font-black text-lg text-[#1964C3] border-[#1964C3]/20 focus:border-[#1964C3]" value={topicTitle} onChange={e => setTopicTitle(e.target.value)} placeholder="Ví dụ: THỜI GIAN" />
             </div>
           )}
 
+          {/* Presets Phối Màu Đẹp Mắt */}
+          <div className="mb-6 p-4 bg-slate-900 text-white rounded-2xl border border-slate-800 shadow-sm space-y-3">
+            <div className="flex items-center justify-between">
+              <h3 className="font-bold text-sm text-yellow-400 flex items-center gap-1.5">
+                🎨 Bảng Phối Màu Presets (Mẫu Đẹp)
+              </h3>
+              <span className="text-[11px] text-slate-400 font-medium">1-Click đổi màu</span>
+            </div>
+            
+            <div className="grid grid-cols-2 gap-2.5">
+              {THEME_PRESETS.map((preset) => {
+                const isSelected = activeThemeId === preset.id;
+                return (
+                  <button
+                    key={preset.id}
+                    onClick={() => applyThemePreset(preset)}
+                    className={`p-2.5 rounded-xl border text-left transition-all flex flex-col gap-1.5 relative overflow-hidden ${
+                      isSelected 
+                        ? 'border-yellow-400 ring-2 ring-yellow-400/50 bg-slate-800 shadow-md scale-[1.02]' 
+                        : 'border-slate-700 bg-slate-800/60 hover:bg-slate-800 hover:border-slate-600'
+                    }`}
+                  >
+                    {preset.badge && (
+                      <span className="absolute top-1 right-1 px-1.5 py-0.5 rounded text-[8.5px] font-black bg-rose-600 text-white uppercase tracking-wider">
+                        {preset.badge}
+                      </span>
+                    )}
+                    <span className="text-xs font-bold text-white pr-12 truncate">
+                      {preset.name}
+                    </span>
+                    <div className="flex items-center gap-1.5 mt-0.5">
+                      <span 
+                        className="w-4 h-4 rounded-full border border-white/20 shadow-inner shrink-0" 
+                        style={{ background: preset.bgColor }}
+                        title="Màu nền"
+                      />
+                      <span 
+                        className="w-4 h-4 rounded-full border border-white/20 shadow-inner shrink-0" 
+                        style={{ backgroundColor: preset.cardBgColor }}
+                        title="Màu thẻ"
+                      />
+                      <span 
+                        className="w-4 h-4 rounded-full border border-white/20 shadow-inner shrink-0" 
+                        style={{ backgroundColor: preset.pillBgColor }}
+                        title="Màu ô nghĩa"
+                      />
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
           <div className="flex items-center justify-between mb-4 mt-4">
             <h2 className="font-semibold text-lg flex items-center gap-2">
-              <Settings2 size={18} /> Giao diện Nền & Chữ
+              <Settings2 size={18} /> Tùy Chỉnh Chi Tiết Nền & Thẻ
             </h2>
           </div>
-          <div className="grid grid-cols-3 gap-4 mb-6 pb-6 border-b border-[var(--border)]">
+          <div className="grid grid-cols-4 gap-3 mb-6 pb-6 border-b border-[var(--border)]">
             <div>
-              <label className="block text-xs font-semibold mb-1 text-[var(--text-muted)]">Màu nền</label>
-              <input type="color" value={bgColor} onChange={e => setBgColor(e.target.value)} className="w-full h-10 rounded cursor-pointer border border-[var(--border)]" />
+              <label className="block text-[11px] font-semibold mb-1 text-[var(--text-muted)]">Nền Video</label>
+              <input 
+                type="color" 
+                value={bgColor.startsWith('linear-gradient') ? '#ED1C24' : bgColor} 
+                onChange={e => {
+                  setBgColor(e.target.value);
+                  setActiveThemeId('custom');
+                }} 
+                className="w-full h-9 rounded cursor-pointer border border-[var(--border)]" 
+              />
             </div>
             <div>
-              <label className="block text-xs font-semibold mb-1 text-[var(--text-muted)]">Màu chữ chính</label>
-              <input type="color" value={textColor} onChange={e => setTextColor(e.target.value)} className="w-full h-10 rounded cursor-pointer border border-[var(--border)]" />
+              <label className="block text-[11px] font-semibold mb-1 text-[var(--text-muted)]">Màu Thẻ</label>
+              <input 
+                type="color" 
+                value={cardBgColor} 
+                onChange={e => {
+                  setCardBgColor(e.target.value);
+                  setActiveThemeId('custom');
+                }} 
+                className="w-full h-9 rounded cursor-pointer border border-[var(--border)]" 
+              />
             </div>
             <div>
-              <label className="block text-xs font-semibold mb-1 text-[var(--text-muted)]">Ảnh / Video nền</label>
-              <label className="w-full h-10 border border-[var(--border)] rounded flex items-center justify-center cursor-pointer overflow-hidden bg-white hover:bg-[var(--bg-hover)]">
+              <label className="block text-[11px] font-semibold mb-1 text-[var(--text-muted)]">Ô Nghĩa</label>
+              <input 
+                type="color" 
+                value={pillBgColor} 
+                onChange={e => {
+                  setPillBgColor(e.target.value);
+                  setActiveThemeId('custom');
+                }} 
+                className="w-full h-9 rounded cursor-pointer border border-[var(--border)]" 
+              />
+            </div>
+            <div>
+              <label className="block text-[11px] font-semibold mb-1 text-[var(--text-muted)]">Media Nền</label>
+              <label className="w-full h-9 border border-[var(--border)] rounded flex items-center justify-center cursor-pointer overflow-hidden bg-white hover:bg-[var(--bg-hover)]">
                 <input type="file" className="hidden" accept="image/*,video/*" onChange={(e) => {
                   const file = e.target.files?.[0];
                   if (file) {
@@ -828,9 +914,9 @@ export default function VocabVideoGenerator() {
                     setBgMedia({ url, type: isVideo ? 'video' : 'image' });
                   }
                 }} />
-                {bgMedia ? <span className="text-xs font-bold text-green-600">Đã tải nền</span> : <span className="text-xs text-[var(--text-muted)]">Tải lên file</span>}
+                {bgMedia ? <span className="text-[11px] font-bold text-green-600">Đã tải</span> : <span className="text-[11px] text-[var(--text-muted)]">Tải lên</span>}
               </label>
-              {bgMedia && <button onClick={() => setBgMedia(null)} className="text-xs text-red-500 mt-1 hover:underline text-center w-full">Xoá nền</button>}
+              {bgMedia && <button onClick={() => setBgMedia(null)} className="text-[10px] text-red-500 mt-1 hover:underline text-center w-full">Xoá nền</button>}
             </div>
           </div>
 
@@ -1185,7 +1271,8 @@ export default function VocabVideoGenerator() {
               aspectRatio: '9/16',
               borderRadius: isRecording ? 0 : 24, 
               boxShadow: isRecording ? 'none' : '0 10px 30px rgba(0,0,0,0.1)',
-              backgroundColor: bgColor
+              background: bgColor.startsWith('linear-gradient') ? bgColor : undefined,
+              backgroundColor: bgColor.startsWith('linear-gradient') ? undefined : bgColor
             }}
           >
             {/* Background Media Render */}
@@ -1210,52 +1297,93 @@ export default function VocabVideoGenerator() {
 
             {/* Dynamic Grid Container (VOCAB MODE) */}
             {displayMode === 'vocab' && (
-              <div 
-                className="flex-1 w-full px-4 pb-2 grid gap-3 transition-all duration-500 z-10 relative"
-                style={{
-                  ...getGridTemplate(),
-                  paddingBottom: 16 // Giảm padding dưới để không bị lẹm
-                }}
-              >
-                {/* Cards */}
-                {cards.map((card) => (
-                  <div 
-                    key={card.id}
-                    className={`bg-white rounded-3xl shadow-md flex flex-col items-center justify-center p-2 text-center transition-all duration-300 ${activeHighlight === card.id ? 'ring-[6px] ring-yellow-400 scale-[1.02]' : ''}`}
-                  >
-                    <div className="flex-1 min-h-[3rem] w-full flex items-center justify-center mb-1">
-                      {card.image ? (
-                        <img src={card.image} alt="" className="max-w-full max-h-[70px] md:max-h-[120px] object-contain drop-shadow-sm" />
-                      ) : (
-                        <div className="w-14 h-14 rounded-full bg-gray-50 flex items-center justify-center text-xs text-gray-300 border border-dashed border-gray-200">Ảnh</div>
-                      )}
-                    </div>
-                    
-                    <div className="shrink-0 w-full flex flex-col items-center gap-1">
+              <div className="flex-1 w-full px-4 pb-4 flex flex-col z-10 relative justify-center items-center overflow-y-auto">
+                <div className="w-full flex flex-col items-center">
+                  {/* Title nếu có nhập */}
+                  {topicTitle && (
+                    <div className="mb-3 flex flex-col items-center gap-1 w-full max-w-[96%]">
                       <div 
-                        className="text-[12px] font-bold leading-tight"
-                        style={{ color: textColor }}
+                        className="w-full py-2.5 px-6 rounded-2xl text-center border border-slate-700/80 shadow-2xl"
+                        style={{
+                          background: headerBgGradient,
+                          boxShadow: '0 8px 24px rgba(0,0,0,0.4), 0 1px 0 rgba(255,255,255,0.15) inset'
+                        }}
                       >
-                        {card.romaji}
-                      </div>
-                      
-                      {/* Scale text dynamically based on grid size for better readability */}
-                      <div 
-                        className={`font-black leading-none ${numCards <= 4 ? 'text-2xl' : 'text-lg'}`}
-                        style={{ color: textColor, WebkitTextStroke: `0.4px ${strokeColor}` }}
-                      >
-                        {card.hiragana}
-                      </div>
-                      
-                      <div 
-                        className={`font-semibold leading-tight ${numCards <= 4 ? 'text-sm' : 'text-[11px]'}`}
-                        style={{ color: textColor }}
-                      >
-                        {card.meaning}
+                        <h2 
+                          className={`font-black text-center tracking-widest uppercase leading-tight ${numCards >= 6 ? 'text-[18px]' : 'text-[24px]'}`}
+                          style={{
+                            color: '#00E5FF',
+                            textShadow: '0 2px 8px rgba(0,229,255,0.5)'
+                          }}
+                        >
+                          {topicTitle}
+                        </h2>
                       </div>
                     </div>
+                  )}
+
+                  {/* Cards List với thiết kế Cyan/Theme Card + White Pill gối đè */}
+                  <div className={`flex flex-col w-full items-center ${numCards >= 4 ? 'gap-2.5' : 'gap-4'}`}>
+                    {cards.map((card) => {
+                      const isActive = activeHighlight === card.id;
+                      return (
+                        <div 
+                          key={card.id}
+                          className="flex flex-col items-center w-full max-w-[96%] transition-all duration-300"
+                        >
+                          {/* Top Card */}
+                          <div 
+                            className={`w-full pt-2.5 pb-4 px-4 rounded-[18px] text-center shadow-md transition-all duration-300 ${
+                              isActive 
+                                ? 'ring-4 ring-yellow-300 scale-[1.03] shadow-xl' 
+                                : ''
+                            }`}
+                            style={{ 
+                              backgroundColor: isActive ? '#FFE600' : cardBgColor,
+                              color: (cardBgColor === '#00E5FF' || cardBgColor === '#FFE600') ? '#020617' : '#FFFFFF',
+                              boxShadow: isActive ? '0 8px 24px rgba(255,230,0,0.5)' : '0 4px 14px rgba(0,0,0,0.25)'
+                            }}
+                          >
+                            {card.romaji && (
+                              <div 
+                                className="text-[11.5px] md:text-[13px] font-semibold italic leading-tight mb-0.5 tracking-tight opacity-90"
+                                style={{ color: (cardBgColor === '#FFE600' || cardBgColor === '#00E5FF') ? '#002b5b' : '#ffffff' }}
+                              >
+                                /{card.romaji}/
+                              </div>
+                            )}
+                            <div 
+                              className={`font-black leading-snug tracking-tight ${
+                                numCards >= 4 ? 'text-[17px] md:text-[20px]' : 'text-[22px] md:text-[26px]'
+                              }`}
+                            >
+                              {card.hiragana}
+                            </div>
+                          </div>
+
+                          {/* Bottom Pill: Overlapping Pill với Nghĩa */}
+                          <div 
+                            className="w-[90%] px-4 py-1.5 rounded-full shadow-md text-center border border-slate-100/90 -mt-3 z-10"
+                            style={{ 
+                              backgroundColor: pillBgColor,
+                              color: pillTextColor,
+                              boxShadow: '0 3px 10px rgba(0,0,0,0.2)' 
+                            }}
+                          >
+                            <span 
+                              className={`font-black leading-tight block truncate ${
+                                numCards >= 4 ? 'text-[12.5px] md:text-[14px]' : 'text-[15px] md:text-[17px]'
+                              }`}
+                              style={{ color: pillTextColor }}
+                            >
+                              {card.meaning}
+                            </span>
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
-                ))}
+                </div>
               </div>
             )}
 
@@ -1268,7 +1396,7 @@ export default function VocabVideoGenerator() {
                     <div 
                       className="w-full py-3 px-6 rounded-2xl text-center border border-slate-700/80 shadow-2xl"
                       style={{
-                        background: 'linear-gradient(180deg, #091c36 0%, #061325 100%)',
+                        background: headerBgGradient,
                         boxShadow: '0 8px 24px rgba(0,0,0,0.4), 0 1px 0 rgba(255,255,255,0.15) inset'
                       }}
                     >
@@ -1293,24 +1421,29 @@ export default function VocabVideoGenerator() {
                           key={card.id}
                           className="flex flex-col items-center w-full max-w-[96%] transition-all duration-300"
                         >
-                          {/* Top Card: Vibrant Cyan Background */}
+                          {/* Top Card: Vibrant Theme Background */}
                           <div 
-                            className={`w-full bg-[#00E5FF] text-slate-950 pt-2.5 pb-4 px-4 rounded-[18px] text-center shadow-md transition-all duration-300 ${
+                            className={`w-full pt-2.5 pb-4 px-4 rounded-[18px] text-center shadow-md transition-all duration-300 ${
                               isActive 
-                                ? 'ring-4 ring-yellow-300 scale-[1.03] shadow-xl bg-[#FFE600]' 
+                                ? 'ring-4 ring-yellow-300 scale-[1.03] shadow-xl' 
                                 : ''
                             }`}
                             style={{ 
-                              boxShadow: isActive ? '0 8px 24px rgba(255,230,0,0.5)' : '0 4px 14px rgba(0,229,255,0.3)'
+                              backgroundColor: isActive ? '#FFE600' : cardBgColor,
+                              color: (cardBgColor === '#00E5FF' || cardBgColor === '#FFE600') ? '#020617' : '#FFFFFF',
+                              boxShadow: isActive ? '0 8px 24px rgba(255,230,0,0.5)' : '0 4px 14px rgba(0,0,0,0.25)'
                             }}
                           >
                             {card.romaji && (
-                              <div className="text-[11.5px] md:text-[13px] font-semibold text-[#002b5b] italic leading-tight mb-0.5 tracking-tight">
+                              <div 
+                                className="text-[11.5px] md:text-[13px] font-semibold italic leading-tight mb-0.5 tracking-tight opacity-90"
+                                style={{ color: (cardBgColor === '#FFE600' || cardBgColor === '#00E5FF') ? '#002b5b' : '#ffffff' }}
+                              >
                                 /{card.romaji}/
                               </div>
                             )}
                             <div 
-                              className={`font-black leading-snug tracking-tight text-slate-950 ${
+                              className={`font-black leading-snug tracking-tight ${
                                 numCards >= 4 ? 'text-[17px] md:text-[20px]' : 'text-[22px] md:text-[26px]'
                               }`}
                             >
@@ -1318,15 +1451,20 @@ export default function VocabVideoGenerator() {
                             </div>
                           </div>
 
-                          {/* Bottom Pill: White Overlapping Pill with Dark Blue Text */}
+                          {/* Bottom Pill: Overlapping Pill với Nghĩa */}
                           <div 
-                            className="w-[90%] bg-white text-[#003893] px-4 py-1.5 rounded-full shadow-md text-center border border-slate-100/90 -mt-3 z-10"
-                            style={{ boxShadow: '0 3px 10px rgba(0,0,0,0.12)' }}
+                            className="w-[90%] px-4 py-1.5 rounded-full shadow-md text-center border border-slate-100/90 -mt-3 z-10"
+                            style={{ 
+                              backgroundColor: pillBgColor,
+                              color: pillTextColor,
+                              boxShadow: '0 3px 10px rgba(0,0,0,0.2)'
+                            }}
                           >
                             <span 
-                              className={`font-black leading-tight text-[#003893] block truncate ${
+                              className={`font-black leading-tight block truncate ${
                                 numCards >= 4 ? 'text-[12.5px] md:text-[14px]' : 'text-[15px] md:text-[17px]'
                               }`}
+                              style={{ color: pillTextColor }}
                             >
                               {card.meaning}
                             </span>
@@ -1521,11 +1659,11 @@ export default function VocabVideoGenerator() {
             {displayMode === 'grammar' && (
               <div className="flex-1 w-full px-3 pb-4 flex flex-col items-center justify-between z-10 relative py-2 gap-2.5 overflow-hidden">
                 
-                {/* 1. Header Title Box (Dark Navy / Black Blue) */}
+                {/* 1. Header Title Box */}
                 <div 
                   className="w-full rounded-2xl py-3.5 px-4 text-center border border-slate-700/80 shadow-2xl mt-1"
                   style={{
-                    background: 'linear-gradient(180deg, #091c36 0%, #061325 100%)',
+                    background: headerBgGradient,
                     boxShadow: '0 8px 24px rgba(0,0,0,0.4), 0 1px 0 rgba(255,255,255,0.15) inset'
                   }}
                 >
@@ -1551,44 +1689,56 @@ export default function VocabVideoGenerator() {
                   </span>
                 </div>
 
-                {/* 3. Grammar Meaning Pill (White) */}
+                {/* 3. Grammar Meaning Pill */}
                 <div 
-                  className="w-fit max-w-[95%] bg-white text-[#003893] px-6 py-1.5 rounded-xl shadow-md text-center border border-slate-100 shrink-0"
+                  className="w-fit max-w-[95%] px-6 py-1.5 rounded-xl shadow-md text-center border border-slate-100 shrink-0"
+                  style={{ backgroundColor: pillBgColor, color: pillTextColor }}
                 >
-                  <span className="text-[14px] md:text-[15px] font-black tracking-wide text-[#003893]">
+                  <span className="text-[14px] md:text-[15px] font-black tracking-wide block" style={{ color: pillTextColor }}>
                     {grammarMeaning}
                   </span>
                 </div>
 
-                {/* 4. Examples List (Cyan cards & White overlapping pills) */}
+                {/* 4. Examples List (Theme cards & Overlapping pills) */}
                 <div className="w-full flex flex-col gap-2.5 my-auto overflow-y-auto px-1 py-1">
                   {grammarExamples.map((ex) => {
                     const isActive = activeHighlight === ex.id;
                     return (
                       <div key={ex.id} className="flex flex-col items-center w-full mb-1">
-                        {/* Cyan Card */}
+                        {/* Theme Card */}
                         <div 
-                          className={`w-full bg-[#00E5FF] text-slate-950 pt-2 pb-3.5 px-3 rounded-[16px] text-center shadow-md transition-all duration-300 ${
+                          className={`w-full text-slate-950 pt-2 pb-3.5 px-3 rounded-[16px] text-center shadow-md transition-all duration-300 ${
                             isActive ? 'ring-4 ring-yellow-300 scale-[1.02] shadow-xl' : ''
                           }`}
-                          style={{ boxShadow: '0 4px 14px rgba(0,229,255,0.3)' }}
+                          style={{ 
+                            backgroundColor: isActive ? '#FFE600' : cardBgColor,
+                            color: (cardBgColor === '#00E5FF' || cardBgColor === '#FFE600') ? '#020617' : '#FFFFFF',
+                            boxShadow: isActive ? '0 8px 24px rgba(255,230,0,0.5)' : '0 4px 14px rgba(0,0,0,0.25)' 
+                          }}
                         >
                           {ex.romaji && (
-                            <div className="text-[11px] font-semibold text-[#002244] italic leading-tight mb-0.5 tracking-tight">
+                            <div 
+                              className="text-[11px] font-semibold italic leading-tight mb-0.5 tracking-tight opacity-90"
+                              style={{ color: (cardBgColor === '#FFE600' || cardBgColor === '#00E5FF') ? '#002244' : '#ffffff' }}
+                            >
                               {ex.romaji}
                             </div>
                           )}
-                          <div className="text-[13.5px] md:text-[15px] font-black leading-snug tracking-tight text-slate-950">
+                          <div className="text-[13.5px] md:text-[15px] font-black leading-snug tracking-tight">
                             {ex.japanese}
                           </div>
                         </div>
 
-                        {/* White Meaning Pill - Overlapping bottom edge of Cyan card */}
+                        {/* Overlapping Meaning Pill */}
                         <div 
-                          className="w-[92%] bg-white text-[#003893] px-3 py-1 rounded-full shadow-md text-center border border-slate-100 -mt-2.5 z-10"
-                          style={{ boxShadow: '0 3px 8px rgba(0,0,0,0.12)' }}
+                          className="w-[92%] px-3 py-1 rounded-full shadow-md text-center border border-slate-100 -mt-2.5 z-10"
+                          style={{ 
+                            backgroundColor: pillBgColor,
+                            color: pillTextColor,
+                            boxShadow: '0 3px 8px rgba(0,0,0,0.18)' 
+                          }}
                         >
-                          <span className="text-[11px] md:text-[12.5px] font-black leading-tight text-[#003893] block">
+                          <span className="text-[11px] md:text-[12.5px] font-black leading-tight block" style={{ color: pillTextColor }}>
                             {ex.meaning}
                           </span>
                         </div>
