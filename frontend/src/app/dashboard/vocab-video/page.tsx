@@ -1448,39 +1448,42 @@ export default function VocabVideoGenerator() {
 
                 {/* 3. Grammar Meaning Pill (White) */}
                 <div 
-                  className="w-fit max-w-[92%] bg-white text-[#091c36] px-6 py-1.5 rounded-xl shadow-md text-center border border-slate-100"
+                  className="w-fit max-w-[95%] bg-white text-[#003893] px-6 py-1.5 rounded-xl shadow-md text-center border border-slate-100 shrink-0"
                 >
-                  <span className="text-[15px] md:text-[16px] font-black tracking-wide text-[#091c36]">
+                  <span className="text-[14px] md:text-[15px] font-black tracking-wide text-[#003893]">
                     {grammarMeaning}
                   </span>
                 </div>
 
-                {/* 4. Examples List (Cyan cards & White pills) */}
+                {/* 4. Examples List (Cyan cards & White overlapping pills) */}
                 <div className="w-full flex flex-col gap-2.5 my-auto overflow-y-auto px-1 py-1">
                   {grammarExamples.map((ex) => {
                     const isActive = activeHighlight === ex.id;
                     return (
-                      <div key={ex.id} className="flex flex-col items-center gap-1.5 w-full">
+                      <div key={ex.id} className="flex flex-col items-center w-full mb-1">
                         {/* Cyan Card */}
                         <div 
-                          className={`w-full bg-[#00E5FF] text-slate-950 py-2.5 px-3 rounded-2xl text-center shadow-md transition-all duration-300 ${
+                          className={`w-full bg-[#00E5FF] text-slate-950 pt-2 pb-3.5 px-3 rounded-[16px] text-center shadow-md transition-all duration-300 ${
                             isActive ? 'ring-4 ring-yellow-300 scale-[1.02] shadow-xl' : ''
                           }`}
                           style={{ boxShadow: '0 4px 14px rgba(0,229,255,0.3)' }}
                         >
                           {ex.romaji && (
-                            <div className="text-[11px] font-semibold text-slate-900 italic leading-tight mb-0.5 tracking-tight">
+                            <div className="text-[11px] font-semibold text-[#002244] italic leading-tight mb-0.5 tracking-tight">
                               {ex.romaji}
                             </div>
                           )}
-                          <div className="text-[14px] md:text-[16px] font-black leading-snug tracking-tight text-slate-950">
+                          <div className="text-[13.5px] md:text-[15px] font-black leading-snug tracking-tight text-slate-950">
                             {ex.japanese}
                           </div>
                         </div>
 
-                        {/* White Meaning Pill */}
-                        <div className="w-fit max-w-[95%] bg-white text-[#091c36] px-4 py-1 rounded-full shadow-sm text-center border border-slate-100">
-                          <span className="text-[12px] md:text-[13px] font-bold leading-tight text-[#091c36]">
+                        {/* White Meaning Pill - Overlapping bottom edge of Cyan card */}
+                        <div 
+                          className="w-[92%] bg-white text-[#003893] px-3 py-1 rounded-full shadow-md text-center border border-slate-100 -mt-2.5 z-10"
+                          style={{ boxShadow: '0 3px 8px rgba(0,0,0,0.12)' }}
+                        >
+                          <span className="text-[11px] md:text-[12.5px] font-black leading-tight text-[#003893] block">
                             {ex.meaning}
                           </span>
                         </div>
