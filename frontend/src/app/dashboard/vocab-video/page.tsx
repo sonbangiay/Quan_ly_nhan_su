@@ -23,6 +23,13 @@ interface QuizQuestion {
   wrongB: string;      // Đáp án sai 2
 }
 
+interface GrammarExample {
+  id: string;
+  romaji: string;
+  japanese: string;
+  meaning: string;
+}
+
 // Initial cards mapping to the screenshot provided by user
 const INITIAL_CARDS: CardData[] = [
   { id: '1', image: '', kanji: 'Onegai Kao', romaji: 'Mặt nài nỉ', hiragana: 'おねがいかお', meaning: 'Mặt nài nỉ' },
@@ -53,8 +60,33 @@ export default function VocabVideoGenerator() {
   const [bgColor, setBgColor] = useState<string>('#90C9F9');
   const [textColor, setTextColor] = useState<string>('#1a1a2e');
   const [bgMedia, setBgMedia] = useState<{ url: string, type: 'image' | 'video' } | null>(null);
-  const [displayMode, setDisplayMode] = useState<'vocab' | 'sentence' | 'story' | 'quiz'>('vocab');
+  const [displayMode, setDisplayMode] = useState<'vocab' | 'sentence' | 'story' | 'quiz' | 'grammar'>('vocab');
   const [topicTitle, setTopicTitle] = useState<string>('THỜI GIAN');
+
+  // Grammar state
+  const [grammarTitle, setGrammarTitle] = useState<string>('NGỮ PHÁP N3 SẼ XUẤT HIỆN TRONG ĐỀ THI JLPT');
+  const [grammarPattern, setGrammarPattern] = useState<string>('V てからでないと');
+  const [grammarMeaning, setGrammarMeaning] = useState<string>('Nếu chưa...thì không...');
+  const [grammarExamples, setGrammarExamples] = useState<GrammarExample[]>([
+    {
+      id: 'g1',
+      romaji: '/Kichinto tashikamete kara de nai to shippai suru yo./',
+      japanese: 'きちんと確かめてからでないと失敗するよ。',
+      meaning: 'Nếu không kiểm tra lại kỹ càng thì sẽ hỏng việc đấy.'
+    },
+    {
+      id: 'g2',
+      romaji: '/Te o aratte kara de nai to, gohan o tabete wa ikemasen yo./',
+      japanese: '手を洗ってからでないと、ご飯を食べではいけませんよ。',
+      meaning: 'Nếu mà chưa rửa tay thì không được ăn cơm đâu đấy.'
+    },
+    {
+      id: 'g3',
+      romaji: '/Byōki ga naotte kara de nakereba hageshii undō wa muri da./',
+      japanese: '病気が治ってからでないと激しい運動は無理だ。',
+      meaning: 'Nếu chưa khỏi ốm, thì không được vận động mạnh nhé.'
+    }
+  ]);
 
   // Quiz state
   const [quizQuestions, setQuizQuestions] = useState<QuizQuestion[]>([
@@ -115,6 +147,7 @@ export default function VocabVideoGenerator() {
     if (displayMode === 'vocab') return [2, 4, 6, 9];
     if (displayMode === 'sentence') return [3, 4, 5];
     if (displayMode === 'story') return [2, 4, 6, 9, 12, 15];
+    if (displayMode === 'grammar') return [1, 2, 3, 4];
     return [2, 4, 6, 9];
   };
 
@@ -389,6 +422,32 @@ export default function VocabVideoGenerator() {
     }
   };
 
+  const playGrammarSequence = async () => {
+    if (bgmUrl && audioRef.current) {
+      audioRef.current.volume = bgmVolume;
+      audioRef.current.currentTime = 0;
+      audioRef.current.play().catch(e => console.log('BGM play blocked:', e));
+    }
+
+    if (grammarPattern) {
+      setActiveHighlight('grammar-pattern');
+      await speakText(grammarPattern, false);
+    }
+
+    for (let i = 0; i < grammarExamples.length; i++) {
+      const ex = grammarExamples[i];
+      if (ex.japanese) {
+        setActiveHighlight(ex.id);
+        await speakText(ex.japanese, false);
+      }
+    }
+
+    setActiveHighlight(null);
+    if (audioRef.current) {
+      audioRef.current.pause();
+    }
+  };
+
   const setupCanvasCrop = (originalStream: MediaStream): MediaStream => {
     const hiddenVideo = document.createElement('video');
     hiddenVideo.srcObject = originalStream;
@@ -498,6 +557,8 @@ export default function VocabVideoGenerator() {
       setTimeout(async () => {
         if (displayMode === 'quiz') {
           await playQuizSequence();
+        } else if (displayMode === 'grammar') {
+          await playGrammarSequence();
         } else {
           await playSequence();
         }
@@ -538,7 +599,7 @@ export default function VocabVideoGenerator() {
         </div>
         <div className="flex gap-3">
           <button 
-            onClick={displayMode === 'quiz' ? playQuizSequence : playSequence}
+            onClick={displayMode === 'quiz' ? playQuizSequence : displayMode === 'grammar' ? playGrammarSequence : playSequence}
             disabled={isRecording}
             className="btn btn-outline flex items-center gap-2 px-4 py-2"
           >
@@ -602,6 +663,12 @@ export default function VocabVideoGenerator() {
               className={`whitespace-nowrap flex-1 py-2 px-3 rounded-lg font-bold text-sm transition-all ${displayMode === 'quiz' ? 'bg-gradient-to-r from-orange-500 to-rose-500 text-white shadow-sm' : 'text-[var(--text-secondary)] hover:text-gray-900'}`}
             >
               🎯 Trắc nghiệm
+            </button>
+            <button 
+              onClick={() => setDisplayMode('grammar')} 
+              className={`whitespace-nowrap flex-1 py-2 px-3 rounded-lg font-bold text-sm transition-all ${displayMode === 'grammar' ? 'bg-gradient-to-r from-blue-600 to-cyan-500 text-white shadow-sm' : 'text-[var(--text-secondary)] hover:text-gray-900'}`}
+            >
+              📘 Ngữ pháp
             </button>
           </div>
 
@@ -886,6 +953,98 @@ export default function VocabVideoGenerator() {
                     </div>
                   </div>
                 ))}
+              </div>
+            )}
+
+            {/* Grammar Config Input */}
+            {displayMode === 'grammar' && (
+              <div className="space-y-4">
+                <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200 space-y-3 shadow-sm">
+                  <div>
+                    <label className="block text-xs font-bold mb-1 text-slate-800">📌 Tiêu đề Video Ngữ Pháp</label>
+                    <input 
+                      type="text" 
+                      className="input w-full font-black text-sm text-slate-900 border-slate-300" 
+                      value={grammarTitle} 
+                      onChange={e => setGrammarTitle(e.target.value)} 
+                      placeholder="NGỮ PHÁP N3 SẼ XUẤT HIỆN TRONG ĐỀ THI JLPT" 
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-bold mb-1 text-amber-700">⚡ Cấu trúc Ngữ Pháp</label>
+                      <input 
+                        type="text" 
+                        className="input w-full font-black text-sm bg-amber-50/60 border-amber-300 text-amber-900" 
+                        value={grammarPattern} 
+                        onChange={e => setGrammarPattern(e.target.value)} 
+                        placeholder="V てからでないと" 
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold mb-1 text-blue-700">💡 Giải thích ý nghĩa</label>
+                      <input 
+                        type="text" 
+                        className="input w-full font-bold text-sm bg-blue-50/60 border-blue-300 text-blue-900" 
+                        value={grammarMeaning} 
+                        onChange={e => setGrammarMeaning(e.target.value)} 
+                        placeholder="Nếu chưa...thì không..." 
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <p className="text-sm font-bold text-slate-700">📝 Danh sách ví dụ minh họa ({grammarExamples.length})</p>
+                    <button
+                      onClick={() => setGrammarExamples(prev => [...prev, {
+                        id: Date.now().toString(),
+                        romaji: '',
+                        japanese: '',
+                        meaning: ''
+                      }])}
+                      className="px-3 py-1.5 bg-cyan-600 text-white text-xs font-bold rounded-lg hover:bg-cyan-700 transition-colors flex items-center gap-1 shadow-sm"
+                    >
+                      + Thêm ví dụ
+                    </button>
+                  </div>
+
+                  {grammarExamples.map((ex, idx) => (
+                    <div key={ex.id} className="p-4 rounded-xl bg-white border border-cyan-200 shadow-sm space-y-2">
+                      <div className="flex items-center justify-between pb-2 border-b border-cyan-100">
+                        <span className="font-bold text-xs text-cyan-800">Ví dụ #{idx + 1}</span>
+                        {grammarExamples.length > 1 && (
+                          <button onClick={() => setGrammarExamples(prev => prev.filter(x => x.id !== ex.id))} className="text-red-400 hover:text-red-600">
+                            <X size={14} />
+                          </button>
+                        )}
+                      </div>
+
+                      <input
+                        type="text"
+                        className="input text-xs w-full py-1.5 italic text-slate-500"
+                        value={ex.romaji}
+                        onChange={e => setGrammarExamples(prev => prev.map(x => x.id === ex.id ? { ...x, romaji: e.target.value } : x))}
+                        placeholder="🔤 Phiên âm / Romaji (/Kichinto tashikamete kara.../)"
+                      />
+                      <input
+                        type="text"
+                        className="input text-sm w-full py-1.5 font-bold text-cyan-950 bg-cyan-50/50"
+                        value={ex.japanese}
+                        onChange={e => setGrammarExamples(prev => prev.map(x => x.id === ex.id ? { ...x, japanese: e.target.value } : x))}
+                        placeholder="🇯🇵 Mẫu câu tiếng Nhật (きちんと確かめてからでないと失敗するよ。)"
+                      />
+                      <input
+                        type="text"
+                        className="input text-xs w-full py-1.5 font-semibold text-slate-800"
+                        value={ex.meaning}
+                        onChange={e => setGrammarExamples(prev => prev.map(x => x.id === ex.id ? { ...x, meaning: e.target.value } : x))}
+                        placeholder="🇻🇳 Nghĩa tiếng Việt (Nếu không kiểm tra lại kỹ càng...)"
+                      />
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
           </div>
@@ -1237,6 +1396,83 @@ export default function VocabVideoGenerator() {
                 </div>
               );
             })()}
+
+            {/* Grammar Container (GRAMMAR MODE) */}
+            {displayMode === 'grammar' && (
+              <div className="flex-1 w-full px-4 pb-6 flex flex-col items-center justify-between z-10 relative py-2 gap-3 overflow-hidden">
+                
+                {/* 1. Header Title Box (Navy Dark) */}
+                <div 
+                  className="w-full max-w-[94%] rounded-2xl p-3 md:p-4 text-center shadow-xl border border-slate-700/60 mt-1"
+                  style={{
+                    background: 'rgba(11, 25, 44, 0.95)',
+                    boxShadow: '0 8px 32px rgba(0,0,0,0.3), 0 0 1px rgba(255,255,255,0.2) inset'
+                  }}
+                >
+                  <h2 className="text-[16px] md:text-[18px] font-black uppercase tracking-wider leading-snug">
+                    <span className="text-[#FF4081] drop-shadow-[0_2px_6px_rgba(255,64,129,0.5)]">
+                      {grammarTitle ? grammarTitle : 'NGỮ PHÁP N3 SẼ XUẤT HIỆN TRONG ĐỀ THI JLPT'}
+                    </span>
+                  </h2>
+                </div>
+
+                {/* 2. Grammar Pattern Pill (Yellow) */}
+                <div 
+                  className={`w-fit max-w-[90%] bg-[#FFE600] text-slate-950 px-6 py-2 rounded-xl shadow-lg border border-yellow-200 text-center transition-all duration-300 ${
+                    activeHighlight === 'grammar-pattern' ? 'scale-105 ring-4 ring-yellow-300 shadow-yellow-300/40' : ''
+                  }`}
+                  style={{ boxShadow: '0 4px 16px rgba(255,230,0,0.3)' }}
+                >
+                  <span className="text-[19px] md:text-[21px] font-black tracking-wide">
+                    {grammarPattern}
+                  </span>
+                </div>
+
+                {/* 3. Grammar Meaning Pill (White) */}
+                <div 
+                  className="w-fit max-w-[90%] bg-white text-[#0B192C] px-6 py-1.5 rounded-xl shadow-md text-center border border-slate-100"
+                >
+                  <span className="text-[14px] md:text-[15px] font-bold tracking-wide">
+                    {grammarMeaning}
+                  </span>
+                </div>
+
+                {/* 4. Examples List (Cyan cards & White pills) */}
+                <div className="w-full max-w-[94%] flex flex-col gap-3 my-auto overflow-y-auto px-1 py-1">
+                  {grammarExamples.map((ex) => {
+                    const isActive = activeHighlight === ex.id;
+                    return (
+                      <div key={ex.id} className="flex flex-col items-center gap-1.5">
+                        {/* Cyan Card */}
+                        <div 
+                          className={`w-full bg-[#00E5FF] text-slate-950 p-2.5 px-4 rounded-2xl text-center shadow-md transition-all duration-300 ${
+                            isActive ? 'ring-4 ring-yellow-300 scale-[1.02] shadow-xl' : ''
+                          }`}
+                          style={{ boxShadow: '0 4px 14px rgba(0,229,255,0.25)' }}
+                        >
+                          {ex.romaji && (
+                            <div className="text-[11px] font-medium text-slate-800 italic leading-tight mb-0.5">
+                              {ex.romaji}
+                            </div>
+                          )}
+                          <div className="text-[14px] md:text-[16px] font-black leading-snug tracking-tight text-slate-950">
+                            {ex.japanese}
+                          </div>
+                        </div>
+
+                        {/* White Meaning Pill */}
+                        <div className="w-fit max-w-[94%] bg-white text-[#0B192C] px-4 py-1 rounded-full shadow-sm text-center border border-slate-100">
+                          <span className="text-[12px] md:text-[13px] font-bold leading-tight">
+                            {ex.meaning}
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+
+              </div>
+            )}
 
           </div>
         </div>
