@@ -673,20 +673,22 @@ export default function VocabVideoGenerator() {
             </button>
           </div>
 
-          <div className="flex items-center justify-between mb-6">
-            <div className="flex items-center gap-1 bg-[var(--bg-hover)] p-1.5 rounded-lg border border-[var(--border)] w-full overflow-x-auto">
-              <span className="text-sm font-medium px-2 shrink-0">Số lượng:</span>
-              {getAllowedCardCounts().map(num => (
-                <button 
-                  key={num}
-                  onClick={() => setNumCards(num)}
-                  className={`flex-1 min-w-[36px] py-1 rounded text-sm font-medium transition-colors ${numCards === num ? 'bg-[var(--accent-purple)] text-white shadow' : 'text-[var(--text-secondary)] hover:bg-[var(--border)]'}`}
-                >
-                  {num} ô
-                </button>
-              ))}
+          {displayMode !== 'grammar' && (
+            <div className="flex items-center justify-between mb-6">
+              <div className="flex items-center gap-1 bg-[var(--bg-hover)] p-1.5 rounded-lg border border-[var(--border)] w-full overflow-x-auto">
+                <span className="text-sm font-medium px-2 shrink-0">Số lượng:</span>
+                {getAllowedCardCounts().map(num => (
+                  <button 
+                    key={num}
+                    onClick={() => setNumCards(num)}
+                    className={`flex-1 min-w-[36px] py-1 rounded text-sm font-medium transition-colors ${numCards === num ? 'bg-[var(--accent-purple)] text-white shadow' : 'text-[var(--text-secondary)] hover:bg-[var(--border)]'}`}
+                  >
+                    {num} ô
+                  </button>
+                ))}
+              </div>
             </div>
-          </div>
+          )}
 
           {(displayMode === 'sentence' || displayMode === 'story') && (
             <div className="mb-6 p-4 bg-[#D6EFFC]/30 rounded-xl border border-[#D6EFFC]">
@@ -808,8 +810,8 @@ export default function VocabVideoGenerator() {
           </div>
 
           <div className="space-y-6">
-            {/* Cards Input - only for non-quiz modes */}
-            {displayMode !== 'quiz' && (
+            {/* Cards Input - only for vocab, sentence, story modes */}
+            {(displayMode === 'vocab' || displayMode === 'sentence' || displayMode === 'story') && (
               <div className="grid grid-cols-2 gap-4">
                 {cards.map((card, idx) => (
                   <div key={card.id} className="p-4 rounded-lg bg-white border border-[var(--border)] shadow-sm">
