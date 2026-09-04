@@ -63,6 +63,7 @@ interface ThemePreset {
   pillBgColor: string;
   pillTextColor: string;
   headerBgGradient: string;
+  headerTextColor?: string;
   textColor: string;
 }
 
@@ -76,6 +77,7 @@ const THEME_PRESETS: ThemePreset[] = [
     pillBgColor: '#FFFFFF',
     pillTextColor: '#003893',
     headerBgGradient: 'linear-gradient(180deg, #091c36 0%, #061325 100%)',
+    headerTextColor: '#00E5FF',
     textColor: '#ffffff'
   },
   {
@@ -87,6 +89,7 @@ const THEME_PRESETS: ThemePreset[] = [
     pillBgColor: '#FFFFFF',
     pillTextColor: '#003893',
     headerBgGradient: 'linear-gradient(180deg, #091c36 0%, #061325 100%)',
+    headerTextColor: '#FFE600',
     textColor: '#ffffff'
   },
   {
@@ -98,6 +101,7 @@ const THEME_PRESETS: ThemePreset[] = [
     pillBgColor: '#FFFFFF',
     pillTextColor: '#003893',
     headerBgGradient: 'linear-gradient(180deg, #091c36 0%, #061325 100%)',
+    headerTextColor: '#00E5FF',
     textColor: '#ffffff'
   },
   {
@@ -109,6 +113,7 @@ const THEME_PRESETS: ThemePreset[] = [
     pillBgColor: '#FFFFFF',
     pillTextColor: '#003893',
     headerBgGradient: 'linear-gradient(180deg, #091c36 0%, #061325 100%)',
+    headerTextColor: '#FFD700',
     textColor: '#ffffff'
   },
   {
@@ -120,6 +125,7 @@ const THEME_PRESETS: ThemePreset[] = [
     pillBgColor: '#FFFFFF',
     pillTextColor: '#064E3B',
     headerBgGradient: 'linear-gradient(180deg, #064E3B 0%, #022C22 100%)',
+    headerTextColor: '#FFE600',
     textColor: '#ffffff'
   },
   {
@@ -131,6 +137,7 @@ const THEME_PRESETS: ThemePreset[] = [
     pillBgColor: '#FFFFFF',
     pillTextColor: '#7C2D12',
     headerBgGradient: 'linear-gradient(180deg, #431407 0%, #1C0A04 100%)',
+    headerTextColor: '#FFE600',
     textColor: '#ffffff'
   },
   {
@@ -142,6 +149,7 @@ const THEME_PRESETS: ThemePreset[] = [
     pillBgColor: '#00E5FF',
     pillTextColor: '#09090B',
     headerBgGradient: 'linear-gradient(180deg, #27272A 0%, #09090B 100%)',
+    headerTextColor: '#FF007F',
     textColor: '#ffffff'
   }
 ];
@@ -158,6 +166,7 @@ export default function VocabVideoGenerator() {
   const [pillBgColor, setPillBgColor] = useState<string>('#FFFFFF');
   const [pillTextColor, setPillTextColor] = useState<string>('#003893');
   const [headerBgGradient, setHeaderBgGradient] = useState<string>('linear-gradient(180deg, #091c36 0%, #061325 100%)');
+  const [headerTextColor, setHeaderTextColor] = useState<string>('#00E5FF');
 
   const [bgMedia, setBgMedia] = useState<{ url: string, type: 'image' | 'video' } | null>(null);
   const [displayMode, setDisplayMode] = useState<'vocab' | 'sentence' | 'story' | 'quiz' | 'grammar'>('vocab');
@@ -170,6 +179,7 @@ export default function VocabVideoGenerator() {
     setPillBgColor(preset.pillBgColor);
     setPillTextColor(preset.pillTextColor);
     setHeaderBgGradient(preset.headerBgGradient);
+    setHeaderTextColor(preset.headerTextColor || '#00E5FF');
     setTextColor(preset.textColor);
   };
 
@@ -866,9 +876,9 @@ export default function VocabVideoGenerator() {
               <Settings2 size={18} /> Tùy Chỉnh Chi Tiết Nền & Thẻ
             </h2>
           </div>
-          <div className="grid grid-cols-4 gap-3 mb-6 pb-6 border-b border-[var(--border)]">
+          <div className="grid grid-cols-3 md:grid-cols-6 gap-2.5 mb-6 pb-6 border-b border-[var(--border)]">
             <div>
-              <label className="block text-[11px] font-semibold mb-1 text-[var(--text-muted)]">Nền Video</label>
+              <label className="block text-[11px] font-bold mb-1 text-[var(--text-muted)] truncate">Nền Video</label>
               <input 
                 type="color" 
                 value={bgColor.startsWith('linear-gradient') ? '#ED1C24' : bgColor} 
@@ -880,7 +890,31 @@ export default function VocabVideoGenerator() {
               />
             </div>
             <div>
-              <label className="block text-[11px] font-semibold mb-1 text-[var(--text-muted)]">Màu Thẻ</label>
+              <label className="block text-[11px] font-bold mb-1 text-slate-700 truncate" title="Khung Tiêu Đề">Khung Tiêu Đề</label>
+              <input 
+                type="color" 
+                value={headerBgGradient.startsWith('linear-gradient') ? '#091C36' : headerBgGradient} 
+                onChange={e => {
+                  setHeaderBgGradient(e.target.value);
+                  setActiveThemeId('custom');
+                }} 
+                className="w-full h-9 rounded cursor-pointer border border-[var(--border)]" 
+              />
+            </div>
+            <div>
+              <label className="block text-[11px] font-bold mb-1 text-cyan-600 truncate" title="Chữ Tiêu Đề">Chữ Tiêu Đề</label>
+              <input 
+                type="color" 
+                value={headerTextColor} 
+                onChange={e => {
+                  setHeaderTextColor(e.target.value);
+                  setActiveThemeId('custom');
+                }} 
+                className="w-full h-9 rounded cursor-pointer border border-[var(--border)]" 
+              />
+            </div>
+            <div>
+              <label className="block text-[11px] font-bold mb-1 text-[var(--text-muted)] truncate">Màu Thẻ</label>
               <input 
                 type="color" 
                 value={cardBgColor} 
@@ -892,7 +926,7 @@ export default function VocabVideoGenerator() {
               />
             </div>
             <div>
-              <label className="block text-[11px] font-semibold mb-1 text-[var(--text-muted)]">Ô Nghĩa</label>
+              <label className="block text-[11px] font-bold mb-1 text-[var(--text-muted)] truncate">Ô Nghĩa</label>
               <input 
                 type="color" 
                 value={pillBgColor} 
@@ -904,7 +938,7 @@ export default function VocabVideoGenerator() {
               />
             </div>
             <div>
-              <label className="block text-[11px] font-semibold mb-1 text-[var(--text-muted)]">Media Nền</label>
+              <label className="block text-[11px] font-bold mb-1 text-[var(--text-muted)] truncate">Media Nền</label>
               <label className="w-full h-9 border border-[var(--border)] rounded flex items-center justify-center cursor-pointer overflow-hidden bg-white hover:bg-[var(--bg-hover)]">
                 <input type="file" className="hidden" accept="image/*,video/*" onChange={(e) => {
                   const file = e.target.files?.[0];
@@ -1305,15 +1339,16 @@ export default function VocabVideoGenerator() {
                       <div 
                         className="w-full py-2.5 px-6 rounded-2xl text-center border border-slate-700/80 shadow-2xl"
                         style={{
-                          background: headerBgGradient,
+                          background: headerBgGradient.startsWith('linear-gradient') ? headerBgGradient : undefined,
+                          backgroundColor: headerBgGradient.startsWith('linear-gradient') ? undefined : headerBgGradient,
                           boxShadow: '0 8px 24px rgba(0,0,0,0.4), 0 1px 0 rgba(255,255,255,0.15) inset'
                         }}
                       >
                         <h2 
                           className={`font-black text-center tracking-widest uppercase leading-tight ${numCards >= 6 ? 'text-[18px]' : 'text-[24px]'}`}
                           style={{
-                            color: '#00E5FF',
-                            textShadow: '0 2px 8px rgba(0,229,255,0.5)'
+                            color: headerTextColor,
+                            textShadow: `0 2px 8px ${headerTextColor}80`
                           }}
                         >
                           {topicTitle}
@@ -1396,15 +1431,16 @@ export default function VocabVideoGenerator() {
                     <div 
                       className="w-full py-3 px-6 rounded-2xl text-center border border-slate-700/80 shadow-2xl"
                       style={{
-                        background: headerBgGradient,
+                        background: headerBgGradient.startsWith('linear-gradient') ? headerBgGradient : undefined,
+                        backgroundColor: headerBgGradient.startsWith('linear-gradient') ? undefined : headerBgGradient,
                         boxShadow: '0 8px 24px rgba(0,0,0,0.4), 0 1px 0 rgba(255,255,255,0.15) inset'
                       }}
                     >
                       <h2 
                         className={`font-black text-center tracking-widest uppercase leading-tight ${numCards >= 4 ? 'text-[22px]' : 'text-[28px]'}`}
                         style={{
-                          color: '#00E5FF',
-                          textShadow: '0 2px 8px rgba(0,229,255,0.5)'
+                          color: headerTextColor,
+                          textShadow: `0 2px 8px ${headerTextColor}80`
                         }}
                       >
                         {topicTitle || 'THỜI GIAN'}
@@ -1663,7 +1699,8 @@ export default function VocabVideoGenerator() {
                 <div 
                   className="w-full rounded-2xl py-3.5 px-4 text-center border border-slate-700/80 shadow-2xl mt-1"
                   style={{
-                    background: headerBgGradient,
+                    background: headerBgGradient.startsWith('linear-gradient') ? headerBgGradient : undefined,
+                    backgroundColor: headerBgGradient.startsWith('linear-gradient') ? undefined : headerBgGradient,
                     boxShadow: '0 8px 24px rgba(0,0,0,0.4), 0 1px 0 rgba(255,255,255,0.15) inset'
                   }}
                 >
@@ -1671,7 +1708,10 @@ export default function VocabVideoGenerator() {
                     <span className="text-[#FF3366] drop-shadow-[0_2px_8px_rgba(255,51,102,0.6)]">
                       {grammarTitlePink || 'NGỮ PHÁP N3'}
                     </span>
-                    <span className="text-[#00E5FF] drop-shadow-[0_2px_8px_rgba(0,229,255,0.6)]">
+                    <span 
+                      className="drop-shadow-[0_2px_8px_rgba(0,229,255,0.6)]"
+                      style={{ color: headerTextColor }}
+                    >
                       {grammarTitleCyan || 'SẼ XUẤT HIỆN TRONG ĐỀ THI JLPT'}
                     </span>
                   </h2>
