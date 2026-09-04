@@ -49,19 +49,124 @@ const INITIAL_CARDS: CardData[] = [
   { id: '15', image: '', kanji: '', romaji: '', hiragana: '', meaning: '' },
 ];
 
-const EDGE_VOICES = [
-  { voiceURI: 'ja-JP-NanamiNeural', name: '👩 Nanami (Giọng Nữ)' },
-  { voiceURI: 'ja-JP-KeitaNeural', name: '👨 Keita (Giọng Nam)' }
+interface ThemePreset {
+  id: string;
+  name: string;
+  badge?: string;
+  bgColor: string;
+  cardBgColor: string;
+  pillBgColor: string;
+  pillTextColor: string;
+  headerBgGradient: string;
+  textColor: string;
+}
+
+const THEME_PRESETS: ThemePreset[] = [
+  {
+    id: 'red-energy',
+    name: '🔥 Đỏ Nổi Bật (Red Energy)',
+    badge: 'MẪU HOT',
+    bgColor: 'linear-gradient(180deg, #ED1C24 0%, #B30006 100%)',
+    cardBgColor: '#00E5FF',
+    pillBgColor: '#FFFFFF',
+    pillTextColor: '#003893',
+    headerBgGradient: 'linear-gradient(180deg, #091c36 0%, #061325 100%)',
+    textColor: '#ffffff'
+  },
+  {
+    id: 'cyan-vibrant',
+    name: '⚡ Xanh Cyan Năng Động',
+    badge: 'TƯƠI SÁNG',
+    bgColor: 'linear-gradient(180deg, #0284C7 0%, #0369A1 100%)',
+    cardBgColor: '#FFE600',
+    pillBgColor: '#FFFFFF',
+    pillTextColor: '#003893',
+    headerBgGradient: 'linear-gradient(180deg, #091c36 0%, #061325 100%)',
+    textColor: '#ffffff'
+  },
+  {
+    id: 'midnight-navy',
+    name: '🌙 Xanh Đêm Navy',
+    badge: 'SANG TRỌNG',
+    bgColor: 'linear-gradient(180deg, #0B192C 0%, #1E3E62 100%)',
+    cardBgColor: '#00E5FF',
+    pillBgColor: '#FFFFFF',
+    pillTextColor: '#003893',
+    headerBgGradient: 'linear-gradient(180deg, #091c36 0%, #061325 100%)',
+    textColor: '#ffffff'
+  },
+  {
+    id: 'royal-purple',
+    name: '💜 Tím Hoàng Gia',
+    badge: 'NỔI BẬT',
+    bgColor: 'linear-gradient(180deg, #581C87 0%, #3B0764 100%)',
+    cardBgColor: '#00E5FF',
+    pillBgColor: '#FFFFFF',
+    pillTextColor: '#003893',
+    headerBgGradient: 'linear-gradient(180deg, #091c36 0%, #061325 100%)',
+    textColor: '#ffffff'
+  },
+  {
+    id: 'emerald-fresh',
+    name: '🌱 Xanh Ngọc Fresh',
+    badge: 'TƯƠI MÁT',
+    bgColor: 'linear-gradient(180deg, #047857 0%, #064E3B 100%)',
+    cardBgColor: '#FFE600',
+    pillBgColor: '#FFFFFF',
+    pillTextColor: '#064E3B',
+    headerBgGradient: 'linear-gradient(180deg, #064E3B 0%, #022C22 100%)',
+    textColor: '#ffffff'
+  },
+  {
+    id: 'sunset-amber',
+    name: '☀️ Cam Hoàng Hôn',
+    badge: 'ẤM ÁP',
+    bgColor: 'linear-gradient(180deg, #EA580C 0%, #9A3412 100%)',
+    cardBgColor: '#00E5FF',
+    pillBgColor: '#FFFFFF',
+    pillTextColor: '#7C2D12',
+    headerBgGradient: 'linear-gradient(180deg, #431407 0%, #1C0A04 100%)',
+    textColor: '#ffffff'
+  },
+  {
+    id: 'cyberpunk',
+    name: '🖤 Cyberpunk Neon',
+    badge: 'HIỆN ĐẠI',
+    bgColor: 'linear-gradient(180deg, #09090B 0%, #18181B 100%)',
+    cardBgColor: '#FF007F',
+    pillBgColor: '#00E5FF',
+    pillTextColor: '#09090B',
+    headerBgGradient: 'linear-gradient(180deg, #27272A 0%, #09090B 100%)',
+    textColor: '#ffffff'
+  }
 ];
 
 export default function VocabVideoGenerator() {
   const [cards, setCards] = useState<CardData[]>(INITIAL_CARDS.slice(0, 2)); // Default to 2 cards
   const [numCards, setNumCards] = useState<number>(2); // 2, 4, 6, 9
-  const [bgColor, setBgColor] = useState<string>('#90C9F9');
-  const [textColor, setTextColor] = useState<string>('#1a1a2e');
+  
+  // Theme Presets & Color state
+  const [activeThemeId, setActiveThemeId] = useState<string>('red-energy');
+  const [bgColor, setBgColor] = useState<string>('linear-gradient(180deg, #ED1C24 0%, #B30006 100%)');
+  const [textColor, setTextColor] = useState<string>('#ffffff');
+  const [cardBgColor, setCardBgColor] = useState<string>('#00E5FF');
+  const [pillBgColor, setPillBgColor] = useState<string>('#FFFFFF');
+  const [pillTextColor, setPillTextColor] = useState<string>('#003893');
+  const [headerBgGradient, setHeaderBgGradient] = useState<string>('linear-gradient(180deg, #091c36 0%, #061325 100%)');
+
   const [bgMedia, setBgMedia] = useState<{ url: string, type: 'image' | 'video' } | null>(null);
   const [displayMode, setDisplayMode] = useState<'vocab' | 'sentence' | 'story' | 'quiz' | 'grammar'>('vocab');
   const [topicTitle, setTopicTitle] = useState<string>('THỜI GIAN');
+
+  const applyThemePreset = (preset: ThemePreset) => {
+    setActiveThemeId(preset.id);
+    setBgColor(preset.bgColor);
+    setCardBgColor(preset.cardBgColor);
+    setPillBgColor(preset.pillBgColor);
+    setPillTextColor(preset.pillTextColor);
+    setHeaderBgGradient(preset.headerBgGradient);
+    setTextColor(preset.textColor);
+  };
 
   // Grammar state
   const [grammarTitlePink, setGrammarTitlePink] = useState<string>('NGỮ PHÁP N3');
