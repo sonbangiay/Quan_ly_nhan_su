@@ -430,16 +430,17 @@ export default function VocabVideoGenerator() {
       audioRef.current.play().catch(e => console.log('BGM play blocked:', e));
     }
 
+    // Hiệu ứng highlight tự động chuyển theo thời gian trong lúc chỉ phát nhạc nền (Không đọc TTS)
     if (grammarPattern) {
       setActiveHighlight('grammar-pattern');
-      await speakText(grammarPattern, false);
+      await new Promise(res => setTimeout(res, 2500));
     }
 
     for (let i = 0; i < grammarExamples.length; i++) {
       const ex = grammarExamples[i];
-      if (ex.japanese) {
+      if (ex.japanese || ex.meaning) {
         setActiveHighlight(ex.id);
-        await speakText(ex.japanese, false);
+        await new Promise(res => setTimeout(res, 3000));
       }
     }
 
@@ -1158,73 +1159,72 @@ export default function VocabVideoGenerator() {
               <div className="flex-1 w-full px-4 pb-4 flex flex-col z-10 relative justify-center items-center overflow-y-auto">
                 <div className="w-full flex flex-col items-center">
                   {/* Title với hiệu ứng đẹp */}
-                  <div className="mb-4 flex flex-col items-center gap-1">
+                  <div className="mb-4 flex flex-col items-center gap-1 w-full max-w-[96%]">
                     <div 
-                      className="px-6 py-2 rounded-2xl"
+                      className="w-full py-3 px-6 rounded-2xl text-center border border-slate-700/80 shadow-2xl"
                       style={{
-                        background: 'linear-gradient(135deg, rgba(25,100,195,0.92) 0%, rgba(6,182,212,0.92) 100%)',
-                        boxShadow: '0 4px 20px rgba(25,100,195,0.4), 0 1px 0 rgba(255,255,255,0.3) inset'
+                        background: 'linear-gradient(180deg, #091c36 0%, #061325 100%)',
+                        boxShadow: '0 8px 24px rgba(0,0,0,0.4), 0 1px 0 rgba(255,255,255,0.15) inset'
                       }}
                     >
                       <h2 
-                        className={`font-black text-center tracking-widest uppercase leading-tight ${numCards >= 4 ? 'text-[26px]' : 'text-[32px]'}`}
+                        className={`font-black text-center tracking-widest uppercase leading-tight ${numCards >= 4 ? 'text-[22px]' : 'text-[28px]'}`}
                         style={{
-                          color: 'white',
-                          textShadow: '0 2px 8px rgba(0,0,0,0.3), 0 0 20px rgba(255,255,255,0.2)',
-                          letterSpacing: '0.12em'
+                          color: '#00E5FF',
+                          textShadow: '0 2px 8px rgba(0,229,255,0.5)'
                         }}
                       >
-                        {topicTitle}
+                        {topicTitle || 'THỜI GIAN'}
                       </h2>
                     </div>
-                    {/* Đường kẻ trang trí dưới tiêu đề */}
-                    <div className="flex items-center gap-1.5">
-                      <div className="h-[2px] w-8 rounded-full" style={{ background: 'rgba(25,100,195,0.5)' }} />
-                      <div className="h-[3px] w-4 rounded-full" style={{ background: 'rgba(6,182,212,0.8)' }} />
-                      <div className="h-[2px] w-8 rounded-full" style={{ background: 'rgba(25,100,195,0.5)' }} />
-                    </div>
                   </div>
-                  <div className={`flex flex-col w-full items-center ${numCards >= 4 ? 'gap-1.5' : 'gap-3'}`}>
+
+                  {/* Cards List với thiết kế Cyan + White Pill gối đè */}
+                  <div className={`flex flex-col w-full items-center ${numCards >= 4 ? 'gap-2.5' : 'gap-4'}`}>
                     {cards.map((card) => {
                       const isActive = activeHighlight === card.id;
                       return (
                         <div 
                           key={card.id}
-                          className={`w-fit max-w-[92%] rounded-2xl flex flex-col items-center justify-center ${numCards >= 4 ? 'py-2 px-5' : 'py-3 px-6'} text-center transition-all duration-300 ${
-                            isActive 
-                              ? 'bg-[#FFC7D8] border-[3px] border-[#FF9EBC] scale-[1.03] shadow-lg shadow-pink-200/50' 
-                              : 'border border-white/80'
-                          }`}
-                          style={{
-                            background: isActive ? undefined : 'rgba(255,255,255,0.88)',
-                            boxShadow: isActive ? undefined : '0 2px 12px rgba(0,0,0,0.08)'
-                          }}
+                          className="flex flex-col items-center w-full max-w-[96%] transition-all duration-300"
                         >
+                          {/* Top Card: Vibrant Cyan Background */}
                           <div 
-                            className={`font-black tracking-wide leading-tight ${numCards >= 4 ? 'text-[18px]' : 'text-[24px]'}`}
+                            className={`w-full bg-[#00E5FF] text-slate-950 pt-2.5 pb-4 px-4 rounded-[18px] text-center shadow-md transition-all duration-300 ${
+                              isActive 
+                                ? 'ring-4 ring-yellow-300 scale-[1.03] shadow-xl bg-[#FFE600]' 
+                                : ''
+                            }`}
                             style={{ 
-                              color: textColor, 
-                              WebkitTextStroke: `0.4px ${strokeColor}`
+                              boxShadow: isActive ? '0 8px 24px rgba(255,230,0,0.5)' : '0 4px 14px rgba(0,229,255,0.3)'
                             }}
                           >
-                            {card.hiragana}
+                            {card.romaji && (
+                              <div className="text-[11.5px] md:text-[13px] font-semibold text-[#002b5b] italic leading-tight mb-0.5 tracking-tight">
+                                /{card.romaji}/
+                              </div>
+                            )}
+                            <div 
+                              className={`font-black leading-snug tracking-tight text-slate-950 ${
+                                numCards >= 4 ? 'text-[17px] md:text-[20px]' : 'text-[22px] md:text-[26px]'
+                              }`}
+                            >
+                              {card.hiragana}
+                            </div>
                           </div>
+
+                          {/* Bottom Pill: White Overlapping Pill with Dark Blue Text */}
                           <div 
-                            className={`font-bold leading-tight mt-0.5 ${numCards >= 4 ? 'text-[12px]' : 'text-[15px]'}`}
-                            style={{ 
-                              color: textColor,
-                              opacity: 0.85
-                            }}
+                            className="w-[90%] bg-white text-[#003893] px-4 py-1.5 rounded-full shadow-md text-center border border-slate-100/90 -mt-3 z-10"
+                            style={{ boxShadow: '0 3px 10px rgba(0,0,0,0.12)' }}
                           >
-                            /{card.romaji}/
-                          </div>
-                          <div 
-                            className={`font-semibold leading-tight mt-0.5 ${numCards >= 4 ? 'text-[13px]' : 'text-[16px]'}`}
-                            style={{ 
-                              color: textColor
-                            }}
-                          >
-                            {card.meaning}
+                            <span 
+                              className={`font-black leading-tight text-[#003893] block truncate ${
+                                numCards >= 4 ? 'text-[12.5px] md:text-[14px]' : 'text-[15px] md:text-[17px]'
+                              }`}
+                            >
+                              {card.meaning}
+                            </span>
                           </div>
                         </div>
                       );
