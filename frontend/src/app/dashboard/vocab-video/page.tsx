@@ -811,7 +811,7 @@ export default function VocabVideoGenerator() {
             </div>
           )}
 
-          {(displayMode === 'sentence' || displayMode === 'story') && (
+          {(displayMode === 'vocab' || displayMode === 'sentence' || displayMode === 'story') && (
             <div className="mb-6 p-4 bg-[#D6EFFC]/30 rounded-xl border border-[#D6EFFC]">
               <label className="block text-xs font-bold mb-2 text-[#1964C3]">Tiêu đề Video</label>
               <input type="text" className="input w-full font-black text-lg text-[#1964C3] border-[#1964C3]/20 focus:border-[#1964C3]" value={topicTitle} onChange={e => setTopicTitle(e.target.value)} placeholder="Ví dụ: THỜI GIAN" />
@@ -1329,59 +1329,8 @@ export default function VocabVideoGenerator() {
               />
             </div>
 
-            {/* Dynamic Grid Container (VOCAB MODE) */}
-            {displayMode === 'vocab' && (
-              <div 
-                className="flex-1 w-full px-4 pb-2 grid gap-3 transition-all duration-500 z-10 relative"
-                style={{
-                  ...getGridTemplate(),
-                  paddingBottom: 16
-                }}
-              >
-                {/* Cards */}
-                {cards.map((card) => (
-                  <div 
-                    key={card.id}
-                    className={`bg-white rounded-3xl shadow-md flex flex-col items-center justify-center p-2 text-center transition-all duration-300 ${activeHighlight === card.id ? 'ring-[6px] ring-yellow-400 scale-[1.02]' : ''}`}
-                  >
-                    <div className="flex-1 min-h-[3rem] w-full flex items-center justify-center mb-1">
-                      {card.image ? (
-                        <img src={card.image} alt="" className="max-w-full max-h-[70px] md:max-h-[120px] object-contain drop-shadow-sm" />
-                      ) : (
-                        <div className="w-14 h-14 rounded-full bg-gray-50 flex items-center justify-center text-xs text-gray-300 border border-dashed border-gray-200">Ảnh</div>
-                      )}
-                    </div>
-                    
-                    <div className="shrink-0 w-full flex flex-col items-center gap-1">
-                      <div 
-                        className="text-[12px] font-bold leading-tight"
-                        style={{ color: textColor }}
-                      >
-                        {card.romaji}
-                      </div>
-                      
-                      {/* Scale text dynamically based on grid size for better readability */}
-                      <div 
-                        className={`font-black leading-none ${numCards <= 4 ? 'text-2xl' : 'text-lg'}`}
-                        style={{ color: textColor, WebkitTextStroke: `0.4px ${strokeColor}` }}
-                      >
-                        {card.hiragana}
-                      </div>
-                      
-                      <div 
-                        className={`font-semibold leading-tight ${numCards <= 4 ? 'text-sm' : 'text-[11px]'}`}
-                        style={{ color: textColor }}
-                      >
-                        {card.meaning}
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {/* Sentence List Container (SENTENCE MODE) */}
-            {displayMode === 'sentence' && (
+            {/* Vocab & Sentence List Container (VOCAB & SENTENCE MODES) */}
+            {(displayMode === 'vocab' || displayMode === 'sentence') && (
               <div className="flex-1 w-full px-4 pb-4 flex flex-col z-10 relative justify-center items-center overflow-y-auto">
                 <div className="w-full flex flex-col items-center">
                   {/* Title với hiệu ứng đẹp */}
@@ -1406,7 +1355,7 @@ export default function VocabVideoGenerator() {
                     </div>
                   </div>
 
-                  {/* Cards List với thiết kế Cyan + White Pill gối đè */}
+                  {/* Cards List với thiết kế Cyan/Theme Card + White Pill gối đè */}
                   <div className={`flex flex-col w-full items-center ${numCards >= 4 ? 'gap-2.5' : 'gap-4'}`}>
                     {cards.map((card) => {
                       const isActive = activeHighlight === card.id;
@@ -1428,6 +1377,9 @@ export default function VocabVideoGenerator() {
                               boxShadow: isActive ? '0 8px 24px rgba(255,230,0,0.5)' : '0 4px 14px rgba(0,0,0,0.25)'
                             }}
                           >
+                            {card.image && (
+                              <img src={card.image} alt="" className="max-h-[60px] object-contain mx-auto mb-1.5 rounded-lg drop-shadow-sm" />
+                            )}
                             {card.romaji && (
                               <div 
                                 className="text-[11.5px] md:text-[13px] font-semibold italic leading-tight mb-0.5 tracking-tight opacity-90"
