@@ -1352,26 +1352,17 @@ export default function VocabVideoGenerator() {
                       )}
                     </div>
                     
-                    <div className="shrink-0 w-full flex flex-col items-center gap-1">
-                      <div 
-                        className="text-[12px] font-bold leading-tight"
-                        style={{ color: textColor }}
-                      >
+                    <div className="shrink-0 w-full flex flex-col items-center gap-0.5">
+                      <div className="text-[12px] md:text-[13px] font-bold leading-tight text-[#1a1a2e]">
                         {card.romaji}
                       </div>
                       
                       {/* Scale text dynamically based on grid size for better readability */}
-                      <div 
-                        className={`font-black leading-none ${numCards <= 4 ? 'text-2xl' : 'text-lg'}`}
-                        style={{ color: textColor, WebkitTextStroke: `0.4px ${strokeColor}` }}
-                      >
+                      <div className={`font-black leading-none text-[#1a1a2e] ${numCards <= 4 ? 'text-2xl' : 'text-lg'}`}>
                         {card.hiragana}
                       </div>
                       
-                      <div 
-                        className={`font-semibold leading-tight ${numCards <= 4 ? 'text-sm' : 'text-[11px]'}`}
-                        style={{ color: textColor }}
-                      >
+                      <div className={`font-semibold leading-tight text-[#475569] ${numCards <= 4 ? 'text-sm' : 'text-[11px]'}`}>
                         {card.meaning}
                       </div>
                     </div>
