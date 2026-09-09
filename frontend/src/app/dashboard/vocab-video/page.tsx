@@ -811,7 +811,7 @@ export default function VocabVideoGenerator() {
             </div>
           )}
 
-          {(displayMode === 'vocab' || displayMode === 'sentence' || displayMode === 'story') && (
+          {(displayMode === 'sentence' || displayMode === 'story') && (
             <div className="mb-6 p-4 bg-[#D6EFFC]/30 rounded-xl border border-[#D6EFFC]">
               <label className="block text-xs font-bold mb-2 text-[#1964C3]">Tiêu đề Video</label>
               <input type="text" className="input w-full font-black text-lg text-[#1964C3] border-[#1964C3]/20 focus:border-[#1964C3]" value={topicTitle} onChange={e => setTopicTitle(e.target.value)} placeholder="Ví dụ: THỜI GIAN" />
@@ -1331,94 +1331,52 @@ export default function VocabVideoGenerator() {
 
             {/* Dynamic Grid Container (VOCAB MODE) */}
             {displayMode === 'vocab' && (
-              <div className="flex-1 w-full px-4 pb-4 flex flex-col z-10 relative justify-center items-center overflow-y-auto">
-                <div className="w-full flex flex-col items-center">
-                  {/* Title nếu có nhập */}
-                  {topicTitle && (
-                    <div className="mb-3 flex flex-col items-center gap-1 w-full max-w-[96%]">
+              <div 
+                className="flex-1 w-full px-4 pb-2 grid gap-3 transition-all duration-500 z-10 relative"
+                style={{
+                  ...getGridTemplate(),
+                  paddingBottom: 16
+                }}
+              >
+                {/* Cards */}
+                {cards.map((card) => (
+                  <div 
+                    key={card.id}
+                    className={`bg-white rounded-3xl shadow-md flex flex-col items-center justify-center p-2 text-center transition-all duration-300 ${activeHighlight === card.id ? 'ring-[6px] ring-yellow-400 scale-[1.02]' : ''}`}
+                  >
+                    <div className="flex-1 min-h-[3rem] w-full flex items-center justify-center mb-1">
+                      {card.image ? (
+                        <img src={card.image} alt="" className="max-w-full max-h-[70px] md:max-h-[120px] object-contain drop-shadow-sm" />
+                      ) : (
+                        <div className="w-14 h-14 rounded-full bg-gray-50 flex items-center justify-center text-xs text-gray-300 border border-dashed border-gray-200">Ảnh</div>
+                      )}
+                    </div>
+                    
+                    <div className="shrink-0 w-full flex flex-col items-center gap-1">
                       <div 
-                        className="w-full py-2.5 px-6 rounded-2xl text-center border border-slate-700/80 shadow-2xl"
-                        style={{
-                          background: headerBgGradient.startsWith('linear-gradient') ? headerBgGradient : undefined,
-                          backgroundColor: headerBgGradient.startsWith('linear-gradient') ? undefined : headerBgGradient,
-                          boxShadow: '0 8px 24px rgba(0,0,0,0.4), 0 1px 0 rgba(255,255,255,0.15) inset'
-                        }}
+                        className="text-[12px] font-bold leading-tight"
+                        style={{ color: textColor }}
                       >
-                        <h2 
-                          className={`font-black text-center tracking-widest uppercase leading-tight ${numCards >= 6 ? 'text-[18px]' : 'text-[24px]'}`}
-                          style={{
-                            color: headerTextColor,
-                            textShadow: `0 2px 8px ${headerTextColor}80`
-                          }}
-                        >
-                          {topicTitle}
-                        </h2>
+                        {card.romaji}
+                      </div>
+                      
+                      {/* Scale text dynamically based on grid size for better readability */}
+                      <div 
+                        className={`font-black leading-none ${numCards <= 4 ? 'text-2xl' : 'text-lg'}`}
+                        style={{ color: textColor, WebkitTextStroke: `0.4px ${strokeColor}` }}
+                      >
+                        {card.hiragana}
+                      </div>
+                      
+                      <div 
+                        className={`font-semibold leading-tight ${numCards <= 4 ? 'text-sm' : 'text-[11px]'}`}
+                        style={{ color: textColor }}
+                      >
+                        {card.meaning}
                       </div>
                     </div>
-                  )}
-
-                  {/* Cards List với thiết kế Cyan/Theme Card + White Pill gối đè */}
-                  <div className={`flex flex-col w-full items-center ${numCards >= 4 ? 'gap-2.5' : 'gap-4'}`}>
-                    {cards.map((card) => {
-                      const isActive = activeHighlight === card.id;
-                      return (
-                        <div 
-                          key={card.id}
-                          className="flex flex-col items-center w-full max-w-[96%] transition-all duration-300"
-                        >
-                          {/* Top Card */}
-                          <div 
-                            className={`w-full pt-2.5 pb-4 px-4 rounded-[18px] text-center shadow-md transition-all duration-300 ${
-                              isActive 
-                                ? 'ring-4 ring-yellow-300 scale-[1.03] shadow-xl' 
-                                : ''
-                            }`}
-                            style={{ 
-                              backgroundColor: isActive ? '#FFE600' : cardBgColor,
-                              color: (cardBgColor === '#00E5FF' || cardBgColor === '#FFE600') ? '#020617' : '#FFFFFF',
-                              boxShadow: isActive ? '0 8px 24px rgba(255,230,0,0.5)' : '0 4px 14px rgba(0,0,0,0.25)'
-                            }}
-                          >
-                            {card.romaji && (
-                              <div 
-                                className="text-[11.5px] md:text-[13px] font-semibold italic leading-tight mb-0.5 tracking-tight opacity-90"
-                                style={{ color: (cardBgColor === '#FFE600' || cardBgColor === '#00E5FF') ? '#002b5b' : '#ffffff' }}
-                              >
-                                /{card.romaji}/
-                              </div>
-                            )}
-                            <div 
-                              className={`font-black leading-snug tracking-tight ${
-                                numCards >= 4 ? 'text-[17px] md:text-[20px]' : 'text-[22px] md:text-[26px]'
-                              }`}
-                            >
-                              {card.hiragana}
-                            </div>
-                          </div>
-
-                          {/* Bottom Pill: Overlapping Pill với Nghĩa */}
-                          <div 
-                            className="w-[90%] px-4 py-1.5 rounded-full shadow-md text-center border border-slate-100/90 -mt-3 z-10"
-                            style={{ 
-                              backgroundColor: pillBgColor,
-                              color: pillTextColor,
-                              boxShadow: '0 3px 10px rgba(0,0,0,0.2)' 
-                            }}
-                          >
-                            <span 
-                              className={`font-black leading-tight block truncate ${
-                                numCards >= 4 ? 'text-[12.5px] md:text-[14px]' : 'text-[15px] md:text-[17px]'
-                              }`}
-                              style={{ color: pillTextColor }}
-                            >
-                              {card.meaning}
-                            </span>
-                          </div>
-                        </div>
-                      );
-                    })}
                   </div>
-                </div>
+                ))}
               </div>
             )}
 
