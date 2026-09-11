@@ -57,6 +57,19 @@ const INITIAL_CARDS: CardData[] = [
   { id: '15', image: '', kanji: '', romaji: '', hiragana: '', meaning: '' },
 ];
 
+const DEFAULT_10_DIALOGUE_LINES: DialogueLine[] = [
+  { id: 'd1', speaker: 'A', japanese: 'おはようございます！', romaji: 'Ohayou gozaimasu!', meaning: 'Xin chào buổi sáng!' },
+  { id: 'd2', speaker: 'B', japanese: 'おはようございます！元気ですか？', romaji: 'Ohayou gozaimasu! Genki desu ka?', meaning: 'Xin chào! Bạn có khỏe không?' },
+  { id: 'd3', speaker: 'A', japanese: 'はい、元気です。ありがとう！', romaji: 'Hai, genki desu. Arigatou!', meaning: 'Vâng, tôi khỏe. Cảm ơn bạn!' },
+  { id: 'd4', speaker: 'B', japanese: '今日もお仕事頑張りましょう！', romaji: 'Kyou mo oshigoto ganbarimashou!', meaning: 'Hôm nay cùng cố gắng làm việc nhé!' },
+  { id: 'd5', speaker: 'A', japanese: 'はい、頑張りましょう！', romaji: 'Hai, ganbarimashou!', meaning: 'Vâng, cùng cố gắng nào!' },
+  { id: 'd6', speaker: 'B', japanese: 'お昼ご飯は何を食べますか？', romaji: 'Ohiru gohan wa nani o tabemasu ka?', meaning: 'Bữa trưa bạn ăn món gì thế?' },
+  { id: 'd7', speaker: 'A', japanese: 'ラーメンを食べに行きます。', romaji: 'Raamen o tabe ni ikimasu.', meaning: 'Tôi sẽ đi ăn mì ramen.' },
+  { id: 'd8', speaker: 'B', japanese: 'いいですね！私も行きたいです。', romaji: 'Ii desu ne! Watashi mo ikitai desu.', meaning: 'Tuyệt quá! Tôi cũng muốn đi cùng.' },
+  { id: 'd9', speaker: 'A', japanese: 'じゃ、一緒に行きましょう！', romaji: 'Ja, issho ni ikimashou!', meaning: 'Vậy thì cùng đi chung nhé!' },
+  { id: 'd10', speaker: 'B', japanese: 'ありがとうございます！楽しみにしています。', romaji: 'Arigatou gozaimasu! Tanoshimi ni shiteimasu.', meaning: 'Cảm ơn bạn nhiều! Tôi rất mong chờ.' },
+];
+
 const EDGE_VOICES = [
   { voiceURI: 'ja-JP-NanamiNeural', name: '👩 Nanami (Giọng Nữ)' },
   { voiceURI: 'ja-JP-KeitaNeural', name: '👨 Keita (Giọng Nam)' }
@@ -181,12 +194,7 @@ export default function VocabVideoGenerator() {
   const [topicTitle, setTopicTitle] = useState<string>('THỜI GIAN');
 
   // Dialogue State
-  const [dialogueLines, setDialogueLines] = useState<DialogueLine[]>([
-    { id: 'd1', speaker: 'A', japanese: 'おはようございます！', romaji: 'Ohayou gozaimasu!', meaning: 'Xin chào buổi sáng!' },
-    { id: 'd2', speaker: 'B', japanese: 'おはようございます！元気ですか？', romaji: 'Ohayou gozaimasu! Genki desu ka?', meaning: 'Xin chào! Bạn có khỏe không?' },
-    { id: 'd3', speaker: 'A', japanese: 'はい、元気です。ありがとう！', romaji: 'Hai, genki desu. Arigatou!', meaning: 'Vâng, tôi khỏe. Cảm ơn bạn!' },
-    { id: 'd4', speaker: 'B', japanese: 'よかったです！今日もよろしく！', romaji: 'Yokatta desu! Kyou mo yoroshiku!', meaning: 'Thật vui! Hôm nay cũng nhờ bạn giúp đỡ nhé!' },
-  ]);
+  const [dialogueLines, setDialogueLines] = useState<DialogueLine[]>(DEFAULT_10_DIALOGUE_LINES);
   const [dialogueTitle, setDialogueTitle] = useState<string>('HỘI THOẠI TIẾNG NHẬT');
   const [dialogueLinesPerScene, setDialogueLinesPerScene] = useState<number>(3);
   const [dialogueCurrentScene, setDialogueCurrentScene] = useState<number>(0);
@@ -264,6 +272,14 @@ export default function VocabVideoGenerator() {
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const isRecordingRef = useRef<boolean>(false);
+  const dialogueLinesRef = useRef<DialogueLine[]>(dialogueLines);
+  dialogueLinesRef.current = dialogueLines;
+  const dialogueLinesPerSceneRef = useRef<number>(dialogueLinesPerScene);
+  dialogueLinesPerSceneRef.current = dialogueLinesPerScene;
+  const personAGenderRef = useRef<'female' | 'male'>(personAGender);
+  personAGenderRef.current = personAGender;
+  const personBGenderRef = useRef<'female' | 'male'>(personBGender);
+  personBGenderRef.current = personBGender;
 
   // Adjust cards array size when numCards changes
   useEffect(() => {
@@ -369,6 +385,28 @@ export default function VocabVideoGenerator() {
           
           if (validRows.length === 0) {
             alert("File Excel không có dữ liệu hợp lệ!");
+            return;
+          }
+
+          // Chế độ Hội Thoại: Nạp toàn bộ các dòng từ Excel vào danh sách lượt thoại
+          if (displayMode === 'dialogue') {
+            const importedLines: DialogueLine[] = validRows.map((row, idx) => {
+              const colSpeaker = (row[3] || '').toString().trim().toUpperCase();
+              const speaker: 'A' | 'B' = (colSpeaker === 'B' || colSpeaker === '2')
+                ? 'B'
+                : (colSpeaker === 'A' || colSpeaker === '1')
+                ? 'A'
+                : (idx % 2 === 0 ? 'A' : 'B');
+              return {
+                id: Date.now().toString() + idx,
+                speaker,
+                japanese: (row[0] || '').toString().trim(),
+                romaji: (row[1] || '').toString().trim(),
+                meaning: (row[2] || '').toString().trim(),
+              };
+            });
+            setDialogueLines(importedLines);
+            setDialogueCurrentScene(0);
             return;
           }
 
@@ -605,45 +643,52 @@ export default function VocabVideoGenerator() {
       audioRef.current.play().catch(e => console.log('BGM play blocked:', e));
     }
 
-    const totalScenes = Math.ceil(dialogueLines.length / dialogueLinesPerScene);
+    const lines = dialogueLinesRef.current;
+    const linesPerScene = dialogueLinesPerSceneRef.current;
+    const genderA = personAGenderRef.current;
+    const genderB = personBGenderRef.current;
+    const totalScenes = Math.ceil(lines.length / linesPerScene);
 
     for (let sceneIdx = 0; sceneIdx < totalScenes; sceneIdx++) {
-      // Chuyển sang cảnh mới
+      // 1. Chuyển sang cảnh mới
       setDialogueCurrentScene(sceneIdx);
       setActiveHighlight(null);
 
-      // Nếu không phải cảnh đầu, dừng 600ms để người xem thấy cảnh mới xuất hiện
-      if (sceneIdx > 0) {
-        await new Promise(res => setTimeout(res, 600));
-      }
+      // Dừng 800ms để người xem và video ghi lại trọn vẹn cảnh mới xuất hiện
+      await new Promise(res => setTimeout(res, 800));
 
-      // Lấy các dòng trong cảnh này
-      const start = sceneIdx * dialogueLinesPerScene;
-      const end = Math.min(start + dialogueLinesPerScene, dialogueLines.length);
-      const sceneLines = dialogueLines.slice(start, end);
+      // 2. Lấy các dòng trong cảnh này
+      const start = sceneIdx * linesPerScene;
+      const end = Math.min(start + linesPerScene, lines.length);
+      const sceneLines = lines.slice(start, end);
 
-      // Đọc từng dòng trong cảnh với giọng chuẩn theo giới tính đã chọn
+      // 3. Đọc tuần tự từng dòng trong cảnh với giọng chuẩn theo giới tính đã chọn
       for (let j = 0; j < sceneLines.length; j++) {
         const line = sceneLines[j];
         setActiveHighlight(line.id);
         const isA = line.speaker === 'A';
-        const gender = isA ? personAGender : personBGender;
+        const gender = isA ? genderA : genderB;
         const voiceURI = gender === 'female' ? 'ja-JP-NanamiNeural' : 'ja-JP-KeitaNeural';
         // Nếu 2 nhân vật cùng giới tính, tự động đổi cao độ (pitch) để phân biệt rõ 2 giọng nói
         let pitchVal = 1.0;
-        if (personAGender === personBGender) {
+        if (genderA === genderB) {
           pitchVal = isA ? 0.95 : 1.25;
         }
-        if (line.japanese) {
-          await speakText(line.japanese, false, { voiceURI, pitchVal });
-          await new Promise(res => setTimeout(res, 350));
+
+        const textToRead = line.japanese || line.romaji || line.meaning;
+        if (textToRead) {
+          await speakText(textToRead, false, { voiceURI, pitchVal });
+          await new Promise(res => setTimeout(res, 400));
         }
       }
 
-      // Dừng cuối cảnh (trừ cảnh cuối)
+      // 4. Dừng cuối cảnh trước khi chuyển sang cảnh tiếp theo
+      setActiveHighlight(null);
       if (sceneIdx < totalScenes - 1) {
-        setActiveHighlight(null);
-        await new Promise(res => setTimeout(res, 800)); // Khoảng nghỉ chuyển cảnh
+        await new Promise(res => setTimeout(res, 1200)); // Nghỉ 1.2s chuyển cảnh
+      } else {
+        // Cảnh cuối cùng: giữ 1.5s để video kết thúc êm đẹp
+        await new Promise(res => setTimeout(res, 1500));
       }
     }
 
@@ -769,6 +814,8 @@ export default function VocabVideoGenerator() {
         } else {
           await playSequence();
         }
+        // Dừng 1.5s sau khi hoàn tất để video có kết thúc đẹp, không bị ngắt cụt
+        await new Promise(res => setTimeout(res, 1500));
         if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
           mediaRecorderRef.current.stop();
         }
@@ -1484,20 +1531,74 @@ export default function VocabVideoGenerator() {
                 </div>
 
 
-                <div className="flex items-center justify-between">
-                  <p className="text-sm font-bold text-slate-700">📝 Các lượt thoại ({dialogueLines.length})</p>
-                  <button
-                    onClick={() => setDialogueLines(prev => [...prev, {
-                      id: Date.now().toString(),
-                      speaker: prev.length % 2 === 0 ? 'A' : 'B',
-                      japanese: '',
-                      romaji: '',
-                      meaning: ''
-                    }])}
-                    className="px-3 py-1.5 bg-gradient-to-r from-violet-600 to-pink-500 text-white text-xs font-bold rounded-lg hover:opacity-90 transition-colors shadow-sm flex items-center gap-1"
-                  >
-                    + Thêm lượt thoại
-                  </button>
+                <div className="flex flex-col gap-2 pt-1">
+                  <div className="flex items-center justify-between flex-wrap gap-2">
+                    <p className="text-sm font-bold text-slate-700 flex items-center gap-1.5">
+                      <span>📝 Các lượt thoại ({dialogueLines.length})</span>
+                      <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-violet-100 text-violet-700">
+                        {Math.ceil(dialogueLines.length / dialogueLinesPerScene)} cảnh
+                      </span>
+                    </p>
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <button
+                        onClick={() => setDialogueLines(prev => [...prev, {
+                          id: Date.now().toString(),
+                          speaker: prev.length % 2 === 0 ? 'A' : 'B',
+                          japanese: '',
+                          romaji: '',
+                          meaning: ''
+                        }])}
+                        className="px-2.5 py-1 bg-gradient-to-r from-violet-600 to-pink-500 text-white text-xs font-bold rounded-lg hover:opacity-90 transition-colors shadow-sm flex items-center gap-1"
+                      >
+                        + 1 câu
+                      </button>
+                      <button
+                        onClick={() => {
+                          const newBatch: DialogueLine[] = Array.from({ length: 5 }).map((_, i) => ({
+                            id: Date.now().toString() + i,
+                            speaker: (dialogueLines.length + i) % 2 === 0 ? 'A' : 'B',
+                            japanese: '',
+                            romaji: '',
+                            meaning: ''
+                          }));
+                          setDialogueLines(prev => [...prev, ...newBatch]);
+                        }}
+                        className="px-2.5 py-1 bg-violet-100 text-violet-800 hover:bg-violet-200 text-xs font-bold rounded-lg transition-colors border border-violet-200"
+                        title="Thêm nhanh 5 câu thoại trống"
+                      >
+                        + 5 câu
+                      </button>
+                      <button
+                        onClick={() => {
+                          setDialogueLines(DEFAULT_10_DIALOGUE_LINES);
+                          setDialogueCurrentScene(0);
+                        }}
+                        className="px-2.5 py-1 bg-amber-50 text-amber-800 hover:bg-amber-100 text-xs font-bold rounded-lg transition-colors border border-amber-200"
+                        title="Nạp lại bộ 10 câu hội thoại mẫu chuẩn"
+                      >
+                        ✨ 10 câu mẫu
+                      </button>
+                      {cards.length > 0 && (
+                        <button
+                          onClick={() => {
+                            const fromCards: DialogueLine[] = cards.map((c, i) => ({
+                              id: Date.now().toString() + i,
+                              speaker: i % 2 === 0 ? 'A' : 'B',
+                              japanese: c.hiragana || c.kanji || '',
+                              romaji: c.romaji || '',
+                              meaning: c.meaning || ''
+                            }));
+                            setDialogueLines(fromCards);
+                            setDialogueCurrentScene(0);
+                          }}
+                          className="px-2.5 py-1 bg-blue-50 text-blue-700 hover:bg-blue-100 text-xs font-bold rounded-lg transition-colors border border-blue-200"
+                          title={`Sao chép ${cards.length} câu từ danh sách thẻ vào hội thoại`}
+                        >
+                          📋 Lấy {cards.length} câu từ thẻ
+                        </button>
+                      )}
+                    </div>
+                  </div>
                 </div>
 
                 {dialogueLines.map((line, idx) => (
