@@ -374,9 +374,16 @@ export default function VocabVideoGenerator() {
           const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
           const jsonData = XLSX.utils.sheet_to_json(firstSheet, { header: 1 }) as any[][];
           
-          // Skip header row if it contains text in first cell
+          // Bỏ qua dòng tiêu đề nếu chứa các từ khóa cột phổ biến
           let rows = jsonData;
-          if (rows.length > 0 && typeof rows[0][0] === 'string' && (rows[0][0].toLowerCase().includes('tiếng nhật') || rows[0][0].toLowerCase().includes('tieng nhat') || rows[0][0].toLowerCase().includes('kanji'))) {
+          if (rows.length > 0 && rows[0].some((c: any) => {
+            if (typeof c !== 'string') return false;
+            const s = c.toLowerCase();
+            return s.includes('tiếng') || s.includes('tieng') || s.includes('kanji') ||
+                   s.includes('hiragana') || s.includes('romaji') || s.includes('nghĩa') ||
+                   s.includes('nghia') || s.includes('stt') || s.includes('người') ||
+                   s.includes('nhân vật') || s.includes('speaker') || s.includes('câu');
+          })) {
             rows = rows.slice(1);
           }
 
@@ -388,21 +395,51 @@ export default function VocabVideoGenerator() {
             return;
           }
 
-          // Chế độ Hội Thoại: Nạp toàn bộ các dòng từ Excel vào danh sách lượt thoại
+          // Chế độ Hội Thoại: Tự động phát hiện cột (có STT, có cột người nói hay không) để đọc chuẩn xác 100%
           if (displayMode === 'dialogue') {
             const importedLines: DialogueLine[] = validRows.map((row, idx) => {
-              const colSpeaker = (row[3] || '').toString().trim().toUpperCase();
-              const speaker: 'A' | 'B' = (colSpeaker === 'B' || colSpeaker === '2')
-                ? 'B'
-                : (colSpeaker === 'A' || colSpeaker === '1')
-                ? 'A'
-                : (idx % 2 === 0 ? 'A' : 'B');
+              // Kiểm tra xem cột đầu tiên có phải là cột STT (số 1, 2, 3...) không
+              const firstVal = String(row[0] || '').trim();
+              const firstIsNumber = /^\d+$/.test(firstVal) && !/[\u3040-\u30ff\u3400-\u4dbf\u4e00-\u9fff]/.test(firstVal);
+              const offset = firstIsNumber ? 1 : 0;
+
+              // Kiểm tra cột kế tiếp có phải là ký hiệu người nói (A, B, 1, 2, Người A, Người B...)
+              const candidate = String(row[offset] || '').trim().toLowerCase();
+              const isSpeakerCol = candidate === 'a' || candidate === 'b' || candidate === '1' || candidate === '2' ||
+                                   candidate.includes('người a') || candidate.includes('người b') ||
+                                   candidate.includes('giáo viên') || candidate.includes('học sinh') ||
+                                   candidate.includes('nam') || candidate.includes('nữ');
+
+              let speakerRaw = '';
+              let ja = '';
+              let ro = '';
+              let vi = '';
+
+              if (isSpeakerCol) {
+                speakerRaw = candidate;
+                ja = String(row[offset + 1] || '').trim();
+                ro = String(row[offset + 2] || '').trim();
+                vi = String(row[offset + 3] || '').trim();
+              } else {
+                ja = String(row[offset] || '').trim();
+                ro = String(row[offset + 1] || '').trim();
+                vi = String(row[offset + 2] || '').trim();
+                speakerRaw = String(row[offset + 3] || '').trim().toLowerCase();
+              }
+
+              const speaker: 'A' | 'B' = 
+                (speakerRaw === 'b' || speakerRaw === '2' || speakerRaw.includes('học sinh') || speakerRaw.includes('b'))
+                  ? 'B'
+                  : (speakerRaw === 'a' || speakerRaw === '1' || speakerRaw.includes('giáo viên') || speakerRaw.includes('a'))
+                  ? 'A'
+                  : (idx % 2 === 0 ? 'A' : 'B');
+
               return {
                 id: Date.now().toString() + idx,
                 speaker,
-                japanese: (row[0] || '').toString().trim(),
-                romaji: (row[1] || '').toString().trim(),
-                meaning: (row[2] || '').toString().trim(),
+                japanese: ja,
+                romaji: ro,
+                meaning: vi,
               };
             });
             setDialogueLines(importedLines);
