@@ -188,6 +188,8 @@ export default function VocabVideoGenerator() {
     { id: 'd4', speaker: 'B', japanese: 'よかったです！今日もよろしく！', romaji: 'Yokatta desu! Kyou mo yoroshiku!', meaning: 'Thật vui! Hôm nay cũng nhờ bạn giúp đỡ nhé!' },
   ]);
   const [dialogueTitle, setDialogueTitle] = useState<string>('HỘI THOẠI TIẾNG NHẬT');
+  const [dialogueLinesPerScene, setDialogueLinesPerScene] = useState<number>(3); // 2, 3, 4 dòng mỗi cảnh
+  const [dialogueCurrentScene, setDialogueCurrentScene] = useState<number>(0);  // index cảnh đang xem
 
   const applyThemePreset = (preset: ThemePreset) => {
     setActiveThemeId(preset.id);
@@ -594,13 +596,38 @@ export default function VocabVideoGenerator() {
       audioRef.current.play().catch(e => console.log('BGM play blocked:', e));
     }
 
-    for (let i = 0; i < dialogueLines.length; i++) {
-      const line = dialogueLines[i];
-      setActiveHighlight(line.id);
-      const isStudent = line.speaker === 'B';
-      if (line.japanese) {
-        await speakText(line.japanese, isStudent);
-        await new Promise(res => setTimeout(res, 300));
+    const totalScenes = Math.ceil(dialogueLines.length / dialogueLinesPerScene);
+
+    for (let sceneIdx = 0; sceneIdx < totalScenes; sceneIdx++) {
+      // Chuyển sang cảnh mới
+      setDialogueCurrentScene(sceneIdx);
+      setActiveHighlight(null);
+
+      // Nếu không phải cảnh đầu, dừng 600ms để người xem thấy cảnh mới xuất hiện
+      if (sceneIdx > 0) {
+        await new Promise(res => setTimeout(res, 600));
+      }
+
+      // Lấy các dòng trong cảnh này
+      const start = sceneIdx * dialogueLinesPerScene;
+      const end = Math.min(start + dialogueLinesPerScene, dialogueLines.length);
+      const sceneLines = dialogueLines.slice(start, end);
+
+      // Đọc từng dòng trong cảnh
+      for (let j = 0; j < sceneLines.length; j++) {
+        const line = sceneLines[j];
+        setActiveHighlight(line.id);
+        const isStudent = line.speaker === 'B';
+        if (line.japanese) {
+          await speakText(line.japanese, isStudent);
+          await new Promise(res => setTimeout(res, 350));
+        }
+      }
+
+      // Dừng cuối cảnh (trừ cảnh cuối)
+      if (sceneIdx < totalScenes - 1) {
+        setActiveHighlight(null);
+        await new Promise(res => setTimeout(res, 800)); // Khoảng nghỉ chuyển cảnh
       }
     }
 
@@ -1350,17 +1377,42 @@ export default function VocabVideoGenerator() {
                     onChange={e => setDialogueTitle(e.target.value)}
                     placeholder="HỘI THOẠI TIẾNG NHẬT"
                   />
-                  <div className="flex gap-4 text-[11px] font-bold mt-1">
+
+                  {/* Scene settings */}
+                  <div className="flex items-center gap-3 pt-1 border-t border-violet-100">
+                    <span className="text-[11px] font-bold text-violet-700 shrink-0">🎬 Dòng/Cảnh:</span>
+                    <div className="flex gap-1">
+                      {[2, 3, 4].map(n => (
+                        <button
+                          key={n}
+                          onClick={() => { setDialogueLinesPerScene(n); setDialogueCurrentScene(0); }}
+                          className={`w-8 h-7 rounded-lg text-xs font-black transition-all border ${
+                            dialogueLinesPerScene === n
+                              ? 'bg-violet-600 text-white border-violet-600 shadow'
+                              : 'bg-white text-violet-700 border-violet-300 hover:border-violet-500'
+                          }`}
+                        >
+                          {n}
+                        </button>
+                      ))}
+                    </div>
+                    <span className="text-[11px] text-violet-500 font-medium">
+                      → {Math.ceil(dialogueLines.length / dialogueLinesPerScene)} cảnh tổng
+                    </span>
+                  </div>
+
+                  <div className="flex gap-4 text-[11px] font-bold">
                     <span className="flex items-center gap-1.5">
                       <span className="w-3 h-3 rounded-full bg-blue-500 inline-block" />
-                      <span className="text-blue-700">Người A (Giáo viên) — Giọng Nanami</span>
+                      <span className="text-blue-700">Người A (Giáo viên) — Nanami</span>
                     </span>
                     <span className="flex items-center gap-1.5">
                       <span className="w-3 h-3 rounded-full bg-pink-500 inline-block" />
-                      <span className="text-pink-700">Người B (Học sinh) — Giọng Keita</span>
+                      <span className="text-pink-700">Người B (Học sinh) — Keita</span>
                     </span>
                   </div>
                 </div>
+
 
                 <div className="flex items-center justify-between">
                   <p className="text-sm font-bold text-slate-700">📝 Các lượt thoại ({dialogueLines.length})</p>
@@ -1920,107 +1972,158 @@ export default function VocabVideoGenerator() {
                   </div>
                 </div>
 
-                {/* Chat Bubbles Area */}
-                <div className="flex-1 w-full px-3 py-3 flex flex-col gap-2.5 overflow-y-auto">
-                  {dialogueLines.map((line) => {
-                    const isA = line.speaker === 'A';
-                    const isActive = activeHighlight === line.id;
-                    return (
-                      <div
-                        key={line.id}
-                        className={`flex flex-col w-full transition-all duration-300 ${isA ? 'items-start' : 'items-end'}`}
-                      >
-                        {/* Avatar + Bubble row */}
-                        <div className={`flex items-end gap-2 w-[90%] ${isA ? 'flex-row' : 'flex-row-reverse'}`}>
-                          {/* Avatar circle */}
+                {/* Chat Bubbles Area — only show current scene's lines */}
+                {(() => {
+                  const totalScenes = Math.ceil(dialogueLines.length / dialogueLinesPerScene);
+                  const sceneStart = dialogueCurrentScene * dialogueLinesPerScene;
+                  const sceneEnd = Math.min(sceneStart + dialogueLinesPerScene, dialogueLines.length);
+                  const sceneLines = dialogueLines.slice(sceneStart, sceneEnd);
+                  return (
+                    <div className="flex-1 w-full px-3 py-3 flex flex-col gap-2.5 overflow-hidden justify-center">
+                      {sceneLines.map((line) => {
+                        const isA = line.speaker === 'A';
+                        const isActive = activeHighlight === line.id;
+                        return (
                           <div
-                            className="shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-[15px] shadow-md border-2"
-                            style={{
-                              background: isA
-                                ? 'linear-gradient(135deg, #3b82f6, #1d4ed8)'
-                                : 'linear-gradient(135deg, #ec4899, #9333ea)',
-                              borderColor: isActive
-                                ? '#FFE600'
-                                : isA ? '#93c5fd' : '#f9a8d4'
-                            }}
+                            key={line.id}
+                            className={`flex flex-col w-full transition-all duration-500 ${isA ? 'items-start' : 'items-end'}`}
                           >
-                            {isA ? '👩‍🏫' : '🧑‍🎓'}
-                          </div>
-
-                          {/* Bubble */}
-                          <div
-                            className={`flex-1 px-3 py-2.5 rounded-2xl shadow-lg transition-all duration-300 ${
-                              isA ? 'rounded-tl-sm' : 'rounded-tr-sm'
-                            } ${isActive ? 'scale-[1.03]' : ''}`}
-                            style={{
-                              background: isActive
-                                ? 'linear-gradient(135deg, #FFE600, #FFB800)'
-                                : isA
-                                  ? 'linear-gradient(135deg, rgba(59,130,246,0.92), rgba(29,78,216,0.95))'
-                                  : 'linear-gradient(135deg, rgba(236,72,153,0.92), rgba(147,51,234,0.95))',
-                              boxShadow: isActive
-                                ? '0 0 20px rgba(255,230,0,0.6), 0 4px 16px rgba(0,0,0,0.25)'
-                                : isA
-                                  ? '0 4px 16px rgba(59,130,246,0.4)'
-                                  : '0 4px 16px rgba(236,72,153,0.4)'
-                            }}
-                          >
-                            {/* Romaji */}
-                            {line.romaji && (
+                            {/* Avatar + Bubble row */}
+                            <div className={`flex items-end gap-2 w-[90%] ${isA ? 'flex-row' : 'flex-row-reverse'}`}>
+                              {/* Avatar circle */}
                               <div
-                                className="text-[9.5px] italic font-medium mb-0.5 leading-tight"
-                                style={{ color: isActive ? '#7c6500' : 'rgba(255,255,255,0.75)' }}
+                                className={`shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-[15px] shadow-md border-2 transition-all duration-300 ${isActive ? 'scale-110' : ''}`}
+                                style={{
+                                  background: isA
+                                    ? 'linear-gradient(135deg, #3b82f6, #1d4ed8)'
+                                    : 'linear-gradient(135deg, #ec4899, #9333ea)',
+                                  borderColor: isActive
+                                    ? '#FFE600'
+                                    : isA ? '#93c5fd' : '#f9a8d4'
+                                }}
                               >
-                                {line.romaji}
+                                {isA ? '👩‍🏫' : '🧑‍🎓'}
+                              </div>
+
+                              {/* Bubble */}
+                              <div
+                                className={`flex-1 px-3 py-2.5 rounded-2xl shadow-lg transition-all duration-300 ${
+                                  isA ? 'rounded-tl-sm' : 'rounded-tr-sm'
+                                } ${isActive ? 'scale-[1.03]' : ''}`}
+                                style={{
+                                  background: isActive
+                                    ? 'linear-gradient(135deg, #FFE600, #FFB800)'
+                                    : isA
+                                      ? 'linear-gradient(135deg, rgba(59,130,246,0.92), rgba(29,78,216,0.95))'
+                                      : 'linear-gradient(135deg, rgba(236,72,153,0.92), rgba(147,51,234,0.95))',
+                                  boxShadow: isActive
+                                    ? '0 0 20px rgba(255,230,0,0.6), 0 4px 16px rgba(0,0,0,0.25)'
+                                    : isA
+                                      ? '0 4px 16px rgba(59,130,246,0.4)'
+                                      : '0 4px 16px rgba(236,72,153,0.4)'
+                                }}
+                              >
+                                {/* Romaji */}
+                                {line.romaji && (
+                                  <div
+                                    className="text-[9.5px] italic font-medium mb-0.5 leading-tight"
+                                    style={{ color: isActive ? '#7c6500' : 'rgba(255,255,255,0.75)' }}
+                                  >
+                                    {line.romaji}
+                                  </div>
+                                )}
+                                {/* Japanese main text */}
+                                <div
+                                  className="font-black leading-snug text-[13px] md:text-[15px]"
+                                  style={{ color: isActive ? '#1a1a2e' : '#ffffff' }}
+                                >
+                                  {line.japanese}
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* Meaning pill below bubble */}
+                            {line.meaning && (
+                              <div
+                                className={`mt-1 px-3 py-0.5 rounded-full text-[10px] font-bold shadow-sm ${isA ? 'ml-10' : 'mr-10'}`}
+                                style={{
+                                  background: isActive
+                                    ? 'rgba(255,230,0,0.95)'
+                                    : isA
+                                      ? 'rgba(219,234,254,0.95)'
+                                      : 'rgba(252,231,243,0.95)',
+                                  color: isActive ? '#7c6500' : isA ? '#1e40af' : '#831843',
+                                  boxShadow: '0 2px 8px rgba(0,0,0,0.15)'
+                                }}
+                              >
+                                {line.meaning}
                               </div>
                             )}
-                            {/* Japanese main text */}
-                            <div
-                              className="font-black leading-snug text-[13px] md:text-[15px]"
-                              style={{ color: isActive ? '#1a1a2e' : '#ffffff' }}
-                            >
-                              {line.japanese}
-                            </div>
                           </div>
+                        );
+                      })}
+                    </div>
+                  );
+                })()}
+
+                {/* Bottom footer — scene indicator + nav arrows */}
+                {(() => {
+                  const totalScenes = Math.ceil(dialogueLines.length / dialogueLinesPerScene);
+                  return (
+                    <div
+                      className="w-full py-2 px-3 shrink-0 flex items-center justify-between"
+                      style={{
+                        background: headerBgGradient.startsWith('linear-gradient') ? headerBgGradient : undefined,
+                        backgroundColor: headerBgGradient.startsWith('linear-gradient') ? undefined : headerBgGradient,
+                      }}
+                    >
+                      {/* Prev scene button (hidden during recording) */}
+                      {!isRecording ? (
+                        <button
+                          onClick={() => setDialogueCurrentScene(s => Math.max(0, s - 1))}
+                          disabled={dialogueCurrentScene === 0}
+                          className="w-6 h-6 rounded-full bg-white/20 hover:bg-white/40 flex items-center justify-center disabled:opacity-30 transition-all text-white font-black text-xs"
+                        >
+                          ‹
+                        </button>
+                      ) : <span />}
+
+                      {/* Scene dots + label */}
+                      <div className="flex flex-col items-center gap-1">
+                        <div className="flex gap-1">
+                          {Array.from({ length: totalScenes }).map((_, i) => (
+                            <button
+                              key={i}
+                              onClick={() => !isRecording && setDialogueCurrentScene(i)}
+                              className={`rounded-full transition-all ${
+                                i === dialogueCurrentScene
+                                  ? 'w-4 h-2 bg-white'
+                                  : 'w-2 h-2 bg-white/40 hover:bg-white/70'
+                              }`}
+                            />
+                          ))}
                         </div>
-
-                        {/* Meaning pill below bubble */}
-                        {line.meaning && (
-                          <div
-                            className={`mt-1 px-3 py-0.5 rounded-full text-[10px] font-bold shadow-sm ${isA ? 'ml-10' : 'mr-10'}`}
-                            style={{
-                              background: isActive
-                                ? 'rgba(255,230,0,0.95)'
-                                : isA
-                                  ? 'rgba(219,234,254,0.95)'
-                                  : 'rgba(252,231,243,0.95)',
-                              color: isActive ? '#7c6500' : isA ? '#1e40af' : '#831843',
-                              boxShadow: '0 2px 8px rgba(0,0,0,0.15)'
-                            }}
-                          >
-                            {line.meaning}
-                          </div>
-                        )}
+                        <span
+                          className="text-[9px] font-black tracking-widest uppercase"
+                          style={{ color: headerTextColor, opacity: 0.85 }}
+                        >
+                          Cảnh {dialogueCurrentScene + 1}/{totalScenes} · Du Học Nhân Phú 🇯🇵
+                        </span>
                       </div>
-                    );
-                  })}
-                </div>
 
-                {/* Bottom branding strip */}
-                <div
-                  className="w-full py-2 text-center shrink-0"
-                  style={{
-                    background: headerBgGradient.startsWith('linear-gradient') ? headerBgGradient : undefined,
-                    backgroundColor: headerBgGradient.startsWith('linear-gradient') ? undefined : headerBgGradient,
-                  }}
-                >
-                  <span
-                    className="text-[10px] font-black tracking-widest uppercase"
-                    style={{ color: headerTextColor, opacity: 0.85 }}
-                  >
-                    Du Học Nhân Phú 🇯🇵
-                  </span>
-                </div>
+                      {/* Next scene button (hidden during recording) */}
+                      {!isRecording ? (
+                        <button
+                          onClick={() => setDialogueCurrentScene(s => Math.min(totalScenes - 1, s + 1))}
+                          disabled={dialogueCurrentScene >= totalScenes - 1}
+                          className="w-6 h-6 rounded-full bg-white/20 hover:bg-white/40 flex items-center justify-center disabled:opacity-30 transition-all text-white font-black text-xs"
+                        >
+                          ›
+                        </button>
+                      ) : <span />}
+                    </div>
+                  );
+                })()}
               </div>
             )}
 
