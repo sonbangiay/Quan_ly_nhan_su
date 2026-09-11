@@ -188,8 +188,13 @@ export default function VocabVideoGenerator() {
     { id: 'd4', speaker: 'B', japanese: 'よかったです！今日もよろしく！', romaji: 'Yokatta desu! Kyou mo yoroshiku!', meaning: 'Thật vui! Hôm nay cũng nhờ bạn giúp đỡ nhé!' },
   ]);
   const [dialogueTitle, setDialogueTitle] = useState<string>('HỘI THOẠI TIẾNG NHẬT');
-  const [dialogueLinesPerScene, setDialogueLinesPerScene] = useState<number>(3); // 2, 3, 4 dòng mỗi cảnh
-  const [dialogueCurrentScene, setDialogueCurrentScene] = useState<number>(0);  // index cảnh đang xem
+  const [dialogueLinesPerScene, setDialogueLinesPerScene] = useState<number>(3);
+  const [dialogueCurrentScene, setDialogueCurrentScene] = useState<number>(0);
+  // Nhân vật A & B
+  const [personAName, setPersonAName] = useState<string>('Giáo viên');
+  const [personAGender, setPersonAGender] = useState<'female' | 'male'>('female');
+  const [personBName, setPersonBName] = useState<string>('Học sinh');
+  const [personBGender, setPersonBGender] = useState<'female' | 'male'>('male');
 
   const applyThemePreset = (preset: ThemePreset) => {
     setActiveThemeId(preset.id);
@@ -422,11 +427,15 @@ export default function VocabVideoGenerator() {
     e.target.value = '';
   };
 
-  const speakText = async (text: string, isStudent: boolean = false): Promise<void> => {
+  const speakText = async (
+    text: string, 
+    isStudent: boolean = false,
+    customVoice?: { voiceURI?: string; pitchVal?: number }
+  ): Promise<void> => {
     return new Promise(async (resolve) => {
       try {
-        const voice = isStudent ? studentVoiceURI : teacherVoiceURI;
-        let pitchVal = isStudent ? studentPitch : teacherPitch;
+        const voice = customVoice?.voiceURI || (isStudent ? studentVoiceURI : teacherVoiceURI);
+        let pitchVal = customVoice?.pitchVal !== undefined ? customVoice.pitchVal : (isStudent ? studentPitch : teacherPitch);
         
         // Chế độ kể chuyện sẽ đọc thật chậm, trầm và nhỏ để tạo cảm giác buồn, cảm động
         let rate = isStudent ? '-10%' : '+0%';
@@ -613,13 +622,20 @@ export default function VocabVideoGenerator() {
       const end = Math.min(start + dialogueLinesPerScene, dialogueLines.length);
       const sceneLines = dialogueLines.slice(start, end);
 
-      // Đọc từng dòng trong cảnh
+      // Đọc từng dòng trong cảnh với giọng chuẩn theo giới tính đã chọn
       for (let j = 0; j < sceneLines.length; j++) {
         const line = sceneLines[j];
         setActiveHighlight(line.id);
-        const isStudent = line.speaker === 'B';
+        const isA = line.speaker === 'A';
+        const gender = isA ? personAGender : personBGender;
+        const voiceURI = gender === 'female' ? 'ja-JP-NanamiNeural' : 'ja-JP-KeitaNeural';
+        // Nếu 2 nhân vật cùng giới tính, tự động đổi cao độ (pitch) để phân biệt rõ 2 giọng nói
+        let pitchVal = 1.0;
+        if (personAGender === personBGender) {
+          pitchVal = isA ? 0.95 : 1.25;
+        }
         if (line.japanese) {
-          await speakText(line.japanese, isStudent);
+          await speakText(line.japanese, false, { voiceURI, pitchVal });
           await new Promise(res => setTimeout(res, 350));
         }
       }
@@ -1401,15 +1417,69 @@ export default function VocabVideoGenerator() {
                     </span>
                   </div>
 
-                  <div className="flex gap-4 text-[11px] font-bold">
-                    <span className="flex items-center gap-1.5">
-                      <span className="w-3 h-3 rounded-full bg-blue-500 inline-block" />
-                      <span className="text-blue-700">Người A (Giáo viên) — Nanami</span>
-                    </span>
-                    <span className="flex items-center gap-1.5">
-                      <span className="w-3 h-3 rounded-full bg-pink-500 inline-block" />
-                      <span className="text-pink-700">Người B (Học sinh) — Keita</span>
-                    </span>
+                  {/* Nhân vật A & B */}
+                  <div className="grid grid-cols-2 gap-2 pt-1 border-t border-violet-100">
+                    {/* Người A */}
+                    <div className="flex flex-col gap-1.5 p-2.5 bg-blue-50 rounded-xl border border-blue-200">
+                      <div className="flex items-center gap-1 mb-0.5">
+                        <span className="w-2.5 h-2.5 rounded-full bg-blue-500 shrink-0" />
+                        <span className="text-[10px] font-black text-blue-700 uppercase tracking-wide">Người A</span>
+                      </div>
+                      {/* Gender toggle A */}
+                      <div className="flex gap-1">
+                        <button
+                          onClick={() => setPersonAGender('female')}
+                          className={`flex-1 py-1 rounded-lg text-[11px] font-bold border transition-all ${personAGender === 'female' ? 'bg-pink-400 text-white border-pink-400' : 'bg-white text-slate-500 border-slate-200 hover:border-pink-300'}`}
+                        >
+                          👩 Nữ
+                        </button>
+                        <button
+                          onClick={() => setPersonAGender('male')}
+                          className={`flex-1 py-1 rounded-lg text-[11px] font-bold border transition-all ${personAGender === 'male' ? 'bg-blue-500 text-white border-blue-500' : 'bg-white text-slate-500 border-slate-200 hover:border-blue-300'}`}
+                        >
+                          👨 Nam
+                        </button>
+                      </div>
+                      {/* Name input A */}
+                      <input
+                        type="text"
+                        className="input text-xs py-1 font-bold text-blue-800 border-blue-200 bg-white w-full"
+                        value={personAName}
+                        onChange={e => setPersonAName(e.target.value)}
+                        placeholder="Tên nhân vật A"
+                      />
+                    </div>
+
+                    {/* Người B */}
+                    <div className="flex flex-col gap-1.5 p-2.5 bg-pink-50 rounded-xl border border-pink-200">
+                      <div className="flex items-center gap-1 mb-0.5">
+                        <span className="w-2.5 h-2.5 rounded-full bg-pink-500 shrink-0" />
+                        <span className="text-[10px] font-black text-pink-700 uppercase tracking-wide">Người B</span>
+                      </div>
+                      {/* Gender toggle B */}
+                      <div className="flex gap-1">
+                        <button
+                          onClick={() => setPersonBGender('female')}
+                          className={`flex-1 py-1 rounded-lg text-[11px] font-bold border transition-all ${personBGender === 'female' ? 'bg-pink-400 text-white border-pink-400' : 'bg-white text-slate-500 border-slate-200 hover:border-pink-300'}`}
+                        >
+                          👩 Nữ
+                        </button>
+                        <button
+                          onClick={() => setPersonBGender('male')}
+                          className={`flex-1 py-1 rounded-lg text-[11px] font-bold border transition-all ${personBGender === 'male' ? 'bg-blue-500 text-white border-blue-500' : 'bg-white text-slate-500 border-slate-200 hover:border-blue-300'}`}
+                        >
+                          👨 Nam
+                        </button>
+                      </div>
+                      {/* Name input B */}
+                      <input
+                        type="text"
+                        className="input text-xs py-1 font-bold text-pink-800 border-pink-200 bg-white w-full"
+                        value={personBName}
+                        onChange={e => setPersonBName(e.target.value)}
+                        placeholder="Tên nhân vật B"
+                      />
+                    </div>
                   </div>
                 </div>
 
@@ -1440,8 +1510,10 @@ export default function VocabVideoGenerator() {
                   >
                     <div className="flex items-center justify-between pb-2 border-b border-slate-200">
                       <div className="flex items-center gap-2">
-                        <span className={`text-xs font-black px-2 py-0.5 rounded-full ${line.speaker === 'A' ? 'bg-blue-500 text-white' : 'bg-pink-500 text-white'}`}>
-                          {line.speaker === 'A' ? '👩‍🏫 Người A' : '🧑‍🎓 Người B'}
+                        <span className={`text-xs font-black px-2.5 py-0.5 rounded-full shadow-sm ${line.speaker === 'A' ? 'bg-blue-600 text-white' : 'bg-pink-600 text-white'}`}>
+                          {line.speaker === 'A'
+                            ? `${personAGender === 'female' ? '👩' : '👨'} ${personAName || 'Người A'}`
+                            : `${personBGender === 'female' ? '👩' : '👨'} ${personBName || 'Người B'}`}
                         </span>
                         <span className="text-[10px] text-slate-500 font-medium">Lượt {idx + 1}</span>
                       </div>
@@ -1963,11 +2035,11 @@ export default function VocabVideoGenerator() {
                   <div className="flex items-center justify-center gap-4 mt-1.5">
                     <span className="flex items-center gap-1 text-[9px] font-bold text-white/80">
                       <span className="w-2 h-2 rounded-full bg-blue-400 inline-block" />
-                      A - Giáo viên
+                      {personAGender === 'female' ? '👩' : '👨'} A - {personAName || 'Giáo viên'}
                     </span>
                     <span className="flex items-center gap-1 text-[9px] font-bold text-white/80">
                       <span className="w-2 h-2 rounded-full bg-pink-400 inline-block" />
-                      B - Học sinh
+                      {personBGender === 'female' ? '👩' : '👨'} B - {personBName || 'Học sinh'}
                     </span>
                   </div>
                 </div>
@@ -1992,7 +2064,7 @@ export default function VocabVideoGenerator() {
                             <div className={`flex items-end gap-2 w-[90%] ${isA ? 'flex-row' : 'flex-row-reverse'}`}>
                               {/* Avatar circle */}
                               <div
-                                className={`shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-[15px] shadow-md border-2 transition-all duration-300 ${isActive ? 'scale-110' : ''}`}
+                                className={`shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-[16px] shadow-md border-2 transition-all duration-300 ${isActive ? 'scale-110' : ''}`}
                                 style={{
                                   background: isA
                                     ? 'linear-gradient(135deg, #3b82f6, #1d4ed8)'
@@ -2002,7 +2074,9 @@ export default function VocabVideoGenerator() {
                                     : isA ? '#93c5fd' : '#f9a8d4'
                                 }}
                               >
-                                {isA ? '👩‍🏫' : '🧑‍🎓'}
+                                {isA
+                                  ? (personAGender === 'female' ? '👩' : '👨')
+                                  : (personBGender === 'female' ? '👩' : '👨')}
                               </div>
 
                               {/* Bubble */}
@@ -2023,15 +2097,26 @@ export default function VocabVideoGenerator() {
                                       : '0 4px 16px rgba(236,72,153,0.4)'
                                 }}
                               >
-                                {/* Romaji */}
-                                {line.romaji && (
-                                  <div
-                                    className="text-[9.5px] italic font-medium mb-0.5 leading-tight"
-                                    style={{ color: isActive ? '#7c6500' : 'rgba(255,255,255,0.75)' }}
+                                {/* Speaker Name Tag & Romaji */}
+                                <div className={`flex items-center gap-1.5 mb-1 ${isA ? 'justify-start' : 'justify-end'}`}>
+                                  <span
+                                    className="text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded"
+                                    style={{
+                                      backgroundColor: isActive ? 'rgba(0,0,0,0.12)' : 'rgba(255,255,255,0.22)',
+                                      color: isActive ? '#3b1c00' : '#ffffff'
+                                    }}
                                   >
-                                    {line.romaji}
-                                  </div>
-                                )}
+                                    {isA ? (personAName || 'Người A') : (personBName || 'Người B')}
+                                  </span>
+                                  {line.romaji && (
+                                    <span
+                                      className="text-[9px] italic font-semibold leading-tight opacity-80"
+                                      style={{ color: isActive ? '#7c6500' : 'rgba(255,255,255,0.85)' }}
+                                    >
+                                      /{line.romaji}/
+                                    </span>
+                                  )}
+                                </div>
                                 {/* Japanese main text */}
                                 <div
                                   className="font-black leading-snug text-[13px] md:text-[15px]"
