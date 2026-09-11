@@ -30,6 +30,14 @@ interface GrammarExample {
   meaning: string;
 }
 
+interface DialogueLine {
+  id: string;
+  speaker: 'A' | 'B'; // A = Giáo viên/Person A (trái), B = Học sinh/Person B (phải)
+  japanese: string;    // Câu tiếng Nhật
+  romaji: string;      // Romaji phiên âm
+  meaning: string;     // Nghĩa tiếng Việt
+}
+
 // Initial cards mapping to the screenshot provided by user
 const INITIAL_CARDS: CardData[] = [
   { id: '1', image: '', kanji: 'Onegai Kao', romaji: 'Mặt nài nỉ', hiragana: 'おねがいかお', meaning: 'Mặt nài nỉ' },
@@ -169,8 +177,17 @@ export default function VocabVideoGenerator() {
   const [headerTextColor, setHeaderTextColor] = useState<string>('#00E5FF');
 
   const [bgMedia, setBgMedia] = useState<{ url: string, type: 'image' | 'video' } | null>(null);
-  const [displayMode, setDisplayMode] = useState<'vocab' | 'sentence' | 'story' | 'quiz' | 'grammar'>('vocab');
+  const [displayMode, setDisplayMode] = useState<'vocab' | 'sentence' | 'story' | 'quiz' | 'grammar' | 'dialogue'>('vocab');
   const [topicTitle, setTopicTitle] = useState<string>('THỜI GIAN');
+
+  // Dialogue State
+  const [dialogueLines, setDialogueLines] = useState<DialogueLine[]>([
+    { id: 'd1', speaker: 'A', japanese: 'おはようございます！', romaji: 'Ohayou gozaimasu!', meaning: 'Xin chào buổi sáng!' },
+    { id: 'd2', speaker: 'B', japanese: 'おはようございます！元気ですか？', romaji: 'Ohayou gozaimasu! Genki desu ka?', meaning: 'Xin chào! Bạn có khỏe không?' },
+    { id: 'd3', speaker: 'A', japanese: 'はい、元気です。ありがとう！', romaji: 'Hai, genki desu. Arigatou!', meaning: 'Vâng, tôi khỏe. Cảm ơn bạn!' },
+    { id: 'd4', speaker: 'B', japanese: 'よかったです！今日もよろしく！', romaji: 'Yokatta desu! Kyou mo yoroshiku!', meaning: 'Thật vui! Hôm nay cũng nhờ bạn giúp đỡ nhé!' },
+  ]);
+  const [dialogueTitle, setDialogueTitle] = useState<string>('HỘI THOẠI TIẾNG NHẬT');
 
   const applyThemePreset = (preset: ThemePreset) => {
     setActiveThemeId(preset.id);
@@ -570,7 +587,30 @@ export default function VocabVideoGenerator() {
     }
   };
 
-  const setupCanvasCrop = (originalStream: MediaStream): MediaStream => {
+  const playDialogueSequence = async () => {
+    if (bgmUrl && audioRef.current) {
+      audioRef.current.volume = bgmVolume;
+      audioRef.current.currentTime = 0;
+      audioRef.current.play().catch(e => console.log('BGM play blocked:', e));
+    }
+
+    for (let i = 0; i < dialogueLines.length; i++) {
+      const line = dialogueLines[i];
+      setActiveHighlight(line.id);
+      const isStudent = line.speaker === 'B';
+      if (line.japanese) {
+        await speakText(line.japanese, isStudent);
+        await new Promise(res => setTimeout(res, 300));
+      }
+    }
+
+    setActiveHighlight(null);
+    if (audioRef.current) {
+      audioRef.current.pause();
+    }
+  };
+
+ const setupCanvasCrop = (originalStream: MediaStream): MediaStream => {
     const hiddenVideo = document.createElement('video');
     hiddenVideo.srcObject = originalStream;
     hiddenVideo.muted = true;
@@ -681,6 +721,8 @@ export default function VocabVideoGenerator() {
           await playQuizSequence();
         } else if (displayMode === 'grammar') {
           await playGrammarSequence();
+        } else if (displayMode === 'dialogue') {
+          await playDialogueSequence();
         } else {
           await playSequence();
         }
@@ -721,7 +763,7 @@ export default function VocabVideoGenerator() {
         </div>
         <div className="flex gap-3">
           <button 
-            onClick={displayMode === 'quiz' ? playQuizSequence : displayMode === 'grammar' ? playGrammarSequence : playSequence}
+            onClick={displayMode === 'quiz' ? playQuizSequence : displayMode === 'grammar' ? playGrammarSequence : displayMode === 'dialogue' ? playDialogueSequence : playSequence}
             disabled={isRecording}
             className="btn btn-outline flex items-center gap-2 px-4 py-2"
           >
@@ -792,9 +834,15 @@ export default function VocabVideoGenerator() {
             >
               📘 Ngữ pháp
             </button>
+            <button 
+              onClick={() => setDisplayMode('dialogue')} 
+              className={`whitespace-nowrap flex-1 py-2 px-3 rounded-lg font-bold text-sm transition-all ${displayMode === 'dialogue' ? 'bg-gradient-to-r from-violet-600 to-pink-500 text-white shadow-sm' : 'text-[var(--text-secondary)] hover:text-gray-900'}`}
+            >
+              💬 Hội Thoại
+            </button>
           </div>
 
-          {displayMode !== 'grammar' && (
+          {displayMode !== 'grammar' && displayMode !== 'dialogue' && (
             <div className="flex items-center justify-between mb-6">
               <div className="flex items-center gap-1 bg-[var(--bg-hover)] p-1.5 rounded-lg border border-[var(--border)] w-full overflow-x-auto">
                 <span className="text-sm font-medium px-2 shrink-0">Số lượng:</span>
@@ -1286,6 +1334,105 @@ export default function VocabVideoGenerator() {
                     </div>
                   ))}
                 </div>
+              </div>
+            )}
+
+            {/* Dialogue Input */}
+            {displayMode === 'dialogue' && (
+              <div className="space-y-4">
+                {/* Dialogue Title */}
+                <div className="p-4 bg-gradient-to-r from-violet-50 to-pink-50 rounded-2xl border border-violet-200 space-y-3">
+                  <label className="block text-xs font-bold mb-1 text-violet-700">💬 Tiêu đề Hội Thoại</label>
+                  <input
+                    type="text"
+                    className="input w-full font-black text-sm text-violet-800 bg-white border-violet-300"
+                    value={dialogueTitle}
+                    onChange={e => setDialogueTitle(e.target.value)}
+                    placeholder="HỘI THOẠI TIẾNG NHẬT"
+                  />
+                  <div className="flex gap-4 text-[11px] font-bold mt-1">
+                    <span className="flex items-center gap-1.5">
+                      <span className="w-3 h-3 rounded-full bg-blue-500 inline-block" />
+                      <span className="text-blue-700">Người A (Giáo viên) — Giọng Nanami</span>
+                    </span>
+                    <span className="flex items-center gap-1.5">
+                      <span className="w-3 h-3 rounded-full bg-pink-500 inline-block" />
+                      <span className="text-pink-700">Người B (Học sinh) — Giọng Keita</span>
+                    </span>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <p className="text-sm font-bold text-slate-700">📝 Các lượt thoại ({dialogueLines.length})</p>
+                  <button
+                    onClick={() => setDialogueLines(prev => [...prev, {
+                      id: Date.now().toString(),
+                      speaker: prev.length % 2 === 0 ? 'A' : 'B',
+                      japanese: '',
+                      romaji: '',
+                      meaning: ''
+                    }])}
+                    className="px-3 py-1.5 bg-gradient-to-r from-violet-600 to-pink-500 text-white text-xs font-bold rounded-lg hover:opacity-90 transition-colors shadow-sm flex items-center gap-1"
+                  >
+                    + Thêm lượt thoại
+                  </button>
+                </div>
+
+                {dialogueLines.map((line, idx) => (
+                  <div
+                    key={line.id}
+                    className={`p-4 rounded-xl border shadow-sm space-y-2 ${line.speaker === 'A'
+                      ? 'bg-blue-50 border-blue-200'
+                      : 'bg-pink-50 border-pink-200'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between pb-2 border-b border-slate-200">
+                      <div className="flex items-center gap-2">
+                        <span className={`text-xs font-black px-2 py-0.5 rounded-full ${line.speaker === 'A' ? 'bg-blue-500 text-white' : 'bg-pink-500 text-white'}`}>
+                          {line.speaker === 'A' ? '👩‍🏫 Người A' : '🧑‍🎓 Người B'}
+                        </span>
+                        <span className="text-[10px] text-slate-500 font-medium">Lượt {idx + 1}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {/* Toggle speaker */}
+                        <button
+                          onClick={() => setDialogueLines(prev => prev.map(x => x.id === line.id ? { ...x, speaker: x.speaker === 'A' ? 'B' : 'A' } : x))}
+                          className="text-[10px] px-2 py-0.5 rounded border border-slate-300 hover:bg-white font-bold text-slate-600 transition-colors"
+                          title="Đổi người nói"
+                        >
+                          ⇄ Đổi
+                        </button>
+                        {dialogueLines.length > 1 && (
+                          <button onClick={() => setDialogueLines(prev => prev.filter(x => x.id !== line.id))} className="text-red-400 hover:text-red-600">
+                            <X size={14} />
+                          </button>
+                        )}
+                      </div>
+                    </div>
+
+                    <input
+                      type="text"
+                      className="input text-base w-full py-2 font-black text-slate-900"
+                      value={line.japanese}
+                      onChange={e => setDialogueLines(prev => prev.map(x => x.id === line.id ? { ...x, japanese: e.target.value } : x))}
+                      placeholder="🇯🇵 Câu tiếng Nhật (おはようございます！)"
+                    />
+                    <input
+                      type="text"
+                      className="input text-xs w-full py-1.5 italic text-slate-500"
+                      value={line.romaji}
+                      onChange={e => setDialogueLines(prev => prev.map(x => x.id === line.id ? { ...x, romaji: e.target.value } : x))}
+                      placeholder="🔤 Romaji (Ohayou gozaimasu!)"
+                    />
+                    <input
+                      type="text"
+                      className="input text-xs w-full py-1.5 font-semibold text-slate-700"
+                      value={line.meaning}
+                      onChange={e => setDialogueLines(prev => prev.map(x => x.id === line.id ? { ...x, meaning: e.target.value } : x))}
+                      placeholder="🇻🇳 Nghĩa tiếng Việt (Xin chào buổi sáng!)"
+                    />
+                  </div>
+                ))}
               </div>
             )}
           </div>
