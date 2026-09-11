@@ -1886,6 +1886,144 @@ export default function VocabVideoGenerator() {
               </div>
             )}
 
+            {/* Dialogue Container (DIALOGUE MODE) */}
+            {displayMode === 'dialogue' && (
+              <div className="flex-1 w-full flex flex-col z-10 relative overflow-hidden">
+                {/* Header Bar */}
+                <div
+                  className="w-full py-3 px-4 text-center shrink-0"
+                  style={{
+                    background: headerBgGradient.startsWith('linear-gradient') ? headerBgGradient : undefined,
+                    backgroundColor: headerBgGradient.startsWith('linear-gradient') ? undefined : headerBgGradient,
+                    boxShadow: '0 4px 20px rgba(0,0,0,0.4)'
+                  }}
+                >
+                  <div className="flex items-center justify-center gap-2">
+                    <span style={{ fontSize: '16px' }}>💬</span>
+                    <h2
+                      className="font-black tracking-widest uppercase text-[15px] md:text-[18px] leading-tight"
+                      style={{ color: headerTextColor, textShadow: `0 2px 8px ${headerTextColor}80` }}
+                    >
+                      {dialogueTitle || 'HỘI THOẠI TIẾNG NHẬT'}
+                    </h2>
+                  </div>
+                  {/* Speaker legend */}
+                  <div className="flex items-center justify-center gap-4 mt-1.5">
+                    <span className="flex items-center gap-1 text-[9px] font-bold text-white/80">
+                      <span className="w-2 h-2 rounded-full bg-blue-400 inline-block" />
+                      A - Giáo viên
+                    </span>
+                    <span className="flex items-center gap-1 text-[9px] font-bold text-white/80">
+                      <span className="w-2 h-2 rounded-full bg-pink-400 inline-block" />
+                      B - Học sinh
+                    </span>
+                  </div>
+                </div>
+
+                {/* Chat Bubbles Area */}
+                <div className="flex-1 w-full px-3 py-3 flex flex-col gap-2.5 overflow-y-auto">
+                  {dialogueLines.map((line) => {
+                    const isA = line.speaker === 'A';
+                    const isActive = activeHighlight === line.id;
+                    return (
+                      <div
+                        key={line.id}
+                        className={`flex flex-col w-full transition-all duration-300 ${isA ? 'items-start' : 'items-end'}`}
+                      >
+                        {/* Avatar + Bubble row */}
+                        <div className={`flex items-end gap-2 w-[90%] ${isA ? 'flex-row' : 'flex-row-reverse'}`}>
+                          {/* Avatar circle */}
+                          <div
+                            className="shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-[15px] shadow-md border-2"
+                            style={{
+                              background: isA
+                                ? 'linear-gradient(135deg, #3b82f6, #1d4ed8)'
+                                : 'linear-gradient(135deg, #ec4899, #9333ea)',
+                              borderColor: isActive
+                                ? '#FFE600'
+                                : isA ? '#93c5fd' : '#f9a8d4'
+                            }}
+                          >
+                            {isA ? '👩‍🏫' : '🧑‍🎓'}
+                          </div>
+
+                          {/* Bubble */}
+                          <div
+                            className={`flex-1 px-3 py-2.5 rounded-2xl shadow-lg transition-all duration-300 ${
+                              isA ? 'rounded-tl-sm' : 'rounded-tr-sm'
+                            } ${isActive ? 'scale-[1.03]' : ''}`}
+                            style={{
+                              background: isActive
+                                ? 'linear-gradient(135deg, #FFE600, #FFB800)'
+                                : isA
+                                  ? 'linear-gradient(135deg, rgba(59,130,246,0.92), rgba(29,78,216,0.95))'
+                                  : 'linear-gradient(135deg, rgba(236,72,153,0.92), rgba(147,51,234,0.95))',
+                              boxShadow: isActive
+                                ? '0 0 20px rgba(255,230,0,0.6), 0 4px 16px rgba(0,0,0,0.25)'
+                                : isA
+                                  ? '0 4px 16px rgba(59,130,246,0.4)'
+                                  : '0 4px 16px rgba(236,72,153,0.4)'
+                            }}
+                          >
+                            {/* Romaji */}
+                            {line.romaji && (
+                              <div
+                                className="text-[9.5px] italic font-medium mb-0.5 leading-tight"
+                                style={{ color: isActive ? '#7c6500' : 'rgba(255,255,255,0.75)' }}
+                              >
+                                {line.romaji}
+                              </div>
+                            )}
+                            {/* Japanese main text */}
+                            <div
+                              className="font-black leading-snug text-[13px] md:text-[15px]"
+                              style={{ color: isActive ? '#1a1a2e' : '#ffffff' }}
+                            >
+                              {line.japanese}
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Meaning pill below bubble */}
+                        {line.meaning && (
+                          <div
+                            className={`mt-1 px-3 py-0.5 rounded-full text-[10px] font-bold shadow-sm ${isA ? 'ml-10' : 'mr-10'}`}
+                            style={{
+                              background: isActive
+                                ? 'rgba(255,230,0,0.95)'
+                                : isA
+                                  ? 'rgba(219,234,254,0.95)'
+                                  : 'rgba(252,231,243,0.95)',
+                              color: isActive ? '#7c6500' : isA ? '#1e40af' : '#831843',
+                              boxShadow: '0 2px 8px rgba(0,0,0,0.15)'
+                            }}
+                          >
+                            {line.meaning}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* Bottom branding strip */}
+                <div
+                  className="w-full py-2 text-center shrink-0"
+                  style={{
+                    background: headerBgGradient.startsWith('linear-gradient') ? headerBgGradient : undefined,
+                    backgroundColor: headerBgGradient.startsWith('linear-gradient') ? undefined : headerBgGradient,
+                  }}
+                >
+                  <span
+                    className="text-[10px] font-black tracking-widest uppercase"
+                    style={{ color: headerTextColor, opacity: 0.85 }}
+                  >
+                    Du Học Nhân Phú 🇯🇵
+                  </span>
+                </div>
+              </div>
+            )}
+
           </div>
         </div>
       </div>
